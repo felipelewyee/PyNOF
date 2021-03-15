@@ -61,7 +61,7 @@ class param():
         self.maxitid = 30  # Número máximo de iteraciones externas
         self.ipnof = 5     # PNOFi a calcular
         self.threshl = 10**-3#4   # Convergencia de los multiplicadores de Lagrange
-        self.threshe = 10**-4#6   # Convergencia de la energía
+        self.threshe = 10**-6   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
