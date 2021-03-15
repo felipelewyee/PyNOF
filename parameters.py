@@ -57,16 +57,16 @@ class param():
    
         self.maxit = 1000  # Número máximo de iteraciones de Occ-SCF
         self.no1 = no1     # Número de orbitales inactivos con ocupación 1
-        self.thresheid = 10**-8 # Convergencia de la energía total
+        self.thresheid = 10**-6#8 # Convergencia de la energía total
         self.maxitid = 30  # Número máximo de iteraciones externas
         self.ipnof = 5     # PNOFi a calcular
-        self.threshl = 10**-4   # Convergencia de los multiplicadores de Lagrange
-        self.threshe = 10**-6   # Convergencia de la energía
+        self.threshl = 10**-3#4   # Convergencia de los multiplicadores de Lagrange
+        self.threshe = 10**-4#6   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
-        self.nzeros = 0
-        self.nzerosm = 4
+        self.nzeros = 1
+        self.nzerosm = 5
         self.nzerosr = 2
         self.itziter = 10        # Iteraciones para scaling constante
         self.diis = True         # DIIS en optimización orbital

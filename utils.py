@@ -95,7 +95,7 @@ def fmiug_scaling(fmiug0,elag,i_ext,nzeros,p):
 def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p):
     if(maxdiff<p.thdiis):
 
-        restart_diis = False
+        #restart_diis = False
         fk[idiis,0:p.noptorb,0:p.noptorb] = fmiug[0:p.noptorb,0:p.noptorb]
         for m in range(idiis+1):
             bdiis[m][idiis] = 0
@@ -120,9 +120,10 @@ def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p):
                         fmiug[i][j] = fmiug[i][j] + x[k]*fk[k][i][j]
                     fmiug[j][i] = fmiug[i][j]
 
-            restart_diis=True
-        idiis = idiis + 1
-        if(restart_diis):
+        #    restart_diis=True
+        #idiis = idiis + 1
+        #if(restart_diis):
+        if(p.perdiis):
             idiis = 0
 
     return fk,fmiug,idiis,bdiis
