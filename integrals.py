@@ -37,7 +37,42 @@ def computeJKH_core_MO(C,H,I,p):
 
     #QHMATm
     H_core = einsum('imn,mn->i', D, H, optimize=True)
-    H_core = np.tensordot(D, H, axes=([1,2],[0,1]))
+    #H_core = np.tensordot(D, H, axes=([1,2],[0,1]))
+
+    return J_MO,K_MO,H_core
+
+def computeJK_RI(C,I,b_mnl,p):
+
+    #denmatj
+    b_qnl = np.einsum('mp,mnl->pnl',C[:,0:p.nbf5],b_mnl, optimize=True)
+    b_qql = np.einsum('nq,qnl->ql',C[:,0:p.nbf5],b_qnl, optimize=True)
+
+    #hstarj
+    J = einsum('ql,mnl->qmn', b_qql, b_mnl, optimize=True)
+    #J = np.tensordot(D, I, axes=([1,2],[2,3]))
+
+    #hstark
+    K = einsum('qml,qnl->qmn', b_qnl, b_qnl, optimize=True)
+    #K = np.tensordot(D, I, axes=([1,2],[1,3]))
+
+    return J,K
+
+def computeJKH_core_MO_RI(C,H,I,b_mnl,p):
+
+    #denmatj
+    D = np.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
+
+    b_pnl = np.einsum('mp,mnl->pnl',C[:,0:p.nbf5],b_mnl, optimize=True)
+    b_pql = np.einsum('nq,pnl->pql',C[:,0:p.nbf5],b_pnl, optimize=True)
+
+    #QJMATm
+    J_MO = einsum('ppl,qql->pq', b_pql, b_pql, optimize=True)
+
+    #QKMATm
+    K_MO = einsum('pql,pql->pq', b_pql, b_pql, optimize=True)
+
+    #QHMATm
+    H_core = einsum('imn,mn->i', D, H, optimize=True)
 
     return J_MO,K_MO,H_core
 

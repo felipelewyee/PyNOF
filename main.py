@@ -32,9 +32,6 @@ H  0.0000   0.749  -0.453
 H  0.0000  -0.749  -0.453
   symmetry c1
 """)
-#mol = psi4.geometry("""pubchem:glycine
-#  symmetry c1
-#""")
 
 psi4.set_options({'basis': 'cc-pVTZ'}),
 
@@ -43,6 +40,7 @@ wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = PNOFi
 p.gradient = gradient
+
 
 t1 = time()
 energy.compute_energy(mol,wfn,PNOFi,p,gradient)

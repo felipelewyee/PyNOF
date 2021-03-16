@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 import pnof
 from time import time
 
-def hfidr(C,H,I,E_nuc,p):
+def hfidr(C,H,I,b_mnl,E_nuc,p):
 
     no1_ori = p.no1
     p.no1 = p.nbeta
@@ -19,7 +19,7 @@ def hfidr(C,H,I,E_nuc,p):
 
     print('{:^7} {:^7} {:^14} {:^14} {:^15} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
 
-    E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,cj12,ck12,p)
+    E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
     fmiug0 = np.zeros((p.nbf))
     nzeros = 0
@@ -41,7 +41,7 @@ def hfidr(C,H,I,E_nuc,p):
 
             fmiug0, W = np.linalg.eigh(fmiug)
             C = np.matmul(C,W)
-            E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,cj12,ck12,p)
+            E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
             E_diff = E-E_old
             if(abs(E_diff)<p.thresheid):
@@ -60,9 +60,10 @@ def hfidr(C,H,I,E_nuc,p):
 
     return E,C,fmiug0
 
-def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,p):
+def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,b_mnl,p):
 
-    J_MO,K_MO,H_core = integrals.computeJKH_core_MO(C,H,I,p)
+    #J_MO,K_MO,H_core = integrals.computeJKH_core_MO(C,H,I,p)
+    J_MO,K_MO,H_core = integrals.computeJKH_core_MO_RI(C,H,I,b_mnl,p)
 
     if (not convgdelag):
         if(p.gradient=="analytical"):
@@ -94,12 +95,12 @@ def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,p):
 
     return gamma,elag,n,cj12,ck12
 
-def orboptr(C,n,H,I,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
+def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
 
 
     convgdelag = False
 
-    E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,cj12,ck12,p)
+    E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
     E_diff = E-E_old
     P_CONV = abs(E_diff)
@@ -146,7 +147,7 @@ def orboptr(C,n,H,I,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
 
         C = np.matmul(C,eigvec)
 
-        E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,cj12,ck12,p)
+        E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
         E_diff2 = E-E_old2
 
