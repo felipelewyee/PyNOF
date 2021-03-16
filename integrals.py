@@ -44,8 +44,8 @@ def computeJKH_core_MO(C,H,I,p):
 def computeJK_RI(C,I,b_mnl,p):
 
     #denmatj
-    b_qnl = np.einsum('mp,mnl->pnl',C[:,0:p.nbf5],b_mnl, optimize=True)
-    b_qql = np.einsum('nq,qnl->ql',C[:,0:p.nbf5],b_qnl, optimize=True)
+    b_qnl = einsum('mp,mnl->pnl',C[:,0:p.nbf5],b_mnl, optimize=True)
+    b_qql = einsum('nq,qnl->ql',C[:,0:p.nbf5],b_qnl, optimize=True)
 
     #hstarj
     J = einsum('ql,mnl->qmn', b_qql, b_mnl, optimize=True)
@@ -60,10 +60,10 @@ def computeJK_RI(C,I,b_mnl,p):
 def computeJKH_core_MO_RI(C,H,I,b_mnl,p):
 
     #denmatj
-    D = np.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
+    D = einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
 
-    b_pnl = np.einsum('mp,mnl->pnl',C[:,0:p.nbf5],b_mnl, optimize=True)
-    b_pql = np.einsum('nq,pnl->pql',C[:,0:p.nbf5],b_pnl, optimize=True)
+    b_pnl = einsum('mp,mnl->pnl',C[:,0:p.nbf5],b_mnl, optimize=True)
+    b_pql = einsum('nq,pnl->pql',C[:,0:p.nbf5],b_pnl, optimize=True)
 
     #QJMATm
     J_MO = einsum('ppl,qql->pq', b_pql, b_pql, optimize=True)
