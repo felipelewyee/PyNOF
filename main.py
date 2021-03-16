@@ -20,7 +20,7 @@ import parameters
 
 # Parametros de control
 PNOFi = 7
-gradient = "numerical" # analytical/numerical
+gradient = "analytical" # analytical/numerical
 
 
 # Seleccionamos una molécula, y otros datos como la memoria del sistema y la base
@@ -32,6 +32,9 @@ H  0.0000   0.749  -0.453
 H  0.0000  -0.749  -0.453
   symmetry c1
 """)
+#mol = psi4.geometry("""pubchem:glycine
+#  symmetry c1
+#""")
 
 psi4.set_options({'basis': 'cc-pVTZ'}),
 

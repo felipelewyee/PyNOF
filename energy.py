@@ -75,7 +75,5 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
 
         if(convgdelag):
             break
-
-
     #######
     

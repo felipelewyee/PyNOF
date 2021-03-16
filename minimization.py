@@ -3,6 +3,7 @@ import utils
 import integrals
 from scipy.optimize import minimize
 import pnof
+from time import time
 
 def hfidr(C,H,I,E_nuc,p):
 
@@ -95,6 +96,7 @@ def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,p):
 
 def orboptr(C,n,H,I,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
 
+
     convgdelag = False
 
     E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,cj12,ck12,p)
@@ -153,6 +155,5 @@ def orboptr(C,n,H,I,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
             E_old = E
             print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff))
             break
-
     return convgdelag,E_old,sumdiff_old,itlim,fmiug0,C
 
