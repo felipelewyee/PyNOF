@@ -64,8 +64,8 @@ def computeLagrangeConvergency(elag):
 
 def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
-    #J,K = integrals.computeJK(C,I,p)
-    J,K = integrals.computeJK_RI(C,I,b_mnl,p)
+    J,K = integrals.computeJK(C,I,p.nbf5,p.nbf)
+    #J,K = integrals.computeJK_RI(C,I,b_mnl,p)
 
     F = computeF(J,K,n,H,cj12,ck12,p)
 
