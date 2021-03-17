@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 from scipy.linalg import eigh
 from time import time
 import minimization
+import cupy as cp
 
 def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
  
@@ -19,7 +20,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     # Integrales de Repulsión Electrónica, ERIs (mu nu | sigma lambda)
     I = np.asarray(mints.ao_eri())
 
-    aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", "cc-pVTZ")
+    aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", "cc-pVDZ")
 
     orb = wfn.basisset()
     zero_bas = psi4.core.BasisSet.zero_ao_basis_set()
@@ -33,7 +34,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     metric = np.squeeze(metric)
 
     b_mnl = np.einsum('pqP,PQ->pqQ', Ppq, metric, optimize=True)
-
+    b_mnl = cp.array(b_mnl)
 
     # Energía Nuclear
     E_nuc = mol.nuclear_repulsion_energy()
