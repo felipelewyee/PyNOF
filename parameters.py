@@ -78,3 +78,5 @@ class param():
         self.scaling = True
         self.nv = self.ncwo*self.ndoc
         self.gradient = "analytical"
+        self.gpu = False
+        self.RI = False

@@ -64,8 +64,7 @@ def computeLagrangeConvergency(elag):
 
 def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
-    #J,K = integrals.computeJK(C,I,p.nbf5,p.nbf)
-    J,K = integrals.computeJK_RI(C,I,b_mnl,p)
+    J,K = integrals.computeJK(C,I,b_mnl,p)
 
     F = computeF(J,K,n,H,cj12,ck12,p)
 
@@ -129,6 +128,27 @@ def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p):
 
     return fk,fmiug,idiis,bdiis
 
+def check_ortho(C,S,p):
 
+    # Revisa ortonormalidad
+    orthonormality = True
+    CTSC = np.matmul(np.matmul(np.transpose(C),S),C)
+    ortho_deviation = np.abs(CTSC - np.identity(p.nbf))
+    if (np.any(ortho_deviation > 10**-6)):
+        orthonormality = False
+    if not orthonormality:
+        print("Orthonormality violations {:d}, Maximum Violation {:f}".format((ortho_deviation > 10**-6).sum(),ortho_deviation.max()))
+    else:
+        print("No violations of the orthonormality")
+    for j in range(p.nbf):
+        #Obtiene el índice del coeficiente con mayor valor absoluto del MO
+        idxmaxabsval = 0
+        for i in range(p.nbf):
+            if(abs(C[i][j])>abs(C[idxmaxabsval][j])):
+                 idxmaxabsval = i
+    # Ajusta el signo del MO
+    sign = np.sign(C[idxmaxabsval][j])
+    C[0:p.nbf,j] = sign*C[0:p.nbf,j]
 
+    return C
 

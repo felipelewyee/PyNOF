@@ -62,8 +62,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
 
 def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,b_mnl,p):
 
-    #J_MO,K_MO,H_core = integrals.computeJKH_core_MO(C,H,I,p.nbf5,p.nbf)
-    J_MO,K_MO,H_core = integrals.computeJKH_core_MO_RI(C,H,I,b_mnl,p)
+    J_MO,K_MO,H_core = integrals.computeJKH_core_MO(C,H,I,b_mnl,p)
 
     if (not convgdelag):
         if(p.gradient=="analytical"):
