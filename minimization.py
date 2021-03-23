@@ -17,12 +17,15 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
     cj12 = 2*np.einsum('i,j->ij',n,n)
     ck12 = np.einsum('i,j->ij',n,n)
 
+    print("Hartree-Fock")
+    print("============")
+    print("")
+
     print('{:^7} {:^7} {:^14} {:^14} {:^15} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
 
     E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
     fmiug0 = np.zeros((p.nbf))
-    nzeros = 0
 
     ext = True
     # iteraciones externas
@@ -30,14 +33,14 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
         if i_ext==0:
             maxlp = 1
         else:
-            maxlp = 30
+            maxlp = p.maxloop
 
         # iteraciones internas
         for i_int in range(maxlp):
             E_old = E
 
             if(p.scaling):
-                fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,nzeros,p)
+                fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p)
 
             fmiug0, W = np.linalg.eigh(fmiug)
             C = np.matmul(C,W)
@@ -50,6 +53,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
                     fmiug0[i] = elag[i][i]
                 ext = False
                 break
+
         if(not ext):
             break
         print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,i_int,E,E+E_nuc,E_diff,maxdiff))
@@ -96,7 +100,6 @@ def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,b_mnl,p):
 
 def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
 
-
     convgdelag = False
 
     E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
@@ -105,26 +108,22 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p
     P_CONV = abs(E_diff)
     E_old = E
 
-    if(i_ext==0):
-        print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff))
-
-    if (i_ext>=2 and i_ext >= itlim and sumdiff > sumdiff_old):
-        p.nzeros = p.nzeros + 1
-        itlim = (i_ext + 1) + 10#itziter
-        if (p.nzeros>4):
-            p.nzeros = 2
-    sumdiff_old = sumdiff
-
-    if(i_ext>=1 and maxdiff<p.threshl and P_CONV<p.threshe):
+    if(maxdiff<p.threshl and abs(E_diff)<p.threshe):
         convgdelag = True
         print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff))
         return convgdelag,E_old,sumdiff_old,itlim,fmiug0,C
 
-    maxlp = 0
+    if (p.scaling and i_ext>1 and i_ext > itlim and sumdiff > sumdiff_old):
+        p.nzeros = p.nzeros + 1
+        itlim = i_ext + p.itziter
+        if (p.nzeros>p.nzerosm):
+            p.nzeros = p.nzerosr
+    sumdiff_old = sumdiff
+
     if i_ext==0:
         maxlp = 1
     else:
-        maxlp = 30
+        maxlp = p.maxloop
 
     fmiug = np.zeros((p.noptorb,p.noptorb))
     fk = np.zeros((30,p.noptorb,p.noptorb))
@@ -138,8 +137,10 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p
         E_old2 = E
 
         #scaling
-        fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p)
-        fk,fmiug,idiis,bdiis = utils.fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p)
+        if(p.scaling):
+            fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p)
+        if(p.diis and maxdiff < p.thdiis):
+            fk,fmiug,idiis,bdiis = utils.fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p)
 
         eigval, eigvec = np.linalg.eigh(fmiug)
         fmiug0 = eigval

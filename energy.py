@@ -34,12 +34,16 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     gamma,elag,n,cj12,ck12 = minimization.occoptr(gamma,True,False,elag,C,H,I,b_mnl,p)
 
     iloop = 0
-    itlim = 1
+    itlim = 0
     E_old = E
     sumdiff_old = 0
 
+    print("")
+    print("PNOF{} Calculation".format(p.ipnof))
+    print("==================")
+    print("")
     print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
-    for i_ext in range(1000):
+    for i_ext in range(p.maxit):
         t1 = time()
         #orboptr
         convgdelag,E_old,sumdiff_old,itlim,fmiug0,C = minimization.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p)
@@ -50,6 +54,6 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
         if(convgdelag):
             break
         t2 = time()
-        print(t2-t1)
+        #print(t2-t1)
     #######
     

@@ -21,7 +21,7 @@ def compute_integrals(wfn,mol,p):
         # Integrales de Repulsión Electrónica, ERIs (mu nu | sigma lambda)
         I = np.asarray(mints.ao_eri())
     else:
-        aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", "cc-pVDZ")
+        aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", "6-31G")
 
         orb = wfn.basisset()
         zero_bas = psi4.core.BasisSet.zero_ao_basis_set()
@@ -168,6 +168,7 @@ def computeJKH_core_MO(C,H,I,b_mnl,p):
             return J_MO,K_MO,H_core
         else:
             C = cp.array(C)
+            H = cp.array(H)
             #denmatj
             D = cp.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
 

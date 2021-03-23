@@ -1,3 +1,5 @@
+import numpy as np
+
 class param():
    
     def __init__(self,mol,wfn):
@@ -58,14 +60,15 @@ class param():
         self.maxit = 1000  # Número máximo de iteraciones de Occ-SCF
         self.no1 = no1     # Número de orbitales inactivos con ocupación 1
         self.thresheid = 10**-6#8 # Convergencia de la energía total
-        self.maxitid = 30  # Número máximo de iteraciones externas
+        self.maxitid = 30  # Número máximo de iteraciones externas en HF
+        self.maxloop = 30  # Iteraciones internas en optimización orbital
         self.ipnof = 5     # PNOFi a calcular
         self.threshl = 10**-3#4   # Convergencia de los multiplicadores de Lagrange
         self.threshe = 10**-6   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
-        self.nzeros = 1
+        self.nzeros = 0
         self.nzerosm = 5
         self.nzerosr = 2
         self.itziter = 10        # Iteraciones para scaling constante
@@ -80,3 +83,8 @@ class param():
         self.gradient = "analytical"
         self.gpu = False
         self.RI = False
+
+    def autozeros(self):
+        self.nzeros = 1
+        self.nerosr = 2
+        self.nzerosm = abs(int(np.log10(self.threshl))) + 2
