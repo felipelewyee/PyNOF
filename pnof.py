@@ -67,16 +67,19 @@ def CJCKD7(n,p):
     fi = n*(1-n)
     fi[fi<=0] = 0
     fi = np.sqrt(fi)      
-    
+   
+    # Interpair Electron correlation #
+
     cj12 = 2*np.einsum('i,j->ij',n,n)
-    ck12 = np.einsum('i,j->ij',n,n)    
-    ck12 += np.einsum('i,j->ij',fi,fi)
+    ck12 = np.einsum('i,j->ij',n,n) + np.einsum('i,j->ij',fi,fi)
     
+    # Interpair Electron Correlation
+
     for l in range(p.ndoc):            
         ldx = p.no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
-        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - l - 1)
+        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc - l)
 
         cj12[ldx,ll:ul] = 0    
         cj12[ll:ul,ldx] = 0    
@@ -86,7 +89,7 @@ def CJCKD7(n,p):
         ck12[ldx,ll:ul] = np.sqrt(n[ldx]*n[ll:ul])
         ck12[ll:ul,ldx] = np.sqrt(n[ldx]*n[ll:ul])
 
-        ck12[ll:ul,ll:ul] = -np.outer(np.sqrt(n[ll:ul]),np.sqrt(n[ll:ul]))
+        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n[ll:ul],n[ll:ul]))
 
     return cj12,ck12        
         
@@ -99,20 +102,23 @@ def der_CJCKD7(n,dn_dgamma,p):
     dfi_dgamma = np.zeros((p.nbf5,p.nv))
     for i in range(p.no1,p.nbf5):
         a = fi[i]
-        if(a < 10**-12):
-            a = 10**-12
+        if(a < 10**-15):
+            a = 10**-15
         for k in range(p.nv):
             dfi_dgamma[i,k] = 1/(2*a)*(1-2*n[i])*dn_dgamma[i][k]
-    
+   
+    # Interpair Electron correlation #
+
     Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)    
-    Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n)    
-    Dck12r += np.einsum('ik,j->ijk',dfi_dgamma,fi)    
+    Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n) + np.einsum('ik,j->ijk',dfi_dgamma,fi)    
+
+    # Interpair Electron Correlation
 
     for l in range(p.ndoc):            
         ldx = p.no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - l-1)
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - l- 1)
         ul = p.no1 + p.ndns + p.ncwo*(p.ndoc - l)
 
         Dcj12r[ldx,ll:ul,:p.nv] = 0
@@ -121,17 +127,15 @@ def der_CJCKD7(n,dn_dgamma,p):
         Dcj12r[ll:ul,ll:ul,:p.nv] = 0   
 
         a = n[ldx] 
-        if(a<10**-12):
-            a = 10**-12
+        a = max(a,10**-15)
         b = n[ll:ul]
-        if(b<10**-12):
-            b = 10**-12        
+        b[b<10**-15] = 10**-15        
         
-        Dck12r[ldx,ll:ul,:p.nv] = 1/2 * np.sqrt(1/a)*dn_dgamma[ldx,:p.nv]*np.sqrt(n[ll:ul])
-        Dck12r[ll:ul,ldx,:p.nv] = 1/2 * np.sqrt(1/b)*dn_dgamma[ll:ul,:p.nv]*np.sqrt(n[ldx])
+        Dck12r[ldx,ll:ul,:p.nv] = 1/2 * 1/np.sqrt(a)*dn_dgamma[ldx,:p.nv]*np.sqrt(n[ll:ul])
+        Dck12r[ll:ul,ldx,:p.nv] = 1/2 * 1/np.sqrt(b)*dn_dgamma[ll:ul,:p.nv]*np.sqrt(n[ldx])
         
         for k in range(p.nv):
-            Dck12r[ll:ul,ll:ul,k] = - 1/2 * dn_dgamma[ll:ul,k]
+            Dck12r[ll:ul,ll:ul,k] = - 1/2 * 1/np.sqrt(b) * dn_dgamma[ll:ul,k] * np.sqrt(n[ll:ul])
                         
     return Dcj12r,Dck12r
 

@@ -20,7 +20,7 @@ import parameters
 
 # Parametros de control
 PNOFi = 7
-gradient = "numerical" # analytical/numerical
+gradient = "analytical" # analytical/numerical
 
 
 # Seleccionamos una molécula, y otros datos como la memoria del sistema y la base
@@ -40,7 +40,7 @@ wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = PNOFi
 p.gradient = gradient
-p.RI = True
+p.RI = False#True
 p.gpu = True
 
 p.autozeros()
