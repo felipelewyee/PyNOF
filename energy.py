@@ -36,6 +36,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     iloop = 0
     itlim = 0
     E_old = E
+    E_diff = 9999
     sumdiff_old = 0
 
     print("")
@@ -46,7 +47,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     for i_ext in range(p.maxit):
         t1 = time()
         #orboptr
-        convgdelag,E_old,sumdiff_old,itlim,fmiug0,C = minimization.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p)
+        convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C = minimization.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p)
 
         #occopt
         gamma,elag,n,cj12,ck12 = minimization.occoptr(gamma,False,convgdelag,elag,C,H,I,b_mnl,p)

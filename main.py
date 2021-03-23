@@ -20,7 +20,7 @@ import parameters
 
 # Parametros de control
 PNOFi = 7
-gradient = "analytical" # analytical/numerical
+gradient = "numerical" # analytical/numerical
 
 
 # Seleccionamos una molécula, y otros datos como la memoria del sistema y la base
@@ -41,7 +41,7 @@ p = parameters.param(mol,wfn)
 p.ipnof = PNOFi
 p.gradient = gradient
 p.RI = True
-p.gpu = False
+p.gpu = True
 
 p.autozeros()
 

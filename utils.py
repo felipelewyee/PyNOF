@@ -93,38 +93,36 @@ def fmiug_scaling(fmiug0,elag,i_ext,nzeros,p):
     return fmiug
 
 def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p):
-    if(maxdiff<p.thdiis):
 
-        #restart_diis = False
-        fk[idiis,0:p.noptorb,0:p.noptorb] = fmiug[0:p.noptorb,0:p.noptorb]
-        for m in range(idiis+1):
-            bdiis[m][idiis] = 0
-            for i in range(p.noptorb):
-                for j in range(i):
-                    bdiis[m][idiis] = bdiis[m][idiis] + fk[m][i][j]*fk[idiis][j][i]
-            bdiis[idiis][m] = bdiis[m][idiis]
-            bdiis[m][idiis+1] = -1
-            bdiis[idiis+1][m] = -1
-        bdiis[idiis+1][idiis+1] = 0
+    fk[idiis,0:p.noptorb,0:p.noptorb] = fmiug[0:p.noptorb,0:p.noptorb]
+    for m in range(idiis+1):
+        bdiis[m][idiis] = 0
+        for i in range(p.noptorb):
+            for j in range(i):
+                bdiis[m][idiis] = bdiis[m][idiis] + fk[m][i][j]*fk[idiis][j][i]
+        bdiis[idiis][m] = bdiis[m][idiis]
+        bdiis[m][idiis+1] = -1
+        bdiis[idiis+1][m] = -1
+    bdiis[idiis+1][idiis+1] = 0
 
-        if(idiis>=p.ndiis):
-            cdiis = np.zeros((idiis+2))
-            cdiis[0:idiis+1] = 0
-            cdiis[idiis+1] = -1
-            x = np.linalg.solve(bdiis[0:idiis+2,0:idiis+2],cdiis[0:idiis+2])
+    if(idiis>=p.ndiis):
+        cdiis = np.zeros((idiis+2))
+        cdiis[0:idiis+1] = 0
+        cdiis[idiis+1] = -1
+        x = np.linalg.solve(bdiis[0:idiis+2,0:idiis+2],cdiis[0:idiis+2])
 
-            for i in range(p.noptorb):
-                for j in range(i):
-                    fmiug[i][j] = 0
-                    for k in range(idiis+1):
-                        fmiug[i][j] = fmiug[i][j] + x[k]*fk[k][i][j]
-                    fmiug[j][i] = fmiug[i][j]
+        for i in range(p.noptorb):
+            for j in range(i):
+                fmiug[i][j] = 0
+                for k in range(idiis+1):
+                    fmiug[i][j] = fmiug[i][j] + x[k]*fk[k][i][j]
+                fmiug[j][i] = fmiug[i][j]
 
-        #    restart_diis=True
-        #idiis = idiis + 1
-        #if(restart_diis):
+    if(idiis>=p.ndiis):
         if(p.perdiis):
             idiis = 0
+    else:
+        idiis = idiis + 1
 
     return fk,fmiug,idiis,bdiis
 
