@@ -17,7 +17,7 @@ import parameters
 
 # Parametros de control
 PNOFi = 7
-gradient = "numerical" # analytical/numerical
+gradient = "analytical" # analytical/numerical
 
 
 # Seleccionamos una molécula, y otros datos como la memoria del sistema y la base
@@ -41,9 +41,10 @@ p.RI = True
 p.gpu = False
 p.jit = False
 
-p.threshl = 10**-3   # Convergencia de los multiplicadores de Lagrange
-p.threshe = 10**-6   # Convergencia de los multiplicadores de Lagrange
+p.threshl = 10**-4   # Convergencia de los multiplicadores de Lagrange
+p.threshe = 10**-7   # Convergencia de los multiplicadores de Lagrange
 #p.perdiis = False      # Aplica DIIS cada NDIIS (True) o después de NDIIS (False)
+p.optimizer = "L-BFGS-B"
 
 p.autozeros()
 

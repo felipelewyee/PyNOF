@@ -70,9 +70,9 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
 
     if (not convgdelag):
         if(p.gradient=="analytical"):
-            res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pnof.calcg, method='CG')
+            res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pnof.calcg, method=p.optimizer)
         elif(p.gradient=="numerical"):
-            res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method='CG')
+            res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.optimizer)
         gamma = res.x
     n,DR = pnof.ocupacion(gamma,p)
     cj12,ck12 = pnof.PNOFi_selector(n,p)
