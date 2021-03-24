@@ -18,7 +18,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
 
     C = utils.check_ortho(C,S,p)
 
-    E,C,fmiug0 = minimization.hfidr(C,H,I,b_mnl,E_nuc,p)
+    EHF,C,fmiug0 = minimization.hfidr(C,H,I,b_mnl,E_nuc,p)
 
     gamma = np.zeros((p.nbf5))
     for i in range(p.ndoc):
@@ -32,7 +32,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
 
     iloop = 0
     itlim = 0
-    E_old = E
+    E_old = EHF
     E_diff = 9999
     sumdiff_old = 0
 
@@ -60,3 +60,15 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     for i,ni in enumerate(n):
         print(" {:d}    {:9.7f}  {:10.8f}".format(i,2*ni,elag[i][i]))
     print("")
+
+    print("----------------")
+    print(" Final Energies ")
+    print("----------------")
+
+    print("       HF Total Energy = {:15.7f}".format(EHF))
+    print("Final NOF Total Energy = {:15.7f}".format(E_old))
+    print("    Correlation Energy = {:15.7f}".format(E_old-EHF))
+    print("")
+    print("")
+
+

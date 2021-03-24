@@ -41,8 +41,8 @@ p.RI = True
 p.gpu = False
 p.jit = False
 
-p.threshl = 10**-5   # Convergencia de los multiplicadores de Lagrange
-p.threshe = 10**-8   # Convergencia de los multiplicadores de Lagrange
+p.threshl = 10**-3   # Convergencia de los multiplicadores de Lagrange
+p.threshe = 10**-6   # Convergencia de los multiplicadores de Lagrange
 #p.perdiis = False      # Aplica DIIS cada NDIIS (True) o después de NDIIS (False)
 
 p.autozeros()
