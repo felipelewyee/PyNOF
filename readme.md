@@ -19,3 +19,7 @@ You can edit the molecule and parameters of the calculation via the main.py file
 ~~~
 python main.py
 ~~~
+
+# JIT is recommended for long calculations
+# Numpy (JIT==FALSE) is recommended for short calculations
+# GPU is recommended always if possible

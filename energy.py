@@ -28,7 +28,7 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
             gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
 
     elag = np.zeros((p.nbf,p.nbf)) #temporal
-    gamma,elag,n,cj12,ck12 = minimization.occoptr(gamma,True,False,elag,C,H,I,b_mnl,p)
+    gamma,n,cj12,ck12 = minimization.occoptr(gamma,True,False,C,H,I,b_mnl,p)
 
     iloop = 0
     itlim = 0
@@ -44,14 +44,19 @@ def compute_energy(mol,wfn,PNOFi=7,p=None,gradient="analytical"):
     for i_ext in range(p.maxit):
         t1 = time()
         #orboptr
-        convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C = minimization.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p)
+        convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = minimization.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p)
 
         #occopt
-        gamma,elag,n,cj12,ck12 = minimization.occoptr(gamma,False,convgdelag,elag,C,H,I,b_mnl,p)
+        gamma,n,cj12,ck12 = minimization.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
 
         if(convgdelag):
             break
         t2 = time()
         #print(t2-t1)
-    #######
     
+    print("")
+    print("RESULTS OF THE OCCUPATION OPTIMIZATION")
+    print("========================================")
+    for i,ni in enumerate(n):
+        print(" {:d}    {:9.7f}  {:10.8f}".format(i,2*ni,elag[i][i]))
+    print("")

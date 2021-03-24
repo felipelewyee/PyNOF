@@ -64,7 +64,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
 
     return E,C,fmiug0
 
-def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,b_mnl,p):
+def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = integrals.computeJKH_MO(C,H,I,b_mnl,p)
 
@@ -77,26 +77,26 @@ def occoptr(gamma,firstcall,convgdelag,elag,C,H,I,b_mnl,p):
     n,DR = pnof.ocupacion(gamma,p)
     cj12,ck12 = pnof.PNOFi_selector(n,p)
 
-    if (firstcall):
-        elag_diag = np.zeros((p.nbf))
+    #if (firstcall):
+    #    elag_diag = np.zeros((p.nbf))
 
         # RO (H_core + J)
-        elag_diag[:p.nbeta] = np.einsum('i,i->i',n[:p.nbeta],H_core[:p.nbeta]+np.diagonal(J_MO)[:p.nbeta])
-        elag_diag[p.nbeta:p.nalpha] = np.einsum('i,i->i',n[p.nbeta:p.nalpha],H_core[p.nbeta:p.nalpha])
-        elag_diag[p.nalpha:p.nbf5] = np.einsum('i,i->i',n[p.nalpha:p.nbf5],H_core[p.nalpha:p.nbf5]+np.diagonal(J_MO)[p.nalpha:p.nbf5])
+    #    elag_diag[:p.nbeta] = np.einsum('i,i->i',n[:p.nbeta],H_core[:p.nbeta]+np.diagonal(J_MO)[:p.nbeta])
+    #    elag_diag[p.nbeta:p.nalpha] = np.einsum('i,i->i',n[p.nbeta:p.nalpha],H_core[p.nbeta:p.nalpha])
+    #    elag_diag[p.nalpha:p.nbf5] = np.einsum('i,i->i',n[p.nalpha:p.nbf5],H_core[p.nalpha:p.nbf5]+np.diagonal(J_MO)[p.nalpha:p.nbf5])
 
         # CJ12 J_MO
-        elag_diag[:p.nbf5] += np.einsum('ij,ji->i',cj12,J_MO)
-        elag_diag[:p.nbf5] -= np.einsum('ii,ii->i',cj12,J_MO)
+    #    elag_diag[:p.nbf5] += np.einsum('ij,ji->i',cj12,J_MO)
+    #    elag_diag[:p.nbf5] -= np.einsum('ii,ii->i',cj12,J_MO)
 
         # CK12 K_MO
-        elag_diag[:p.nbf5] -= np.einsum('ij,ji->i',ck12,K_MO)
-        elag_diag[:p.nbf5] += np.einsum('ii,ii->i',ck12,K_MO)
+    #    elag_diag[:p.nbf5] -= np.einsum('ij,ji->i',ck12,K_MO)
+    #    elag_diag[:p.nbf5] += np.einsum('ii,ii->i',ck12,K_MO)
 
-        for i in range(p.nbf):
-            elag[i][i] = elag_diag[i]
+    #    for i in range(p.nbf):
+    #        elag[i][i] = elag_diag[i]
 
-    return gamma,elag,n,cj12,ck12
+    return gamma,n,cj12,ck12
 
 def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
 
@@ -111,7 +111,7 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
     if(maxdiff<p.threshl and abs(E_diff)<p.threshe):
         convgdelag = True
         print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff))
-        return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C
+        return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
     if (p.scaling and i_ext>1 and i_ext >= itlim and sumdiff > sumdiff_old):
         p.nzeros = p.nzeros + 1
@@ -156,5 +156,5 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
             E_old = E
             print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff))
             break
-    return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C
+    return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
