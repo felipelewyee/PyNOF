@@ -1,8 +1,4 @@
-import psi4
 import numpy as np
-from scipy.optimize import minimize
-from scipy.linalg import eigh
-from time import time
 
 #CJCKD5
 def CJCKD5(n,p):    

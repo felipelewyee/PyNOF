@@ -1,10 +1,7 @@
-import psi4
 import numpy as np
-from scipy.optimize import minimize
 from scipy.linalg import eigh
 from time import time
 import minimization
-import cupy as cp
 import integrals
 import utils
 

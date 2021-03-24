@@ -1,9 +1,9 @@
 import numpy as np
+from scipy.optimize import minimize
+from time import time
 import utils 
 import integrals
-from scipy.optimize import minimize
 import pnof
-from time import time
 
 def hfidr(C,H,I,b_mnl,E_nuc,p):
 

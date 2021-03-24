@@ -11,9 +11,6 @@
 
 # Importamos librerías
 import psi4
-import numpy as np
-from scipy.optimize import minimize
-from scipy.linalg import eigh
 from time import time
 import energy
 import parameters

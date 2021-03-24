@@ -1,8 +1,7 @@
-import numpy as np
 from time import time
-from einsumt import einsumt as einsum
-import cupy as cp
 import psi4
+import numpy as np
+import cupy as cp
 from numba import prange,njit
 
 def compute_integrals(wfn,mol,p):
@@ -22,7 +21,6 @@ def compute_integrals(wfn,mol,p):
         # Integrales de Repulsión Electrónica, ERIs (mu nu | sigma lambda)
         I = np.asarray(mints.ao_eri())
     else:
-        #aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", "6-31G")
 
         orb = wfn.basisset()
         aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", orb.blend())
@@ -228,14 +226,14 @@ def JKH_MO_Full(C,H,I,p):
 def JKH_MO_RI(C,H,b_mnl,p):
 
     #denmatj
-    D = einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
+    D = np.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
     #b transform
     b_pnl = np.tensordot(C[:,0:p.nbf5],b_mnl, axes=([0],[0]))
-    b_pql = einsum('nq,pnl->pql',C[:,0:p.nbf5],b_pnl, optimize=True)
+    b_pql = np.einsum('nq,pnl->pql',C[:,0:p.nbf5],b_pnl, optimize=True)
     #QJMATm
-    J_MO = einsum('ppl,qql->pq', b_pql, b_pql, optimize=True)
+    J_MO = np.einsum('ppl,qql->pq', b_pql, b_pql, optimize=True)
     #QKMATm
-    K_MO = einsum('pql,pql->pq', b_pql, b_pql, optimize=True)
+    K_MO = np.einsum('pql,pql->pq', b_pql, b_pql, optimize=True)
     #QHMATm
     H_core = np.tensordot(D,H, axes=([1,2],[0,1]))
     
