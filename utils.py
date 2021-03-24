@@ -48,11 +48,6 @@ def computeE_elec(H,C,n,elag,p):
     return E
 
 
-    # Definimos una función que calcule la convergencia de los multiplicadores de lagrange
-
-    # In[14]:
-
-
 def computeLagrangeConvergency(elag):
     # Convergency
 
@@ -64,7 +59,7 @@ def computeLagrangeConvergency(elag):
 
 def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
-    J,K = integrals.computeJK(C,I,b_mnl,p)
+    J,K = integrals.computeJKj(C,I,b_mnl,p)
 
     F = computeF(J,K,n,H,cj12,ck12,p)
 

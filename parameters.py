@@ -6,6 +6,7 @@ class param():
         # Parámetros 
         self.natoms = mol.natom()
         self.nbf = wfn.basisset().nbf()
+        self.nbfaux = 0
         self.nalpha = wfn.nalpha()
         self.nbeta = wfn.nbeta()
         self.ne = self.nalpha + self.nbeta
@@ -83,6 +84,7 @@ class param():
         self.gradient = "analytical"
         self.gpu = False
         self.RI = False
+        self.jit= False
 
     def autozeros(self):
         self.nzeros = 1

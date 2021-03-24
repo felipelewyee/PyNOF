@@ -40,8 +40,9 @@ wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = PNOFi
 p.gradient = gradient
-p.RI = False#True
-p.gpu = True
+p.RI = True 
+p.gpu = False
+p.jit = False #True
 
 p.autozeros()
 
