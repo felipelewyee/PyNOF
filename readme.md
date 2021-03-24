@@ -11,7 +11,7 @@ You should install the folowing libreries
 - numba
 - cupy
 
-Although GPUs are not required, it is still needed to install cupy or comment the appropiate lines in integrals.py
+Although GPUs are not mandatory, it is still needed to install cupy or comment the appropiate lines in integrals.py
 
 # Example
 
@@ -20,6 +20,6 @@ You can edit the molecule and parameters of the calculation via the main.py file
 python main.py
 ~~~
 
-# JIT is recommended for long calculations
-# Numpy (JIT==FALSE) is recommended for short calculations
-# GPU is recommended always if possible
+- JIT is recommended for long calculations
+- Numpy (JIT==FALSE) is recommended for short calculations
+- GPU is recommended possibly for all cases

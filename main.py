@@ -38,7 +38,7 @@ p = parameters.param(mol,wfn)
 p.ipnof = PNOFi
 p.gradient = gradient
 p.RI = True 
-p.gpu = False
+p.gpu = True
 p.jit = False
 
 p.threshl = 10**-4   # Convergencia de los multiplicadores de Lagrange
