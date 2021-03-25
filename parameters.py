@@ -87,6 +87,11 @@ class param():
         self.RI = False
         self.jit= False
 
+        self.C_guess = "H"
+        self.gamma_guess = "Fermi-Dirac"
+        self.fmiug0_guess = "notRead"
+        self.hfidr = True
+
     def autozeros(self):
         self.nzeros = 1
         self.nerosr = 2

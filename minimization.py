@@ -5,7 +5,7 @@ import utils
 import integrals
 import pnof
 
-def hfidr(C,H,I,b_mnl,E_nuc,p):
+def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     no1_ori = p.no1
     p.no1 = p.nbeta
@@ -17,11 +17,12 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
     cj12 = 2*np.einsum('i,j->ij',n,n)
     ck12 = np.einsum('i,j->ij',n,n)
 
-    print("Hartree-Fock")
-    print("============")
-    print("")
+    if(printmode):
+        print("Hartree-Fock")
+        print("============")
+        print("")
 
-    print('{:^7} {:^7} {:^14} {:^14} {:^15} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
+        print('{:^7} {:^7} {:^14} {:^14} {:^15} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
 
     E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
@@ -48,7 +49,8 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
 
             E_diff = E-E_old
             if(abs(E_diff)<p.thresheid):
-                print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,i_int,E,E+E_nuc,E_diff,maxdiff))
+                if(printmode):
+                    print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,i_int,E,E+E_nuc,E_diff,maxdiff))
                 for i in range(p.nbf):
                     fmiug0[i] = elag[i][i]
                 ext = False
@@ -56,7 +58,8 @@ def hfidr(C,H,I,b_mnl,E_nuc,p):
 
         if(not ext):
             break
-        print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,i_int,E,E+E_nuc,E_diff,maxdiff))
+        if(printmode):
+            print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,i_int,E,E+E_nuc,E_diff,maxdiff))
 
 
     # Regresamos no1 a su estado original
@@ -98,7 +101,7 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
 
     return gamma,n,cj12,ck12
 
-def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p):
+def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
 
     convgdelag = False
 
@@ -110,7 +113,8 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
     if(maxdiff<p.threshl and abs(E_diff)<p.threshe):
         convgdelag = True
-        print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff))
+        if(printmode):
+            print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff))
         return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
     if (p.scaling and i_ext>1 and i_ext >= itlim and sumdiff > sumdiff_old):
@@ -154,7 +158,8 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
         if(abs(E_diff2)<p.threshec or i_int==maxlp-1):
             E_diff = E-E_old
             E_old = E
-            print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff))
+            if(printmode):
+                print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff))
             break
     return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
