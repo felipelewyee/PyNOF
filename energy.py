@@ -5,7 +5,7 @@ import minimization
 import integrals
 import utils
 
-def compute_energy(mol,wfn,p=None,gradient="analytical",printmode=True):
+def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,printmode=True):
 
 
     S,T,V,H,I,b_mnl = integrals.compute_integrals(wfn,mol,p)
@@ -14,30 +14,24 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",printmode=True):
     E_nuc = mol.nuclear_repulsion_energy()
 
     # Guess de MO (C)
-    if (p.C_guess=="H"):
-        E_i,C = eigh(H, S)  # (HC = SCe)
-    elif(p.C_guess=="Read"):
-        C = np.load("C.npy")
-
-    C = utils.check_ortho(C,S,p)
+    Cguess = C
+    if (C is None):
+        E_i,Cguess = eigh(H, S)  # (HC = SCe)
+        Cguess = utils.check_ortho(Cguess,S,p)
 
     if (p.hfidr):
-        EHF,CHF,fmiug0 = minimization.hfidr(C,H,I,b_mnl,E_nuc,p,printmode)
-    if(p.C_guess=="H"):
-        C = CHF
+        EHF,Cguess,fmiug0guess = minimization.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode)
 
-    if(p.fmiug0_guess=="Read"):
-        fmiug0 = np.load("fmiug0.npy")
+    if(C is None):
+        C = Cguess
 
-    if(p.gamma_guess=="Fermi-Dirac"):
+    if(gamma is None):
         gamma = np.zeros((p.nbf5))
         for i in range(p.ndoc):
             gamma[i] = np.arccos(np.sqrt(2.0*0.999-1.0))
             for j in range(p.ncwo-1):
                 ig = p.ndoc+(i)*(p.ncwo-1)+j
                 gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
-    elif(p.gamma_guess=="Read"):
-        gamma = np.load("gamma.npy")
 
     elag = np.zeros((p.nbf,p.nbf)) #temporal
     gamma,n,cj12,ck12 = minimization.occoptr(gamma,True,False,C,H,I,b_mnl,p)

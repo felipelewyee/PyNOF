@@ -15,7 +15,7 @@ from time import time
 import energy
 import parameters
 import optimization
-
+import guess
 # Parametros de control
 PNOFi = 7
 gradient = "analytical" # analytical/numerical
@@ -52,10 +52,13 @@ p.optimizer = "CG"
 #p.hfidr = False
 #p.optimizer = "Newton-CG"
 
+C,gamma,fmiug0 = guess.read_all()
+
 p.autozeros()
 
 t1 = time()
-energy.compute_energy(mol,wfn,p,gradient)
+energy.compute_energy(mol,wfn,p,gradient,C,gamma,fmiug0)
+energy.compute_energy(mol,wfn,p,gradient,C,gamma,fmiug0)
 #optimization.optgeo(mol,wfn,p,gradient)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))

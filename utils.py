@@ -75,7 +75,7 @@ def fmiug_scaling(fmiug0,elag,i_ext,nzeros,p):
 
     #scaling
     fmiug = np.zeros((p.nbf,p.nbf))
-    if(i_ext == 0 and p.fmiug0_guess!="Read"):
+    if(i_ext == 0 and fmiug0 is None):
         fmiug[:p.noptorb,:p.noptorb] = ((elag[:p.noptorb,:p.noptorb] + elag[:p.noptorb,:p.noptorb].T) / 2)
 
     else:
