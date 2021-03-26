@@ -7,7 +7,6 @@ import utils
 
 def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,printmode=True):
 
-
     S,T,V,H,I,b_mnl = integrals.compute_integrals(wfn,mol,p)
 
     # Energía Nuclear
@@ -15,15 +14,16 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
 
     # Guess de MO (C)
     Cguess = C
-    if (C is None):
+    if(C is None):
         E_i,Cguess = eigh(H, S)  # (HC = SCe)
-        Cguess = utils.check_ortho(Cguess,S,p)
+    Cguess = utils.check_ortho(Cguess,S,p)
 
     if (p.hfidr):
         EHF,Cguess,fmiug0guess = minimization.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode)
 
     if(C is None):
         C = Cguess
+    C = utils.check_ortho(C,S,p)
 
     if(gamma is None):
         gamma = np.zeros((p.nbf5))
@@ -86,6 +86,6 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print("")
 
     E_t = E_nuc + E_old
-    return E_t
+    return E_t,C,gamma,fmiug0
 
 

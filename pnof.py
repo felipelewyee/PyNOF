@@ -156,8 +156,6 @@ def der_PNOFi_selector(n,dn_dgamma,p):
         
     return Dcj12r,Dck12r
 
-   # nv = ncwo*ndoc
-
 def ocupacion(gamma,p):
 
     n = np.zeros((p.nbf5))

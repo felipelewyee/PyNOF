@@ -63,9 +63,9 @@ class param():
         self.thresheid = 10**-6#8 # Convergencia de la energía total
         self.maxitid = 30  # Número máximo de iteraciones externas en HF
         self.maxloop = 30  # Iteraciones internas en optimización orbital
-        self.ipnof = 5     # PNOFi a calcular
+        self.ipnof = 7     # PNOFi a calcular
         self.threshl = 10**-3#4   # Convergencia de los multiplicadores de Lagrange
-        self.threshe = 10**-6   # Convergencia de la energía
+        self.threshe = 10**-4#6   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
@@ -89,7 +89,16 @@ class param():
 
         self.hfidr = True
 
-    def autozeros(self):
-        self.nzeros = 1
-        self.nerosr = 2
-        self.nzerosm = abs(int(np.log10(self.threshl))) + 2
+    def autozeros(self,restart=False):
+        if(restart):
+            self.nzeros = abs(int(np.log10(self.threshl))) - 1
+            self.nzerosr = self.nzeros
+            self.nzerosm = abs(int(np.log10(self.threshl))) + 2         
+            if(self.nzeros<3):
+                self.nzeros = 2
+                self.nzerosr = 2
+                self.nzerosm = 5
+        else:
+            self.nzeros = 1
+            self.nerosr = 2
+            self.nzerosm = abs(int(np.log10(self.threshl))) + 2

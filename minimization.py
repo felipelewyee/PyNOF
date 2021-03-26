@@ -26,7 +26,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     E,elag,sumdiff,maxdiff = utils.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
-    fmiug0 = np.zeros((p.nbf))
+    fmiug0 = None
 
     ext = True
     # iteraciones externas

@@ -16,10 +16,7 @@ import energy
 import parameters
 import optimization
 import guess
-# Parametros de control
-PNOFi = 7
-gradient = "analytical" # analytical/numerical
-
+import projection
 
 # Seleccionamos una molécula, y otros datos como la memoria del sistema y la base
 psi4.set_memory('4 GB')
@@ -31,34 +28,46 @@ H  0.0000  -0.749  -0.453
   symmetry c1
 """)
 
-psi4.set_options({'basis': 'cc-pVDZ'}),
+psi4.set_options({'basis': 'cc-pVDZ'})
 
 # Paramdetros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
-p.ipnof = PNOFi
-p.gradient = gradient
+p.ipnof = 7
+p.gradient = "analytical"
+p.optimizer = "Newton-CG"
 p.RI = False#True 
 p.gpu = True
 p.jit = False
-
-p.threshl = 10**-3   # Convergencia de los multiplicadores de Lagrange
-p.threshe = 10**-6   # Convergencia de los multiplicadores de Lagrange
-#p.perdiis = False      # Aplica DIIS cada NDIIS (True) o después de NDIIS (False)
-p.optimizer = "CG"
-#p.C_guess = "Read"
-#p.gamma_guess = "Read"
-#p.fmiug0_guess = "Read"
-#p.hfidr = False
-#p.optimizer = "Newton-CG"
 
 C,gamma,fmiug0 = guess.read_all()
 
 p.autozeros()
 
 t1 = time()
-energy.compute_energy(mol,wfn,p,gradient,C,gamma,fmiug0)
-energy.compute_energy(mol,wfn,p,gradient,C,gamma,fmiug0)
-#optimization.optgeo(mol,wfn,p,gradient)
+#E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0)
+E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
+
+
+#############################################
+
+old_basis = wfn.basisset()
+
+psi4.set_options({'basis': 'aug-cc-pVDZ'})
+
+wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
+p = parameters.param(mol,wfn)
+p.ipnof = 7
+p.gradient = "analytical"
+p.optimizer = "Newton-CG"
+p.RI = False#True 
+p.gpu = True
+p.jit = False
+
+C = projection.project_MO(mol,C,old_basis)
+
+C,fmiug0 = projection.complete_projection(wfn,mol,p,C,fmiug0,False)
+
+E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,True)
