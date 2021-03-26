@@ -6,11 +6,13 @@ import minimization
 import integrals
 import utils
 import energy
+import guess
 from scipy.optimize import minimize
 
 def optgeo(mol,wfn,p=None,gradient="analytical"):
     
     coord, mass, symbols, Z, key = wfn.molecule().to_arrays()
+    E_t = energy.compute_energy(mol,wfn,p,p.gradient,printmode=False)
     
     print("Initial Geometry (Bohrs)")
     print("========================")
@@ -47,11 +49,14 @@ def energy_optgeo(coord,symbols,p,gradient):
     
     # Paramdetros del sistema
     wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
-    
-    #p.autozeros()
+   
+    #C,gamma,fmiug0 = guess.read_all()
+
+    p.autozeros(restart=True)
     
     t1 = time()
-    E_t = energy.compute_energy(mol,wfn,p,gradient,printmode=False)
+    #E_t,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,printmode=False)
+    E_t,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C=None,gamma=None,fmiug0=None,printmode=False)
     t2 = time()
     print("                       Total Energy:", E_t)
 
