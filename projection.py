@@ -10,6 +10,12 @@ import minimization
 from numpy.linalg import lstsq
 from scipy.linalg import orth
 
+def find_orth(O,vec):
+    A = np.hstack((O, vec.reshape((O.shape[0],1))))
+    b = np.zeros(O.shape[1] + 1)
+    b[-1] = 1
+    return lstsq(A.T, b, rcond=None)[0]
+
 def project_MO(mol,C,old_basis):
 
     wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
@@ -26,13 +32,22 @@ def project_MO(mol,C,old_basis):
 
     Cnew = np.matmul(np.matmul(Sinv,M),C)
 
-    return Cnew
 
-def find_orth(O,vec):
-    A = np.hstack((O, vec.reshape((O.shape[0],1))))
-    b = np.zeros(O.shape[1] + 1)
-    b[-1] = 1
-    return lstsq(A.T, b, rcond=None)[0]
+    # Orthonormalize in C' = S^1/2 * C
+    Cp = np.matmul(Sp12,Cnew)
+
+    Cpnew = Cp[:,0]
+    Cpnew = Cpnew.reshape((Cpnew.shape[0],1))
+
+    for i in range(1,Cp.shape[1]):
+        res = find_orth(Cpnew,Cp[:,i])
+        res = res/np.linalg.norm(res)
+
+        Cpnew = np.hstack((Cpnew,res.reshape((Cpnew.shape[0],1))))
+
+    C = np.matmul(Sm12,Cpnew)    
+
+    return Cnew
 
 def complete_projection(wfn,mol,p,C,fmiug0,printmode=False):
 
@@ -52,7 +67,7 @@ def complete_projection(wfn,mol,p,C,fmiug0,printmode=False):
 
     # HF MO
     if (p.hfidr):
-        EHF,Cguess,fmiug0guess = minimization.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode)
+        EHF,Cguess,fmiug0guess = minimization.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode=True)
 
     # Combine projected MO
     Cguess[:,:C.shape[1]] = C[:,:C.shape[1]]

@@ -85,6 +85,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print("")
         print("")
 
+    Cguess = utils.check_ortho(Cguess,S,p)
     E_t = E_nuc + E_old
     return E_t,C,gamma,fmiug0
 
