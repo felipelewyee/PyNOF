@@ -28,7 +28,7 @@ H  0.0000  -0.749  -0.453
   symmetry c1
 """)
 
-psi4.set_options({'basis': 'cc-pVDZ'})
+psi4.set_options({'basis': 'def2-TZVPD'})
 
 # Paramdetros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
@@ -51,7 +51,7 @@ print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
 
 old_basis = wfn.basisset()
 
-psi4.set_options({'basis': 'aug-cc-pVDZ'})
+psi4.set_options({'basis': 'def2-TZVPD'})
 
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
@@ -69,11 +69,11 @@ C,fmiug0 = projection.complete_projection(wfn,mol,p,C,fmiug0,False)
 
 C_proj = C
 
-#p.autozeros()
+p.autozeros(restart=True)
 E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,True)
 
 #######################################################
-psi4.set_options({'basis': 'aug-cc-pVDZ'})
+psi4.set_options({'basis': '6-311++G(d,p)'})
 
 # Paramdetros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
