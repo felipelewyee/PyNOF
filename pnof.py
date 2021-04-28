@@ -74,7 +74,7 @@ def CJCKD7(n,p):
     cj12 = 2*np.einsum('i,j->ij',n,n)
     ck12 = np.einsum('i,j->ij',n,n) + np.einsum('i,j->ij',fi,fi)
     
-    # Interpair Electron Correlation
+    # Intrapair Electron Correlation
 
     for l in range(p.ndoc):            
         ldx = p.no1 + l
@@ -111,7 +111,7 @@ def der_CJCKD7(n,dn_dgamma,p):
     Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)    
     Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n) + np.einsum('ik,j->ijk',dfi_dgamma,fi)    
 
-    # Interpair Electron Correlation
+    # Intrapair Electron Correlation
 
     for l in range(p.ndoc):            
         ldx = p.no1 + l
@@ -165,7 +165,7 @@ def ocupacion(gamma,p):
 
     n[p.no1:p.no1+p.ndoc] = 1/2 * (1 + np.cos(gamma[:p.ndoc])**2)     # (no1,no1+ndoc]
     dni_dgammai[p.no1:p.no1+p.ndoc] = - 1/2 * np.sin(2*gamma[:p.ndoc])
-
+    
     if(p.ncwo==1):
         dn_dgamma = np.zeros((p.nbf5,p.nv))
 
@@ -176,6 +176,49 @@ def ocupacion(gamma,p):
             n[icf] = 1/2*np.sin(gamma[i])**2
             dni_dgammai[icf]  = 1/2*np.sin(2*gamma[i])
             dn_dgamma[icf][i] = dni_dgammai[icf]
+    else:
+        dn_dgamma = np.zeros((p.nbf5,p.nv))
+        h = 1 - n
+        for i in range(p.ndoc):
+            ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - i - 1)
+            ul = p.no1 + p.ndns + p.ncwo*(p.ndoc - i)
+            n[ll:ul] = h[p.no1+i]
+            for iw in range(p.ncwo-1):
+                n[ll+iw] *= np.sin(gamma[p.ndoc+(p.ncwo-1)*i+iw])**2
+                n[ll+iw+1:ul] *= np.cos(gamma[p.ndoc+(p.ncwo-1)*i+iw])**2
+
+        for i in range(p.ndoc):
+            # dn_g/dgamma_g
+            dn_dgamma[p.no1+i][i] = dni_dgammai[p.no1+i]
+
+            # dn_pi/dgamma_g
+            ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - i - 1)
+            ul = p.no1 + p.ndns + p.ncwo*(p.ndoc - i)
+            dn_dgamma[ll:ul,i] = -dni_dgammai[p.no1+i]
+            for iw in range(p.ncwo-1):
+                dn_dgamma[ll+iw][i] *= np.sin(gamma[p.ndoc+(p.ncwo-1)*i+iw])**2
+                dn_dgamma[ll+iw+1:ul,i] *= np.cos(gamma[p.ndoc+(p.ncwo-1)*i+iw])**2
+
+            # dn_pi/dgamma_pj (j<i)
+            for iw in range(p.ncwo-1):
+                dn_dgamma[ll+iw+1:ul,p.ndoc+(p.ncwo-1)*i+iw] = n[p.no1+i] - 1
+                for ip in range(ll+iw+1,ul):
+                    for jw in range(ip-ll):
+                        if(jw==iw):
+                            dn_dgamma[ip][p.ndoc+(p.ncwo-1)*i+iw] *= np.sin(2*gamma[p.ndoc+(p.ncwo-1)*i+jw])  
+                        else:
+                            dn_dgamma[ip][p.ndoc+(p.ncwo-1)*i+iw] *= np.cos(gamma[p.ndoc+(p.ncwo-1)*i+jw])**2  
+                    if(ip-ll<p.ncwo-1):
+                        dn_dgamma[ip][p.ndoc+(p.ncwo-1)*i+iw] *= np.sin(gamma[p.ndoc+(p.ncwo-1)*i+(ip-ll)])**2  
+
+            # dn_pi/dgamma_i
+            for iw in range(p.ncwo-1):
+                dn_dgamma[ll+iw][p.ndoc+(p.ncwo-1)*i+iw] = 1 - n[p.no1+i]
+                for jw in range(iw+1):
+                    if(jw==iw):
+                        dn_dgamma[ll+iw][p.ndoc+(p.ncwo-1)*i+iw] *= np.sin(2*gamma[p.ndoc+(p.ncwo-1)*i+jw])  
+                    else:
+                        dn_dgamma[ll+iw][p.ndoc+(p.ncwo-1)*i+iw] *= np.cos(gamma[p.ndoc+(p.ncwo-1)*i+jw])**2  
 
     return n,dn_dgamma
 

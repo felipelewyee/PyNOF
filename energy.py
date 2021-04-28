@@ -30,7 +30,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         for i in range(p.ndoc):
             gamma[i] = np.arccos(np.sqrt(2.0*0.999-1.0))
             for j in range(p.ncwo-1):
-                ig = p.ndoc+(i)*(p.ncwo-1)+j
+                ig = p.ndoc+i*(p.ncwo-1)+j
                 gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
 
     elag = np.zeros((p.nbf,p.nbf)) #temporal

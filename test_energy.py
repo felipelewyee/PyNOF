@@ -27,14 +27,15 @@ H  0.0000  -0.749  -0.453
   symmetry c1
 """)
 
-psi4.set_options({'basis': 'cc-pVDZ'}),
+psi4.set_options({'basis': 'aug-cc-pVDZ'}),
 
 # Parametros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = 7
-p.gradient = "analytical"
-p.optimizer = "Newton-CG"
+#p.gradient = "analytical"
+p.gradient = "numerical"
+p.optimizer = "CG"
 p.RI = False 
 p.gpu = True
 p.jit = False

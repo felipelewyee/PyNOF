@@ -39,7 +39,7 @@ class param():
         self.ndns = self.ndoc    +   self.nsoc
         self.nvir = self.nbf     -   self.nalpha
         
-        ncwo = 1
+        ncwo = 3
         if(self.ne==2):
             ncwo= -1
         if(self.ndns!=0):
@@ -65,7 +65,7 @@ class param():
         self.maxloop = 30  # Iteraciones internas en optimización orbital
         self.ipnof = 7     # PNOFi a calcular
         self.threshl = 10**-3#4   # Convergencia de los multiplicadores de Lagrange
-        self.threshe = 10**-4#6   # Convergencia de la energía
+        self.threshe = 10**-6#6   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
