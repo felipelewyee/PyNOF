@@ -41,7 +41,7 @@ p.gpu = True
 p.jit = False
 
 #C,gamma,fmiug0 = guess.read_all()
-
+p.set_ncwo(3)
 p.autozeros()
 
 

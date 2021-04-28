@@ -39,7 +39,7 @@ class param():
         self.ndns = self.ndoc    +   self.nsoc
         self.nvir = self.nbf     -   self.nalpha
         
-        ncwo = 3
+        ncwo = 1
         if(self.ne==2):
             ncwo= -1
         if(self.ndns!=0):
@@ -102,3 +102,21 @@ class param():
             self.nzeros = 1
             self.nerosr = 2
             self.nzerosm = abs(int(np.log10(self.threshl))) + 2
+
+    def set_ncwo(self,ncwo):
+        if(self.ne==2):
+            ncwo= -1
+        if(self.ndns!=0):
+            if(self.ndoc>0):
+                if(ncwo!=1):
+                    if(ncwo==-1 or ncwo > self.nvir/self.ndoc):
+                        ncwo = int(self.nvir/self.ndoc)
+            else:
+                ncwo = 0
+
+        self.ncwo = ncwo
+
+        self.nac = self.ndoc * (1 + ncwo)
+        self.nbf5 = self.no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
+        self.no0 = self.nbf - self.nbf5
+        self.nv = self.ncwo*self.ndoc
