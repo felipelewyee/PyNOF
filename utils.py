@@ -1,5 +1,6 @@
 import numpy as np
 import integrals
+from numba import prange,njit,jit
 
 def computeF(J,K,n,H,cj12,ck12,p):
 
@@ -71,19 +72,19 @@ def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
     return E,elag,sumdiff,maxdiff
 
-def fmiug_scaling(fmiug0,elag,i_ext,nzeros,p):
+def fmiug_scaling(fmiug0,elag,i_ext,nzeros,nbf,noptorb):
 
     #scaling
-    fmiug = np.zeros((p.nbf,p.nbf))
+    fmiug = np.zeros((nbf,nbf))
     if(i_ext == 0 and fmiug0 is None):
-        fmiug[:p.noptorb,:p.noptorb] = ((elag[:p.noptorb,:p.noptorb] + elag[:p.noptorb,:p.noptorb].T) / 2)
+        fmiug[:noptorb,:noptorb] = ((elag[:noptorb,:noptorb] + elag[:noptorb,:noptorb].T) / 2)
 
     else:
-        fmiug[:p.noptorb,:p.noptorb] = (elag[:p.noptorb,:p.noptorb] - elag[:p.noptorb,:p.noptorb].T)
+        fmiug[:noptorb,:noptorb] = (elag[:noptorb,:noptorb] - elag[:noptorb,:noptorb].T)
         fmiug = np.tril(fmiug,-1) + np.tril(fmiug,-1).T
         for k in range(nzeros+9+1):
             fmiug[(abs(fmiug) > 10**(9-k)) & (abs(fmiug) < 10**(10-k))] *= 0.1
-        np.fill_diagonal(fmiug[:p.noptorb,:p.noptorb],fmiug0[:p.noptorb])
+        np.fill_diagonal(fmiug[:noptorb,:noptorb],fmiug0[:noptorb])
 
     return fmiug
 

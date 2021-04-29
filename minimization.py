@@ -41,7 +41,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
             E_old = E
 
             if(p.scaling):
-                fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p)
+                fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p.nbf,p.noptorb)
 
             fmiug0, W = np.linalg.eigh(fmiug)
             C = np.matmul(C,W)
@@ -77,7 +77,7 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
         elif(p.gradient=="numerical"):
             res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.optimizer)
         gamma = res.x
-    n,DR = pnof.ocupacion(gamma,p)
+    n,dR = pnof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
     cj12,ck12 = pnof.PNOFi_selector(n,p)
 
     #if (firstcall):
@@ -142,7 +142,7 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
         #scaling
         if(p.scaling):
-            fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p)
+            fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p.nbf,p.noptorb)
         if(p.diis and maxdiff < p.thdiis):
             fk,fmiug,idiis,bdiis = utils.fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p)
 
