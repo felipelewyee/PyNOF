@@ -38,7 +38,7 @@ p.gradient = "analytical"
 p.optimizer = "CG"
 p.RI = False 
 p.gpu = True
-p.jit = False
+p.jit = True
 
 #C,gamma,fmiug0 = guess.read_all()
 p.set_ncwo(1)

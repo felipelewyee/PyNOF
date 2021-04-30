@@ -65,12 +65,15 @@ def der_CJCKD5(n,gamma,dn_dgamma,p):
 
 #CJCKD7
 @jit
-def CJCKD7(n,no1,ndoc,nalpha,ndns,ncwo):
+def CJCKD7(n,ista,no1,ndoc,nalpha,ndns,ncwo):
 
-    fi = n*(1-n)
-    fi[fi<=0] = 0
-    fi = np.sqrt(fi)      
-   
+    if(ista==0):
+        fi = n*(1-n)
+        fi[fi<=0] = 0
+        fi = np.sqrt(fi)      
+    else:
+        fi = 2*n*(1-n)
+
     # Interpair Electron correlation #
 
     #cj12 = 2*np.einsum('i,j->ij',n,n)
@@ -99,16 +102,24 @@ def CJCKD7(n,no1,ndoc,nalpha,ndns,ncwo):
     return cj12,ck12        
        
 @njit
-def der_CJCKD7(n,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
-    fi = n*(1-n)
-    fi[fi<=0] = 0
-    fi = np.sqrt(fi)      
+def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
+
+    if(ista==0):
+        fi = n*(1-n)
+        fi[fi<=0] = 0
+        fi = np.sqrt(fi)      
+    else:
+        fi = 2*n*(1-n)
             
     dfi_dgamma = np.zeros((nbf5,nv))
     for i in range(no1,nbf5):
         a = max(fi[i],10**-15)
         for k in range(nv):
-            dfi_dgamma[i,k] = 1/(2*a)*(1-2*n[i])*dn_dgamma[i][k]
+            if(ista==0):
+                dfi_dgamma[i,k] = 1/(2*a)*(1-2*n[i])*dn_dgamma[i][k]
+            else:
+                dfi_dgamma[i,k] = 2*(1-2*n[i])*dn_dgamma[i][k]
+                
    
     # Interpair Electron correlation #
 
@@ -157,7 +168,7 @@ def PNOFi_selector(n,p):
     if(p.ipnof==5):
         cj12,ck12 = CJCKD5(n,p)
     if(p.ipnof==7):
-        cj12,ck12 = CJCKD7(n,p.no1,p.ndoc,p.nalpha,p.ndns,p.ncwo)
+        cj12,ck12 = CJCKD7(n,1,p.no1,p.ndoc,p.nalpha,p.ndns,p.ncwo)
         
     return cj12,ck12
 
@@ -165,7 +176,7 @@ def der_PNOFi_selector(n,dn_dgamma,p):
     if(p.ipnof==5):
         Dcj12r,Dck12r = der_CJCKD5(n,dn_dgamma,p)
     if(p.ipnof==7):
-        Dcj12r,Dck12r = der_CJCKD7(n,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
+        Dcj12r,Dck12r = der_CJCKD7(n,1,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
         
     return Dcj12r,Dck12r
 
