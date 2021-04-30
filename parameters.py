@@ -64,6 +64,7 @@ class param():
         self.maxitid = 30  # Número máximo de iteraciones externas en HF
         self.maxloop = 30  # Iteraciones internas en optimización orbital
         self.ipnof = 7     # PNOFi a calcular
+        self.ista = 0     # PNOFi a calcular
         self.threshl = 10**-3#4   # Convergencia de los multiplicadores de Lagrange
         self.threshe = 10**-6#6   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
