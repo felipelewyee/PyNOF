@@ -144,7 +144,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
                     IROW[nnz] = ijab
                     ICOL[nnz] = i + jab
           
-                    for k in range(i-1):
+                    for k in range(i):
                         if(abs(F_MO[i,k])>1e-10):
                             nnz += 1
                             Cki = FI2[k]*FI2[i]
@@ -152,7 +152,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
                             IROW[nnz] = ijab
                             ICOL[nnz] = k + jab
           
-                    for k in range(j-1):
+                    for k in range(j):
                         if(abs(F_MO[j,k])>1e-10):
                             nnz += 1
                             Ckj = FI2[k]*FI2[j]
@@ -160,7 +160,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
                             IROW[nnz] = ijab
                             ICOL[nnz] = k*p.ndoc + iab
  
-                    for k in range(ia-1):
+                    for k in range(ia):
                         if(abs(F_MO[ia+p.ndoc,k+p.ndoc])>1e-10):
                             nnz += 1
                             if(npair[k]==npair[ia]):
@@ -171,7 +171,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
                             IROW[nnz] = ijab
                             ICOL[nnz] = k*p.ndoc*p.ndoc + ijb
 
-                    for k in range(ib-1):
+                    for k in range(ib):
                         if(abs(F_MO[ib+p.ndoc,k+p.ndoc])>1e-10):
                             nnz += 1
                             if(npair[k]==npair[ib]):
@@ -212,10 +212,25 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
                         Cijkl = FI2[kn]*FI2[ln]*FI2[i]*FI2[j]
                         B[ijkl] = - Cijkl*iajb[j,k,i,l]
 
-    from scipy.sparse.linalg import spsolve_triangular
 
-    Tijab = spsolve_triangular(A_CSR,B,lower=True)
+    from scipy.sparse.linalg import spsolve
+    AA = np.zeros((2*(nnz+1)))
+    IIROW = np.zeros((2*(nnz+1)))
+    IICOL = np.zeros((2*(nnz+1)))
+    IIROW[:nnz+1] = IROW[:nnz+1]
+    IICOL[:nnz+1] = ICOL[:nnz+1]
+    AA[:nnz+1] = A[:nnz+1]
+    NZ = nnz+1
+    for i in range(nnz+1):
+        if(IIROW[i]>IICOL[i]):   
+            IIROW[NZ] = IICOL[i]
+            IICOL[NZ] = IIROW[i]
+            AA[NZ]    = AA[i]
+            NZ = NZ + 1
 
+    A_CSR = csr_matrix((AA, (IIROW.astype(int), IICOL.astype(int))))
+    Tijab = spsolve(A_CSR,B)
+    
     ECd = 0
     for k in range(p.nvir):
         for l in range(p.nvir):
@@ -249,8 +264,6 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
     print("ECnd",ECndl)
     print("Ecorre",ECd+ECndl)
     print("E(NOFMP2)",EHFL+ECd+ECndl+E_nuc)
-
-
 
     return E_t,C,gamma,fmiug0
 
