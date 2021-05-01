@@ -1,0 +1,10 @@
+
+  Memory set to   3.725 GiB by Python driver.
+   => Loading Basis Set <=
+
+    Name: CC-PVDZ
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1   entry O          line   198 file /home/jfhlewyee/anaconda3/envs/pydonof/share/psi4/basis/cc-pvdz.gbs 
+    atoms 2-3 entry H          line    22 file /home/jfhlewyee/anaconda3/envs/pydonof/share/psi4/basis/cc-pvdz.gbs 
+
