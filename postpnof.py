@@ -16,15 +16,13 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
     I_cpu = I.get()
     t2 = time()
-    DM = np.einsum("mj,nj->mn",C[:,:p.nbeta],C[:,:p.nbeta])
-    J = np.einsum("ls,mnsl->mn",DM,I_cpu)
-    K = np.einsum("ls,mlsn->mn",DM,I_cpu)
+    D,J,K = integrals.computeJK_HF(C,I,b_mnl,p)
     t3 = time()
     F = H + 2*J - K
     t4 = time()
 
     t5 = time()
-    EHFL = np.trace(np.matmul(DM,H)+np.matmul(DM,F))
+    EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
     F_MO = np.matmul(np.matmul(np.transpose(vec),F),vec)
     t6 = time()
 
@@ -33,8 +31,7 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     t8 = time()
 
     t9 = time()
-    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I_cpu,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf])
-
+    iajb = integrals.compute_iajb(C,I,b_mnl,p)
     t10 = time()
     FI1 = np.ones(p.nbf-p.no1)
     FI2 = np.ones(p.nbf-p.no1)
@@ -44,8 +41,10 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     for i in range(p.nbf5-p.no1):   
        Ci = 1 - abs(1-2*occ[i])
        FI1[i] = 1 - Ci*Ci
+    #FI1[:p.nbf5] = 1 - (1 - abs(1-2*occ[i]))**2
     t13 = time()
     
+
     for i in range(p.nbeta-p.no1,p.nbf5-p.no1):
         Ci = abs(1-2*occ[i])
         FI2[i] = Ci*Ci

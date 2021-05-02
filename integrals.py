@@ -377,3 +377,103 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
             H_core[i] += D[i][m][m]*H[m][m]
 
     return J_MO,K_MO,H_core
+
+######################################### J_mn^(j) K_mn^(j) #########################################
+
+def computeJK_HF(C,I,b_mnl,p):
+
+    if(p.gpu):
+#        if(p.RI):
+#            J,K = JKj_RI_GPU(C,b_mnl,p)
+#        else:
+        D,J,K = JK_HF_Full_GPU(C,I,p)
+    else:
+#        if(p.RI):
+#            J,K = JKj_RI_jit(C,b_mnl,p.nbf,p.nbf5,p.nbfaux)
+#        else:
+        D,J,K = JK_HF_Full_jit(C,I,p.nbf,p.nbf5)
+
+    return D,J,K
+
+@njit(parallel=True)
+def JK_HF_Full_jit(C,I,nbeta,nbf,nbf5):
+
+    #denmatj
+    D = np.zeros((nbf,nbf))
+    for mu in prange(nbf):
+        for nu in prange(mu+1):
+            for i in prange(nbeta):
+                D[mu][nu] += C[mu][i]*C[nu][i]
+            D[nu][mu] = D[mu][nu]
+
+    #hstarj
+    J = np.zeros((nbf,nbf))
+    for m in prange(nbf):
+        for n in prange(m+1):
+            for s in range(nbf):
+                for l in range(nbf):
+                    J[m][n] += D[s][l]*I[m][n][s][l]
+            J[n][m] = J[m][n]
+
+    #hstark
+    K = np.zeros((nbf,nbf))
+    for m in prange(nbf):
+        for s in prange(m+1):
+            for n in range(nbf):
+                for l in range(nbf):
+                    K[m][s] += D[n][l]*I[m][n][s][l]
+            K[s][m] = K[m][s]
+
+    return D,J,K
+
+def JK_HF_Full_GPU(C,I,p):
+
+    #denmatj
+    D = cp.einsum("mj,nj->mn",C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
+    J = cp.einsum("ls,mnsl->mn",D,I,optimize=True)
+    K = cp.einsum("nl,mnsl->ms",D,I,optimize=True)
+    
+    return D.get(),J.get(),K.get()
+
+def compute_iajb(C,I,b_mnl,p):
+
+    if(p.gpu):
+        iajb = iajb_Full_GPU(C,I,p)
+    else:
+        iajb = iajb_Full_jit(C,I,p.nbeta,p.nbf,p.nbf5)
+
+    return iajb
+
+@njit(parallel=True)
+def iajb_Full_jit(C,I,nbeta,nbf,nbf5):
+
+    iajb = np.zeros((ndoc,nvir,ndoc,nvir))
+    for i in range(ndoc):
+        maib = 0
+        for a in range(nvir):
+            mnib = 0
+            for j in range(ndoc):
+                mnsb = 0
+                for b in range(nvir):
+                    t1 = 0
+                    for m in range(nbf):
+                        t2 = 0
+                        for n in range(nbf):
+                            t3 = 0
+                            for s in range(nbf):
+                                t4 = 0
+                                for l in range(nbf):
+                                    t4 += C[l][b]*I[m][n][s][l]
+                                t3 = C[s][j]*t4
+                            t2 = C[s][j]*t3
+                        t1 = C[s][j]*t2
+                    iajb[i][a][j][b] = C[m][i]*t1
+    return iajb
+    #iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I_cpu,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],optimize=True)
+
+def iajb_Full_GPU(C,I,p):
+
+    iajb = cp.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],optimize=True)
+
+    return iajb.get()
+
