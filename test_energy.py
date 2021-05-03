@@ -36,17 +36,19 @@ p.ipnof = 7
 p.gradient = "analytical"
 #p.gradient = "numerical"
 p.optimizer = "Newton-CG"
-p.RI = False 
+p.RI = True 
 p.gpu = True
-p.jit = False
+p.jit = True
 
 #C,gamma,fmiug0 = guess.read_all()
-#p.ista=1
+p.ista=1
 p.set_ncwo(1)
 p.autozeros()
 
 
 t1 = time()
 E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
+p.RI = False
+E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,nofmp2=True)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))

@@ -6,7 +6,7 @@ import integrals
 import utils
 import postpnof
 
-def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,printmode=True):
+def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,nofmp2=False,printmode=True):
 
     S,T,V,H,I,b_mnl = integrals.compute_integrals(wfn,mol,p)
 
@@ -89,7 +89,8 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
 
     E_t = E_nuc + E_old
 
-    #postpnof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
+    if(nofmp2):
+        postpnof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
 
     return E_t,C,gamma,fmiug0
 
