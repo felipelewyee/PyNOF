@@ -6,55 +6,34 @@ import integrals
 import utils
 from numba import prange,njit,jit
 from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import cg,minres
 
 def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
-    ti = time()
+    print(" NOF-MP2")
+    print("=========")
+
     occ = n[p.no1:p.nbf5]
     vec = C[:,p.no1:p.nbf]
-    t1 = time()
 
-    I_cpu = I.get()
-    t2 = time()
     D,J,K = integrals.computeJK_HF(C,I,b_mnl,p)
-    t3 = time()
     F = H + 2*J - K
-    t4 = time()
 
-    t5 = time()
     EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
     F_MO = np.matmul(np.matmul(np.transpose(vec),F),vec)
-    t6 = time()
 
-    t7 = time()
     eig = np.einsum("ii->i",F_MO[:p.nbf-p.no1,:p.nbf-p.no1])
-    t8 = time()
 
-    t9 = time()
     iajb = integrals.compute_iajb(C,I,b_mnl,p)
-    t10 = time()
     FI1 = np.ones(p.nbf-p.no1)
     FI2 = np.ones(p.nbf-p.no1)
-    t11 = time()
 
-    t12 = time()
-    for i in range(p.nbf5-p.no1):   
-       Ci = 1 - abs(1-2*occ[i])
-       FI1[i] = 1 - Ci*Ci
-    #FI1[:p.nbf5] = 1 - (1 - abs(1-2*occ[i]))**2
-    t13 = time()
-    
+    FI1[:p.nbf5-p.no1] = 1 - (1 - abs(1-2*occ[:p.nbf5-p.no1]))**2
 
-    for i in range(p.nbeta-p.no1,p.nbf5-p.no1):
-        Ci = abs(1-2*occ[i])
-        FI2[i] = Ci*Ci
-    t14 = time()
+    FI2[p.nbeta-p.no1:p.nbf5-p.no1] = abs(1-2*occ[p.nbeta-p.no1:p.nbf5-p.no1])**2
 
-    t15 = time()
     Tijab = CalTijab(iajb,F_MO,eig,FI1,FI2,p)
-    t16 = time()
     
-    t17 = time()
     ECd = 0
     for k in range(p.nvir):
         for l in range(p.nvir):
@@ -64,7 +43,6 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
                     ijkl = i+j*p.ndoc+k*p.ndoc*p.ndoc+l*p.ndoc*p.ndoc*p.nvir
                     ijlk = i+j*p.ndoc+l*p.ndoc*p.ndoc+k*p.ndoc*p.ndoc*p.nvir
                     ECd = ECd + Xijkl*(2*Tijab[ijkl]-Tijab[ijlk])
-    t18 = time()
 
     fi = 2*n*(1-n)
 
@@ -78,193 +56,166 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
         CK12nd[p.no1+l,ll:ul] = beta[p.no1+l]*beta[ll:ul]
         CK12nd[ll:ul,p.no1+l] = beta[ll:ul]*beta[p.no1+l]
         CK12nd[ll:ul,ll:ul] = -np.outer(beta[ll:ul],beta[ll:ul])
-    t19 = time()
 
     #C^K KMO
     J_MO,K_MO,H_core = integrals.computeJKH_MO(C,H,I,b_mnl,p)
     ECndl = - np.einsum('ij,ji',CK12nd,K_MO) # sum_ij
     ECndl += np.einsum('ii,ii',CK12nd,K_MO) # Quita i=j
-    t20 = time()
 
-    print("Ehfc",EHFL+E_nuc)
-    print("ECd",ECd)
-    print("ECnd",ECndl)
-    print("Ecorre",ECd+ECndl)
-    print("E(NOFMP2)",EHFL+ECd+ECndl+E_nuc)
-
-    tf = time()
-    print(tf-ti)
-    print(t1-ti)
-    print(t2-t1)
-    print(t3-t2)
-    print(t4-t3)
-    print(t5-t4)
-    print(t6-t5)
-    print(t7-t6)
-    print(t8-t7)
-    print(t9-t8)
-    print(t10-t9)
-    print(t11-t10)
-    print(t12-t11)
-    print(t13-t12)
-    print(t14-t13)
-    print(t15-t14)
-    print(t16-t15)
-    print(t17-t16)
-    print(t18-t17)
-    print(t19-t18)
-    print(t20-t19)
+    print("      Ehfc      = {:f}".format(EHFL+E_nuc))
+    print("")
+    print("      ECd       = {:f}".format(ECd))
+    print("      ECnd      = {:f}".format(ECndl))
+    print("      Ecorre    = {:f}".format(ECd+ECndl))
+    print("      E(NOFMP2) = {:f}".format(EHFL+ECd+ECndl+E_nuc))
+    print("")
 
 def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
-    ti = time()
-    npair = np.zeros((p.nvir))
-    for i in range(p.ndoc):
-        ll = p.ncwo*(p.ndoc - i - 1)
-        ul = p.ncwo*(p.ndoc - i)
-        npair[ll:ul] = i + 1
-    t1 = time()
 
-    A = np.zeros((2*p.ndoc**2*p.nvir**2*(p.nbf-p.no1)))
-    IROW = np.zeros((2*p.ndoc**2*p.nvir**2*(p.nbf-p.no1)))
-    ICOL = np.zeros((2*p.ndoc**2*p.nvir**2*(p.nbf-p.no1)))
-    t2 = time()
+    print("")
+
+    A,IROW,ICOL = build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.nvir,p.ncwo,p.nbf)
+    A_CSR = csr_matrix((A, (IROW.astype(int), ICOL.astype(int))))
+    print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
+
+    B = build_B(iajb,FI1,FI2,p.ndoc,p.nvir,p.ncwo)
+    print("B vector Computed")
+    
+    Tijab = Tijab_guess(iajb,eig,p.ndoc,p.nvir)
+    print("Tijab Guess Computed")
+    Tijab = solve_Tijab(A_CSR,B,Tijab,p)
+    print("Tijab Computed")
+
+    print("")
+
+    return Tijab
+
+@njit
+def build_A(F_MO,FI1,FI2,no1,ndoc,nvir,ncwo,nbf):
+    npair = np.zeros((nvir))
+    for i in range(ndoc):
+        ll = ncwo*(ndoc - i - 1)
+        ul = ncwo*(ndoc - i)
+        npair[ll:ul] = i + 1
+
+    A = []
+    IROW = []
+    ICOL = []
 
     nnz = -1
-    for ib in range(p.nvir):
-        for ia in range(p.nvir):
-            for j in range(p.ndoc):
-                for i in range(p.ndoc):
-                    jab =     (j)*p.ndoc + (ia)*p.ndoc*p.ndoc + (ib)*p.ndoc*p.ndoc*p.nvir
-                    iab = i              + (ia)*p.ndoc*p.ndoc + (ib)*p.ndoc*p.ndoc*p.nvir
-                    ijb = i + (j)*p.ndoc                      + (ib)*p.ndoc*p.ndoc*p.nvir
-                    ija = i + (j)*p.ndoc + (ia)*p.ndoc*p.ndoc
-                    ijab= i + (j)*p.ndoc + (ia)*p.ndoc*p.ndoc + (ib)*p.ndoc*p.ndoc*p.nvir
+    for ib in range(nvir):
+        for ia in range(nvir):
+            for j in range(ndoc):
+                for i in range(ndoc):
+                    jab =     (j)*ndoc + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
+                    iab = i              + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
+                    ijb = i + (j)*ndoc                      + (ib)*ndoc*ndoc*nvir
+                    ija = i + (j)*ndoc + (ia)*ndoc*ndoc
+                    ijab= i + (j)*ndoc + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
 
                     nnz = nnz + 1
-                    A[nnz] = F_MO[ia+p.ndoc,ia+p.ndoc] + F_MO[ib+p.ndoc,ib+p.ndoc] - F_MO[i,i] - F_MO[j,j]
-                    IROW[nnz] = ijab
-                    ICOL[nnz] = i + jab
-          
+                    A.append(F_MO[ia+ndoc,ia+ndoc] + F_MO[ib+ndoc,ib+ndoc] - F_MO[i,i] - F_MO[j,j])
+                    IROW.append(ijab)
+                    ICOL.append(i + jab)
+
                     for k in range(i):
                         if(abs(F_MO[i,k])>1e-10):
                             nnz += 1
                             Cki = FI2[k]*FI2[i]
-                            A[nnz] = - Cki*F_MO[i,k]
-                            IROW[nnz] = ijab
-                            ICOL[nnz] = k + jab
-          
+                            A.append(- Cki*F_MO[i,k])
+                            IROW.append(ijab)
+                            ICOL.append(k + jab)
+                            A.append(- Cki*F_MO[i,k])
+                            ICOL.append(ijab)
+                            IROW.append(k + jab)
+
                     for k in range(j):
                         if(abs(F_MO[j,k])>1e-10):
                             nnz += 1
                             Ckj = FI2[k]*FI2[j]
-                            A[nnz] = - Ckj*F_MO[j,k]
-                            IROW[nnz] = ijab
-                            ICOL[nnz] = k*p.ndoc + iab
- 
+                            A.append(- Ckj*F_MO[j,k])
+                            IROW.append(ijab)
+                            ICOL.append(k*ndoc + iab)
+                            A.append(- Ckj*F_MO[j,k])
+                            ICOL.append(ijab)
+                            IROW.append(k*ndoc + iab)
+
                     for k in range(ia):
-                        if(abs(F_MO[ia+p.ndoc,k+p.ndoc])>1e-10):
+                        if(abs(F_MO[ia+ndoc,k+ndoc])>1e-10):
                             nnz += 1
                             if(npair[k]==npair[ia]):
-                                Ckia = FI1[k+p.ndoc]*FI1[ia+p.ndoc]
+                                Ckia = FI1[k+ndoc]*FI1[ia+ndoc]
                             else:
-                                Ckia = FI2[k+p.ndoc]*FI2[ia+p.ndoc]
-                            A[nnz] = Ckia*F_MO[ia+p.ndoc,k+p.ndoc]
-                            IROW[nnz] = ijab
-                            ICOL[nnz] = k*p.ndoc*p.ndoc + ijb
+                                Ckia = FI2[k+ndoc]*FI2[ia+ndoc]
+                            A.append(Ckia*F_MO[ia+ndoc,k+ndoc])
+                            IROW.append(ijab)
+                            ICOL.append(k*ndoc*ndoc + ijb)
+                            A.append(Ckia*F_MO[ia+ndoc,k+ndoc])
+                            ICOL.append(ijab)
+                            IROW.append(k*ndoc*ndoc + ijb)
 
                     for k in range(ib):
-                        if(abs(F_MO[ib+p.ndoc,k+p.ndoc])>1e-10):
+                        if(abs(F_MO[ib+ndoc,k+ndoc])>1e-10):
                             nnz += 1
                             if(npair[k]==npair[ib]):
-                                Ckib = FI1[k+p.ndoc]*FI1[ib+p.ndoc]
+                                Ckib = FI1[k+ndoc]*FI1[ib+ndoc]
                             else:
-                                Ckib = FI2[k+p.ndoc]*FI2[ib+p.ndoc]
-                            A[nnz] = Ckib*F_MO[ib+p.ndoc,k+p.ndoc]
-                            IROW[nnz] = ijab
-                            ICOL[nnz] = k*p.ndoc*p.ndoc*p.nvir + ija
+                                Ckib = FI2[k+ndoc]*FI2[ib+ndoc]
+                            A.append(Ckib*F_MO[ib+ndoc,k+ndoc])
+                            IROW.append(ijab)
+                            ICOL.append(k*ndoc*ndoc*nvir + ija)
+                            A.append(Ckib*F_MO[ib+ndoc,k+ndoc])
+                            ICOL.append(ijab)
+                            IROW.append(k*ndoc*ndoc*nvir + ija)
+    A = np.array(A)
+    IROW = np.array(IROW)
+    ICOL = np.array(ICOL)
 
-    t3 = time()
-    B = np.zeros((p.ndoc**2*p.nvir**2))
-    for i in range(p.ndoc):
-        lmin_i = p.ndoc+p.ncwo*(p.ndoc-i-1)
-        lmax_i = p.ndoc+p.ncwo*(p.ndoc-i-1)+p.ncwo
-        for j in range(p.ndoc):
+    return A,IROW,ICOL
+
+@njit
+def build_B(iajb,FI1,FI2,ndoc,nvir,ncwo):
+    B = np.zeros((ndoc**2*nvir**2))
+    for i in range(ndoc):
+        lmin_i = ndoc+ncwo*(ndoc-i-1)
+        lmax_i = ndoc+ncwo*(ndoc-i-1)+ncwo
+        for j in range(ndoc):
             if(i==j):
-                for k in range(p.nvir):
-                    ik = i + k*p.ndoc
-                    kn = k + p.ndoc
-                    for l in range(p.nvir):
-                        ln = l + p.ndoc
+                for k in range(nvir):
+                    ik = i + k*ndoc
+                    kn = k + ndoc
+                    for l in range(nvir):
+                        ln = l + ndoc
                         if(lmin_i <= kn and kn <= lmax_i and lmin_i <= ln and ln <= lmax_i):
                             Ciikl = FI1[kn]*FI1[ln]*FI1[i]*FI1[i]
                         else:
                             Ciikl = FI2[kn]*FI2[ln]*FI2[i]*FI2[i]
-                        iikl =  i + i*p.ndoc + k*p.ndoc*p.ndoc + l*p.ndoc*p.ndoc*p.nvir
+                        iikl =  i + i*ndoc + k*ndoc*ndoc + l*ndoc*ndoc*nvir
                         B[iikl] = - Ciikl*iajb[i,k,i,l]
             else:
-                for k in range(p.nvir):
-                    ik = i + k*p.ndoc
-                    kn = k + p.ndoc
-                    for l in range(p.nvir):
-                        ln = l + p.ndoc
-                        ijkl =  i + j*p.ndoc + k*p.ndoc*p.ndoc + l*p.ndoc*p.ndoc*p.nvir
+                for k in range(nvir):
+                    ik = i + k*ndoc
+                    kn = k + ndoc
+                    for l in range(nvir):
+                        ln = l + ndoc
+                        ijkl =  i + j*ndoc + k*ndoc*ndoc + l*ndoc*ndoc*nvir
                         Cijkl = FI2[kn]*FI2[ln]*FI2[i]*FI2[j]
                         B[ijkl] = - Cijkl*iajb[j,k,i,l]
 
+    return B
 
-    t4 = time()
-    AA = np.zeros((2*(nnz+1)))
-    IIROW = np.zeros((2*(nnz+1)))
-    IICOL = np.zeros((2*(nnz+1)))
-    IIROW[:nnz+1] = IROW[:nnz+1]
-    IICOL[:nnz+1] = ICOL[:nnz+1]
-    AA[:nnz+1] = A[:nnz+1]
-    NZ = nnz+1
-    for i in range(nnz+1):
-        if(IIROW[i]>IICOL[i]):   
-            IIROW[NZ] = IICOL[i]
-            IICOL[NZ] = IIROW[i]
-            AA[NZ]    = AA[i]
-            NZ = NZ + 1
-    t5 = time()
-
-    print("Entrada")
-    AA = AA[:NZ]
-    IIROW = IIROW[:NZ]
-    IICOL = IICOL[:NZ]
-    A_CSR = csr_matrix((AA, (IIROW.astype(int), IICOL.astype(int))))
-    print("Entrada")
-    from scipy.sparse.linalg import cg,minres
-    
-    Tijab = np.zeros(p.nvir**2*p.ndoc**2)
-    for ia in range(p.nvir):
-        for i in range(p.ndoc):
-            for ib in range(p.nvir):
-                for j in range(p.ndoc):
-                    ijab = i + (j)*p.ndoc + (ia)*p.ndoc*p.ndoc + (ib)*p.ndoc*p.ndoc*p.nvir
-                    Eijab = eig[ib+p.ndoc] + eig[ia+p.ndoc] - eig[j] - eig[i]
+@njit
+def Tijab_guess(iajb,eig,ndoc,nvir):
+    Tijab = np.zeros(nvir**2*ndoc**2)
+    for ia in range(nvir):
+        for i in range(ndoc):
+            for ib in range(nvir):
+                for j in range(ndoc):
+                    ijab = i + (j)*ndoc + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
+                    Eijab = eig[ib+ndoc] + eig[ia+ndoc] - eig[j] - eig[i]
                     Tijab[ijab] = - iajb[j,ia,i,ib]/Eijab
+    return Tijab 
 
-    t6 = time()
+def solve_Tijab(A_CSR,B,Tijab,p):
     Tijab,info = cg(A_CSR, B,x0=Tijab)
-    t7 = time()
-    print("cg",t7-t6)
-
-    #t8 = time()
-    #Tijab = spsolve(A_CSR,B)
-    #t9 = time()
-    #print("spsolve",t9-t8)
-    #print(info,max(Tijab1-Tijab))
-    tf = time()
-
-    print("================entrada======================")
-    print(tf-ti)
-    print(t1-ti)
-    print(t2-t1)
-    print(t3-t2)
-    print(t4-t3)
-    print(t5-t4)
-    print(tf-t5)
-    print("================salida======================")
-
     return Tijab
