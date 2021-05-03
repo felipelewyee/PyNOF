@@ -444,32 +444,11 @@ def compute_iajb(C,I,b_mnl,p):
 
     return iajb
 
-@njit(parallel=True)
 def iajb_Full_jit(C,I,nbeta,nbf,nbf5):
 
-    iajb = np.zeros((ndoc,nvir,ndoc,nvir))
-    for i in range(ndoc):
-        maib = 0
-        for a in range(nvir):
-            mnib = 0
-            for j in range(ndoc):
-                mnsb = 0
-                for b in range(nvir):
-                    t1 = 0
-                    for m in range(nbf):
-                        t2 = 0
-                        for n in range(nbf):
-                            t3 = 0
-                            for s in range(nbf):
-                                t4 = 0
-                                for l in range(nbf):
-                                    t4 += C[l][b]*I[m][n][s][l]
-                                t3 = C[s][j]*t4
-                            t2 = C[s][j]*t3
-                        t1 = C[s][j]*t2
-                    iajb[i][a][j][b] = C[m][i]*t1
+    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I_cpu,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],optimize=True)
+
     return iajb
-    #iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I_cpu,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],optimize=True)
 
 def iajb_Full_GPU(C,I,p):
 
