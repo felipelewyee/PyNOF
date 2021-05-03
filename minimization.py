@@ -95,14 +95,16 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
     if(maxdiff<p.threshl and abs(E_diff)<p.threshe):
         convgdelag = True
         if(printmode):
-            print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff))
+            print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff),p.nzeros)
         return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
     if (p.scaling and i_ext>1 and i_ext >= itlim and sumdiff > sumdiff_old):
         p.nzeros = p.nzeros + 1
         itlim = i_ext + p.itziter
-        if (p.nzeros>p.nzerosm):
-            p.nzeros = p.nzerosr
+        #if (p.nzeros>p.nzerosm):
+        #    p.nzeros = p.nzerosr
+        if (p.nzeros>abs(int(np.log10(maxdiff)))+1):
+            p.nzeros = abs(int(np.log10(maxdiff)))
     sumdiff_old = sumdiff
 
     if i_ext==0:
@@ -140,7 +142,7 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
             E_diff = E-E_old
             E_old = E
             if(printmode):
-                print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff))
+                print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff),p.nzeros)
             break
 
     return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag

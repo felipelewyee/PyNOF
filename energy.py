@@ -6,7 +6,7 @@ import integrals
 import utils
 import postpnof
 
-def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,nofmp2=False,printmode=True):
+def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,printmode=True):
 
     S,T,V,H,I,b_mnl = integrals.compute_integrals(wfn,mol,p)
 
@@ -19,7 +19,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         E_i,Cguess = eigh(H, S)  # (HC = SCe)
     Cguess = utils.check_ortho(Cguess,S,p)
 
-    if (p.hfidr):
+    if (hfidr):
         EHF,Cguess,fmiug0guess = minimization.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode)
 
     if(C is None):
@@ -79,10 +79,10 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print(" Final Energies ")
         print("----------------")
         
-        if(p.hfidr):
+        if(hfidr):
             print("       HF Total Energy = {:15.7f}".format(E_nuc + EHF))
         print("Final NOF Total Energy = {:15.7f}".format(E_nuc + E_old))
-        if(p.hfidr):
+        if(hfidr):
             print("    Correlation Energy = {:15.7f}".format(E_old-EHF))
         print("")
         print("")

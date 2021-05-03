@@ -21,9 +21,16 @@ import guess
 psi4.set_memory('4 GB')
 
 mol = psi4.geometry("""
-O  0.0000   0.000   0.116
-H  0.0000   0.749  -0.453
-H  0.0000  -0.749  -0.453
+C  0.00000000 0.00000000 0.00000000
+O  0.00000000 0.00000000 1.34860000
+O  1.00767985 0.00000000 -0.65619172
+H  0.92243039 0.00000000 1.63239603
+C -1.41203055 0.00000000 -0.54650576
+N -1.51819222 0.00000000 -1.98459258
+H -1.92097701 0.87155833 -0.13352898
+H -1.92097701 -0.87155833 -0.13352898
+H -1.05352765 0.80858071 -2.37472446
+H -1.05352765 -0.80858071 -2.37472446
   symmetry c1
 """)
 
@@ -36,7 +43,7 @@ p.ipnof = 7
 p.gradient = "analytical"
 #p.gradient = "numerical"
 p.optimizer = "Newton-CG"
-p.RI = False
+p.RI = True
 p.gpu = True
 p.jit = True
 
@@ -48,7 +55,7 @@ p.autozeros()
 
 t1 = time()
 E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
-#p.RI = False
-#E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,nofmp2=True)
+p.RI = False
+E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
