@@ -27,7 +27,7 @@ H  0.0000  -0.749  -0.453
   symmetry c1
 """)
 
-psi4.set_options({'basis': 'aug-cc-pVTZ'}),
+psi4.set_options({'basis': 'cc-pVDZ'}),
 
 # Parametros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
@@ -36,19 +36,19 @@ p.ipnof = 7
 p.gradient = "analytical"
 #p.gradient = "numerical"
 p.optimizer = "Newton-CG"
-p.RI = True 
+p.RI = False
 p.gpu = True
 p.jit = True
 
 #C,gamma,fmiug0 = guess.read_all()
-p.ista=1
-p.set_ncwo(1)
+#p.ista=1
+#p.set_ncwo(3)
 p.autozeros()
 
 
 t1 = time()
 E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
-p.RI = False
-E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,nofmp2=True)
+#p.RI = False
+#E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,nofmp2=True)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
