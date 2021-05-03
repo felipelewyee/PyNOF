@@ -64,7 +64,7 @@ def der_CJCKD5(n,gamma,dn_dgamma,p):
     return Dcj12r,Dck12r
 
 #CJCKD7
-@jit
+@njit
 def CJCKD7(n,ista,no1,ndoc,nalpha,ndns,ncwo):
 
     if(ista==0):

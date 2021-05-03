@@ -1,6 +1,7 @@
 import numpy as np
 import integrals
 from numba import prange,njit,jit
+from time import time
 
 def computeF(J,K,n,H,cj12,ck12,p):
 

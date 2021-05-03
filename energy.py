@@ -50,18 +50,18 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print("")
         print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
     for i_ext in range(p.maxit):
-        #t1 = time()
+        t1 = time()
         #orboptr
         convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = minimization.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
-        #t2 = time()
+        t2 = time()
 
         #occopt
         gamma,n,cj12,ck12 = minimization.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
-        #t3 = time()
+        t3 = time()
 
         if(convgdelag):
             break
-        #print(t2-t1,t3-t2)
+        print(t2-t1,t3-t2)
 
     np.save("C.npy",C)
     np.save("gamma.npy",gamma)
@@ -89,7 +89,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
 
     E_t = E_nuc + E_old
 
-    postpnof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
+    #postpnof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
 
     return E_t,C,gamma,fmiug0
 

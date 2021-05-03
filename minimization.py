@@ -80,25 +80,6 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
     n,dR = pnof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
     cj12,ck12 = pnof.PNOFi_selector(n,p)
 
-    #if (firstcall):
-    #    elag_diag = np.zeros((p.nbf))
-
-        # RO (H_core + J)
-    #    elag_diag[:p.nbeta] = np.einsum('i,i->i',n[:p.nbeta],H_core[:p.nbeta]+np.diagonal(J_MO)[:p.nbeta])
-    #    elag_diag[p.nbeta:p.nalpha] = np.einsum('i,i->i',n[p.nbeta:p.nalpha],H_core[p.nbeta:p.nalpha])
-    #    elag_diag[p.nalpha:p.nbf5] = np.einsum('i,i->i',n[p.nalpha:p.nbf5],H_core[p.nalpha:p.nbf5]+np.diagonal(J_MO)[p.nalpha:p.nbf5])
-
-        # CJ12 J_MO
-    #    elag_diag[:p.nbf5] += np.einsum('ij,ji->i',cj12,J_MO)
-    #    elag_diag[:p.nbf5] -= np.einsum('ii,ii->i',cj12,J_MO)
-
-        # CK12 K_MO
-    #    elag_diag[:p.nbf5] -= np.einsum('ij,ji->i',ck12,K_MO)
-    #    elag_diag[:p.nbf5] += np.einsum('ii,ii->i',ck12,K_MO)
-
-    #    for i in range(p.nbf):
-    #        elag[i][i] = elag_diag[i]
-
     return gamma,n,cj12,ck12
 
 def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
@@ -139,7 +120,7 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
     for i_int in range(maxlp):
         iloop = iloop + 1
         E_old2 = E
-
+        
         #scaling
         if(p.scaling):
             fmiug = utils.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p.nbf,p.noptorb)
@@ -161,5 +142,6 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
             if(printmode):
                 print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff))
             break
+
     return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
