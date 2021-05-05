@@ -35,12 +35,13 @@ wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = 7
 p.gradient = "analytical"
-p.gradient = "numerical"
+#p.gradient = "numerical"
 p.optimizer = "CG"
 p.RI = False#True
 p.gpu = True
 p.jit = True
-
+p.HighSpin = True
+p.MSpin = p.nsoc
 #C,gamma,fmiug0 = guess.read_all()
 #p.ista=1
 #p.set_ncwo(3)

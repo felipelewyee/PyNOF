@@ -3,7 +3,7 @@ import integrals
 from numba import prange,njit,jit
 from time import time
 
-def computeF(J,K,n,H,cj12,ck12,p):
+def computeF_RC(J,K,n,H,cj12,ck12,p):
 
     # Matriz de Fock Generalizada
     F = np.zeros((p.nbf5,p.nbf,p.nbf))
@@ -20,14 +20,63 @@ def computeF(J,K,n,H,cj12,ck12,p):
     F[p.nalpha:p.nbf5,:,:] += np.einsum('i,imn->imn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:],optimize=True)  # i = [nalpha,nbf5]
 
     # C^J J
+    np.fill_diagonal(cj12[ini:,ini:],0) # Remove diag.
     F += np.einsum('ij,jmn->imn',cj12,J,optimize=True)                                                # i = [1,nbf5]
-    F[ini:p.nbf5,:,:] -= np.einsum('ii,imn->imn',cj12[ini:p.nbf5,ini:p.nbf5],J[ini:p.nbf5,:,:],optimize=True) # quita i==j
+    #F[ini:p.nbf5,:,:] -= np.einsum('ii,imn->imn',cj12[ini:p.nbf5,ini:p.nbf5],J[ini:p.nbf5,:,:],optimize=True) # quita i==j
 
     # -C^K K
+    np.fill_diagonal(ck12[ini:,ini:],0) # Remove diag.
     F -= np.einsum('ij,jmn->imn',ck12,K,optimize=True)                                                # i = [1,nbf5]
-    F[ini:p.nbf5,:,:] += np.einsum('ii,imn->imn',ck12[ini:p.nbf5,ini:p.nbf5],K[ini:p.nbf5,:,:],optimize=True) # quita i==j
+    #F[ini:p.nbf5,:,:] += np.einsum('ii,imn->imn',ck12[ini:p.nbf5,ini:p.nbf5],K[ini:p.nbf5,:,:],optimize=True) # quita i==j
 
     return F
+
+def computeF_RO(J,K,n,H,cj12,ck12,p):
+
+    # Matriz de Fock Generalizada
+    F = np.zeros((p.nbf5,p.nbf,p.nbf))
+
+    ini = 0
+    if(p.no1>1):
+        ini = p.no1
+
+    # nH
+    F[:p.nbeta,:,:] += np.einsum('i,mn->imn',n[:p.nbeta],H,optimize=True)                      # i = [1,nbf5]
+    F[p.nbeta:p.nalpha,:,:] += 0.5*H                                                           # i = [nbeta,nalpha]
+    F[p.nalpha:p.nbf5,:,:] += np.einsum('i,mn->imn',n[p.nalpha:p.nbf5],H,optimize=True)        # i = [nalpha,nbf5]
+
+    # nJ
+    F[ini:p.nbeta,:,:] += np.einsum('i,imn->imn',n[ini:p.nbeta],J[ini:p.nbeta,:,:],optimize=True)        # i = [ini,nbeta]
+    F[p.nalpha:p.nbf5,:,:] += np.einsum('i,imn->imn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:],optimize=True)  # i = [nalpha,nbf5]
+
+    # C^J J
+    np.fill_diagonal(cj12[ini:,ini:],0) # Remove diag.
+    F[:p.nbeta,:,:] += np.einsum('ij,jmn->imn',cj12[:p.nbeta,:p.nbeta],J[:p.nbeta,:,:],optimize=True)                               # i = [1,nbeta]
+    F[:p.nbeta,:,:] += np.einsum('ij,jmn->imn',cj12[:p.nbeta,p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:],optimize=True)                               # i = [1,nbeta]
+    F[p.nalpha:p.nbf5,:,:] += np.einsum('ij,jmn->imn',cj12[p.nalpha:p.nbf5,:p.nbeta],J[:p.nbeta,:,:],optimize=True)                                      # i = [nalpha,nbf5]
+    F[p.nalpha:p.nbf5,:,:] += np.einsum('ij,jmn->imn',cj12[p.nalpha:p.nbf5,p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:],optimize=True)                                      # i = [nalpha,nbf5]
+    #F[ini:p.nbf5,:,:] -= np.einsum('ii,imn->imn',cj12[ini:p.nbf5,ini:p.nbf5],J[ini:p.nbf5,:,:],optimize=True) # quita i==j
+
+    # -C^K K
+    np.fill_diagonal(ck12[ini:,ini:],0) # Remove diag.
+    F[:p.nbeta,:,:] -= np.einsum('ij,jmn->imn',ck12[:p.nbeta,:p.nbeta],K[:p.nbeta,:,:],optimize=True)                                                # i = [1,nbeta]
+    F[:p.nbeta,:,:] -= np.einsum('ij,jmn->imn',ck12[:p.nbeta,p.nalpha:p.nbf5],K[p.nalpha:p.nbf5,:,:],optimize=True)                                                # i = [1,nbeta]
+    F[p.nalpha:p.nbf5,:,:] -= np.einsum('ij,jmn->imn',ck12[p.nalpha:p.nbf5,:p.nbeta],K[:p.nbeta,:,:],optimize=True)                                      # i = [nalpha,nbf5]
+    F[p.nalpha:p.nbf5,:,:] -= np.einsum('ij,jmn->imn',ck12[p.nalpha:p.nbf5,p.nalpha:p.nbf5],K[p.nalpha:p.nbf5,:,:],optimize=True)                                      # i = [nalpha,nbf5]
+    #F[ini:p.nbf5,:,:] += np.einsum('ii,imn->imn',ck12[ini:p.nbf5,ini:p.nbf5],K[ini:p.nbf5,:,:],optimize=True) # quita i==j
+
+    # SUMij
+    F[:p.nbeta,:,:] += np.einsum('i,jmn->imn',n[:p.nbeta],J[p.nbeta:p.nalpha,:,:]-0.5*K[p.nbeta:p.nalpha,:,:])
+    F[p.nbeta:p.nalpha,:,:] += 0.5*np.einsum('jmn->mn',J[p.nbeta:p.nalpha,:,:]-K[p.nbeta:p.nalpha,:,:])
+    F[p.nbeta:p.nalpha,:,:] -= 0.5*(J[p.nbeta:p.nalpha,:,:]-K[p.nbeta:p.nalpha,:,:]) #Remove diag.
+    F[p.nalpha:p.nbf5,:,:] += np.einsum('i,jmn->imn',n[p.nalpha:p.nbf5],J[p.nbeta:p.nalpha,:,:]-0.5*K[p.nbeta:p.nalpha,:,:])
+    
+    # PRODWROij
+    F[p.nbeta:p.nalpha,:,:] += np.einsum('j,jmn->mn',n[:p.nbeta],J[:p.nbeta,:,:]) - 0.5*np.einsum('j,jmn->mn',n[:p.nbeta],K[:p.nbeta,:,:])
+    F[p.nbeta:p.nalpha,:,:] += np.einsum('j,jmn->mn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:]) - 0.5*np.einsum('j,jmn->mn',n[p.nalpha:p.nbf5],K[p.nalpha:p.nbf5,:,:])
+
+    return F
+
 
 def computeLagrange(F,C,p):
 
@@ -69,7 +118,10 @@ def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
     J,K = integrals.computeJKj(C,I,b_mnl,p)
 
-    F = computeF(J,K,n,H,cj12,ck12,p)
+    if(p.MSpin==0):
+        F = computeF_RC(J,K,n,H,cj12,ck12,p)
+    elif(not p.MSpin==0):
+        F = computeF_RO(J,K,n,H,cj12,ck12,p)
 
     elag = computeLagrange(F,C,p)
 
