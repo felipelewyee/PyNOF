@@ -65,7 +65,7 @@ def der_CJCKD5(n,gamma,dn_dgamma,p):
 
 #CJCKD7
 @njit
-def CJCKD7(n,ista,no1,ndoc,nalpha,ndns,ncwo):
+def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     if(ista==0):
         fi = n*(1-n)
@@ -82,6 +82,9 @@ def CJCKD7(n,ista,no1,ndoc,nalpha,ndns,ncwo):
     ck12 = np.outer(n,n) + np.outer(fi,fi)
     
     # Intrapair Electron Correlation
+
+    if(MSpin==0 and nsoc>1):
+        ck12[nbeta:nalpha,nbeta:nalpha] = 2*np.outer(n[nbeta:nalpha],n[nbeta:nalpha])
 
     for l in range(ndoc):            
         ldx = no1 + l
@@ -168,7 +171,7 @@ def PNOFi_selector(n,p):
     if(p.ipnof==5):
         cj12,ck12 = CJCKD5(n,p)
     if(p.ipnof==7):
-        cj12,ck12 = CJCKD7(n,p.ista,p.no1,p.ndoc,p.nalpha,p.ndns,p.ncwo)
+        cj12,ck12 = CJCKD7(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
         
     return cj12,ck12
 
@@ -181,7 +184,7 @@ def der_PNOFi_selector(n,dn_dgamma,p):
     return Dcj12r,Dck12r
 
 @njit
-def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
+def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     n = np.zeros((nbf5))
     dni_dgammai = np.zeros((nbf5))
@@ -191,6 +194,12 @@ def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
     n[no1:no1+ndoc] = 1/2 * (1 + np.cos(gamma[:ndoc])**2)     # (no1,no1+ndoc]
     dni_dgammai[no1:no1+ndoc] = - 1/2 * np.sin(2*gamma[:ndoc])
     
+    if(not HighSpin):
+        n[no1+ndoc:no1+ndns] = 0.5   # (no1+ndoc,no1+ndns]
+    elif(HighSpin):
+        n[no1+ndoc:no1+ndns] = 1.0   # (no1+ndoc,no1+ndns]
+
+
     if(ncwo==1):
         dn_dgamma = np.zeros((nbf5,nv))
 
@@ -249,7 +258,7 @@ def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
 
 def calce(gamma,J_MO,K_MO,H_core,p):
 
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = PNOFi_selector(n,p)
 
     E = 0
@@ -273,7 +282,7 @@ def calcg(gamma,J_MO,K_MO,H_core,p):
 
     grad = np.zeros((p.nv))
 
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     Dcj12r,Dck12r = der_PNOFi_selector(n,dn_dgamma,p)
 
     # dn_dgamma (2H+J)

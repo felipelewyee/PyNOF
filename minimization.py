@@ -16,6 +16,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     cj12 = 2*np.einsum('i,j->ij',n,n)
     ck12 = np.einsum('i,j->ij',n,n)
+    ck12[p.nbeta:p.nalpha,p.nbeta:p.nalpha] = 2*np.einsum('i,j->ij',n[p.nbeta:p.nalpha],n[p.nbeta:p.nalpha])
 
     if(printmode):
         print("Hartree-Fock")
@@ -77,7 +78,7 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
         elif(p.gradient=="numerical"):
             res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.optimizer)
         gamma = res.x
-    n,dR = pnof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
+    n,dR = pnof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = pnof.PNOFi_selector(n,p)
 
     return gamma,n,cj12,ck12

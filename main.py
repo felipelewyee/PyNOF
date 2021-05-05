@@ -22,6 +22,7 @@ import projection
 psi4.set_memory('4 GB')
 
 mol = psi4.geometry("""
+0 3
 O  0.0000   0.000   0.116
 H  0.0000   0.749  -0.453
 H  0.0000  -0.749  -0.453
@@ -34,7 +35,8 @@ psi4.set_options({'basis': 'def2-TZVPD'})
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = 7
-p.gradient = "analytical"
+#p.gradient = "analytical"
+p.gradient = "numerical"
 p.optimizer = "Newton-CG"
 p.RI = False#True 
 p.gpu = True

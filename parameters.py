@@ -88,6 +88,9 @@ class param():
         self.RI = False
         self.jit= False
 
+        self.HighSpin = False
+        self.MSpin = 0
+
     def autozeros(self,restart=False):
         if(restart):
             self.nzeros = abs(int(np.log10(self.threshl))) - 1
