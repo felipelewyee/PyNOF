@@ -501,7 +501,7 @@ def compute_iajb(C,I,b_mnl,p):
 
 def iajb_Full_jit(C,I,no1,nalpha,nbf,nbf5):
 
-    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,no1:nalpha],C[:,nalpha:nbf],I_cpu,C[:,no1:nalpha],C[:,nalpha:nbf],optimize=True)
+    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,no1:nalpha],C[:,nalpha:nbf],I,C[:,no1:nalpha],C[:,nalpha:nbf],optimize=True)
 
     return iajb
 
