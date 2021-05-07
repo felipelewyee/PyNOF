@@ -495,11 +495,11 @@ def compute_iajb(C,I,b_mnl,p):
     if(p.gpu):
         iajb = iajb_Full_GPU(C,I,p)
     else:
-        iajb = iajb_Full_jit(C,I,p.nalpha,p.nbf,p.nbf5)
+        iajb = iajb_Full_jit(C,I,p.no1,p.nalpha,p.nbf,p.nbf5)
 
     return iajb
 
-def iajb_Full_jit(C,I,nalpha,nbf,nbf5):
+def iajb_Full_jit(C,I,no1,nalpha,nbf,nbf5):
 
     iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,no1:nalpha],C[:,nalpha:nbf],I_cpu,C[:,no1:nalpha],C[:,nalpha:nbf],optimize=True)
 
