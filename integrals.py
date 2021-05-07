@@ -391,7 +391,7 @@ def computeJK_HF(C,I,b_mnl,p):
 #        if(p.RI):
 #            J,K = JKj_RI_jit(C,b_mnl,p.nbf,p.nbf5,p.nbfaux)
 #        else:
-        D,J,K = JK_HF_Full_jit(C,I,p.nbf,p.nbf5)
+        D,J,K = JK_HF_Full_jit(C,I,p.nbeta,p.nbf,p.nbf5)
 
     return D,J,K
 
@@ -435,24 +435,79 @@ def JK_HF_Full_GPU(C,I,p):
     
     return D.get(),J.get(),K.get()
 
+def computeJKalpha_HF(C,I,b_mnl,p):
+
+    if(p.gpu):
+#        if(p.RI):
+#            J,K = JKj_RI_GPU(C,b_mnl,p)
+#        else:
+        D,J,K = JKalpha_HF_Full_GPU(C,I,p)
+    else:
+#        if(p.RI):
+#            J,K = JKj_RI_jit(C,b_mnl,p.nbf,p.nbf5,p.nbfaux)
+#        else:
+        D,J,K = JKalpha_HF_Full_jit(C,I,p.nbeta,p.nalpha,p.nbf,p.nbf5)
+
+    return D,J,K
+
+@njit(parallel=True)
+def JKalpha_HF_Full_jit(C,I,nbeta,nalpha,nbf,nbf5):
+
+    #denmatj
+    D = np.zeros((nbf,nbf))
+    for mu in prange(nbf):
+        for nu in prange(mu+1):
+            for i in prange(nbeta,nalpha):
+                D[mu][nu] += C[mu][i]*C[nu][i]
+            D[nu][mu] = D[mu][nu]
+
+    #hstarj
+    J = np.zeros((nbf,nbf))
+    for m in prange(nbf):
+        for n in prange(m+1):
+            for s in range(nbf):
+                for l in range(nbf):
+                    J[m][n] += D[s][l]*I[m][n][s][l]
+            J[n][m] = J[m][n]
+
+    #hstark
+    K = np.zeros((nbf,nbf))
+    for m in prange(nbf):
+        for s in prange(m+1):
+            for n in range(nbf):
+                for l in range(nbf):
+                    K[m][s] += D[n][l]*I[m][n][s][l]
+            K[s][m] = K[m][s]
+
+    return D,J,K
+
+def JKalpha_HF_Full_GPU(C,I,p):
+
+    #denmatj
+    D = cp.einsum("mj,nj->mn",C[:,p.nbeta:p.nalpha],C[:,p.nbeta:p.nalpha],optimize=True)
+    J = cp.einsum("ls,mnsl->mn",D,I,optimize=True)
+    K = cp.einsum("nl,mnsl->ms",D,I,optimize=True)
+
+    return D.get(),J.get(),K.get()
+
 def compute_iajb(C,I,b_mnl,p):
 
     if(p.gpu):
         iajb = iajb_Full_GPU(C,I,p)
     else:
-        iajb = iajb_Full_jit(C,I,p.nbeta,p.nbf,p.nbf5)
+        iajb = iajb_Full_jit(C,I,p.nalpha,p.nbf,p.nbf5)
 
     return iajb
 
 def iajb_Full_jit(C,I,nbeta,nbf,nbf5):
 
-    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I_cpu,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],optimize=True)
+    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],I_cpu,C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],optimize=True)
 
     return iajb
 
 def iajb_Full_GPU(C,I,p):
 
-    iajb = cp.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],I,C[:,p.no1:p.nbeta],C[:,p.nbeta:p.nbf],optimize=True)
+    iajb = cp.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],I,C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],optimize=True)
 
     return iajb.get()
 

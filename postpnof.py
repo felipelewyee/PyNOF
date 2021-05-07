@@ -17,9 +17,24 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     vec = C[:,p.no1:p.nbf]
 
     D,J,K = integrals.computeJK_HF(C,I,b_mnl,p)
-    F = H + 2*J - K
+    if(p.MSpin==0):
+        if(p.nsoc>0):
+            Dalpha,Jalpha,Kalpha = integrals.computeJKalpha_HF(C,I,b_mnl,p)
+            D = D + Dalpha
+            J = J + Jalpha
+            K = K + Kalpha
+        F = H + 2*J - K
+        EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
+    elif(not p.MSpin==0):
+        Dalpha,Jalpha,Kalpha = integrals.computeJKalpha_HF(C,I,b_mnl,p)
+        F = 2*J - K
+        EHFL = 2*np.trace(np.matmul(D+Dalpha,H)+np.matmul(D+2*Dalpha,F))
+        F = H + F
+        if(p.nsoc>1):
+            Falpha = J - K
+            EHFL = EHFL + 2*np.trace(np.matmul(Dalpha,Falpha))
+            F = F + Falpha
 
-    EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
     F_MO = np.matmul(np.matmul(np.transpose(vec),F),vec)
 
     eig = np.einsum("ii->i",F_MO[:p.nbf-p.no1,:p.nbf-p.no1])
@@ -30,7 +45,7 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
     FI1[:p.nbf5-p.no1] = 1 - (1 - abs(1-2*occ[:p.nbf5-p.no1]))**2
 
-    FI2[p.nbeta-p.no1:p.nbf5-p.no1] = abs(1-2*occ[p.nbeta-p.no1:p.nbf5-p.no1])**2
+    FI2[p.nalpha-p.no1:p.nbf5-p.no1] = abs(1-2*occ[p.nalpha-p.no1:p.nbf5-p.no1])**2
 
     Tijab = CalTijab(iajb,F_MO,eig,FI1,FI2,p)
     
@@ -74,14 +89,14 @@ def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
 
     print("")
 
-    A,IROW,ICOL = build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.nvir,p.ncwo,p.nbf)
+    A,IROW,ICOL = build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf)
     A_CSR = csr_matrix((A, (IROW.astype(int), ICOL.astype(int))))
     print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
 
-    B = build_B(iajb,FI1,FI2,p.ndoc,p.nvir,p.ncwo)
+    B = build_B(iajb,FI1,FI2,p.ndoc,p.ndns,p.nvir,p.ncwo)
     print("B vector Computed")
     
-    Tijab = Tijab_guess(iajb,eig,p.ndoc,p.nvir)
+    Tijab = Tijab_guess(iajb,eig,p.ndoc,p.ndns,p.nvir)
     print("Tijab Guess Computed")
     Tijab = solve_Tijab(A_CSR,B,Tijab,p)
     print("Tijab Computed")
@@ -91,7 +106,7 @@ def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
     return Tijab
 
 @njit
-def build_A(F_MO,FI1,FI2,no1,ndoc,nvir,ncwo,nbf):
+def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
     npair = np.zeros((nvir))
     for i in range(ndoc):
         ll = ncwo*(ndoc - i - 1)
@@ -105,16 +120,16 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,nvir,ncwo,nbf):
     nnz = -1
     for ib in range(nvir):
         for ia in range(nvir):
-            for j in range(ndoc):
-                for i in range(ndoc):
-                    jab =     (j)*ndoc + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
-                    iab = i              + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
-                    ijb = i + (j)*ndoc                      + (ib)*ndoc*ndoc*nvir
-                    ija = i + (j)*ndoc + (ia)*ndoc*ndoc
-                    ijab= i + (j)*ndoc + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
+            for j in range(ndns):
+                for i in range(ndns):
+                    jab =     (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
+                    iab = i            + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
+                    ijb = i + (j)*ndns                  + (ib)*ndns*ndns*nvir
+                    ija = i + (j)*ndns + (ia)*ndns*ndns
+                    ijab= i + (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
 
                     nnz = nnz + 1
-                    A.append(F_MO[ia+ndoc,ia+ndoc] + F_MO[ib+ndoc,ib+ndoc] - F_MO[i,i] - F_MO[j,j])
+                    A.append(F_MO[ia+ndns,ia+ndns] + F_MO[ib+ndns,ib+ndns] - F_MO[i,i] - F_MO[j,j])
                     IROW.append(ijab)
                     ICOL.append(i + jab)
 
@@ -135,38 +150,38 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,nvir,ncwo,nbf):
                             Ckj = FI2[k]*FI2[j]
                             A.append(- Ckj*F_MO[j,k])
                             IROW.append(ijab)
-                            ICOL.append(k*ndoc + iab)
+                            ICOL.append(k*ndns + iab)
                             A.append(- Ckj*F_MO[j,k])
                             ICOL.append(ijab)
-                            IROW.append(k*ndoc + iab)
+                            IROW.append(k*ndns + iab)
 
                     for k in range(ia):
-                        if(abs(F_MO[ia+ndoc,k+ndoc])>1e-10):
+                        if(abs(F_MO[ia+ndns,k+ndns])>1e-10):
                             nnz += 1
                             if(npair[k]==npair[ia]):
-                                Ckia = FI1[k+ndoc]*FI1[ia+ndoc]
+                                Ckia = FI1[k+ndns]*FI1[ia+ndns]
                             else:
-                                Ckia = FI2[k+ndoc]*FI2[ia+ndoc]
-                            A.append(Ckia*F_MO[ia+ndoc,k+ndoc])
+                                Ckia = FI2[k+ndns]*FI2[ia+ndns]
+                            A.append(Ckia*F_MO[ia+ndns,k+ndns])
                             IROW.append(ijab)
-                            ICOL.append(k*ndoc*ndoc + ijb)
-                            A.append(Ckia*F_MO[ia+ndoc,k+ndoc])
+                            ICOL.append(k*ndns*ndns + ijb)
+                            A.append(Ckia*F_MO[ia+ndns,k+ndns])
                             ICOL.append(ijab)
-                            IROW.append(k*ndoc*ndoc + ijb)
+                            IROW.append(k*ndns*ndns + ijb)
 
                     for k in range(ib):
-                        if(abs(F_MO[ib+ndoc,k+ndoc])>1e-10):
+                        if(abs(F_MO[ib+ndns,k+ndns])>1e-10):
                             nnz += 1
                             if(npair[k]==npair[ib]):
-                                Ckib = FI1[k+ndoc]*FI1[ib+ndoc]
+                                Ckib = FI1[k+ndns]*FI1[ib+ndns]
                             else:
-                                Ckib = FI2[k+ndoc]*FI2[ib+ndoc]
-                            A.append(Ckib*F_MO[ib+ndoc,k+ndoc])
+                                Ckib = FI2[k+ndns]*FI2[ib+ndns]
+                            A.append(Ckib*F_MO[ib+ndns,k+ndns])
                             IROW.append(ijab)
-                            ICOL.append(k*ndoc*ndoc*nvir + ija)
-                            A.append(Ckib*F_MO[ib+ndoc,k+ndoc])
+                            ICOL.append(k*ndns*ndns*nvir + ija)
+                            A.append(Ckib*F_MO[ib+ndns,k+ndns])
                             ICOL.append(ijab)
-                            IROW.append(k*ndoc*ndoc*nvir + ija)
+                            IROW.append(k*ndns*ndns*nvir + ija)
     A = np.array(A)
     IROW = np.array(IROW)
     ICOL = np.array(ICOL)
@@ -174,45 +189,45 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,nvir,ncwo,nbf):
     return A,IROW,ICOL
 
 @njit
-def build_B(iajb,FI1,FI2,ndoc,nvir,ncwo):
-    B = np.zeros((ndoc**2*nvir**2))
-    for i in range(ndoc):
-        lmin_i = ndoc+ncwo*(ndoc-i-1)
-        lmax_i = ndoc+ncwo*(ndoc-i-1)+ncwo
-        for j in range(ndoc):
+def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
+    B = np.zeros((ndns**2*nvir**2))
+    for i in range(ndns):
+        lmin_i = ndoc+ncwo*(ndns-i-1)
+        lmax_i = ndoc+ncwo*(ndns-i-1)+ncwo
+        for j in range(ndns):
             if(i==j):
                 for k in range(nvir):
-                    ik = i + k*ndoc
-                    kn = k + ndoc
+                    ik = i + k*ndns
+                    kn = k + ndns
                     for l in range(nvir):
-                        ln = l + ndoc
+                        ln = l + ndns
                         if(lmin_i <= kn and kn <= lmax_i and lmin_i <= ln and ln <= lmax_i):
                             Ciikl = FI1[kn]*FI1[ln]*FI1[i]*FI1[i]
                         else:
                             Ciikl = FI2[kn]*FI2[ln]*FI2[i]*FI2[i]
-                        iikl =  i + i*ndoc + k*ndoc*ndoc + l*ndoc*ndoc*nvir
+                        iikl =  i + i*ndns + k*ndns*ndns + l*ndns*ndns*nvir
                         B[iikl] = - Ciikl*iajb[i,k,i,l]
             else:
                 for k in range(nvir):
-                    ik = i + k*ndoc
-                    kn = k + ndoc
+                    ik = i + k*ndns
+                    kn = k + ndns
                     for l in range(nvir):
                         ln = l + ndoc
-                        ijkl =  i + j*ndoc + k*ndoc*ndoc + l*ndoc*ndoc*nvir
+                        ijkl =  i + j*ndns + k*ndns*ndns + l*ndns*ndns*nvir
                         Cijkl = FI2[kn]*FI2[ln]*FI2[i]*FI2[j]
                         B[ijkl] = - Cijkl*iajb[j,k,i,l]
 
     return B
 
 @njit
-def Tijab_guess(iajb,eig,ndoc,nvir):
-    Tijab = np.zeros(nvir**2*ndoc**2)
+def Tijab_guess(iajb,eig,ndoc,ndns,nvir):
+    Tijab = np.zeros(nvir**2*ndns**2)
     for ia in range(nvir):
-        for i in range(ndoc):
+        for i in range(ndns):
             for ib in range(nvir):
-                for j in range(ndoc):
-                    ijab = i + (j)*ndoc + (ia)*ndoc*ndoc + (ib)*ndoc*ndoc*nvir
-                    Eijab = eig[ib+ndoc] + eig[ia+ndoc] - eig[j] - eig[i]
+                for j in range(ndns):
+                    ijab = i + (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
+                    Eijab = eig[ib+ndns] + eig[ia+ndns] - eig[j] - eig[i]
                     Tijab[ijab] = - iajb[j,ia,i,ib]/Eijab
     return Tijab 
 

@@ -58,7 +58,7 @@ class param():
         self.nbf5 = no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
         self.no0 = self.nbf - self.nbf5
    
-        self.maxit = 1000  # Número máximo de iteraciones de Occ-SCF
+        self.maxit = 10000  # Número máximo de iteraciones de Occ-SCF
         self.no1 = no1     # Número de orbitales inactivos con ocupación 1
         self.thresheid = 10**-6#8 # Convergencia de la energía total
         self.maxitid = 30  # Número máximo de iteraciones externas en HF
