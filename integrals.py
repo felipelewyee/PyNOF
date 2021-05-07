@@ -499,9 +499,9 @@ def compute_iajb(C,I,b_mnl,p):
 
     return iajb
 
-def iajb_Full_jit(C,I,nbeta,nbf,nbf5):
+def iajb_Full_jit(C,I,nalpha,nbf,nbf5):
 
-    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],I_cpu,C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],optimize=True)
+    iajb = np.einsum('mi,na,mnsl,sj,lb->iajb',C[:,no1:nalpha],C[:,nalpha:nbf],I_cpu,C[:,no1:nalpha],C[:,nalpha:nbf],optimize=True)
 
     return iajb
 
