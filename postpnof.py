@@ -113,9 +113,9 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
         ul = ncwo*(ndoc - i)
         npair[ll:ul] = i + 1
 
-    A = []
-    IROW = []
-    ICOL = []
+    A = np.zeros((2*ndns**2*nvir**2*(nbf-no1)))
+    IROW = np.zeros((2*ndns**2*nvir**2*(nbf-no1)))
+    ICOL = np.zeros((2*ndns**2*nvir**2*(nbf-no1)))
 
     nnz = -1
     for ib in range(nvir):
@@ -129,64 +129,65 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
                     ijab= i + (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
 
                     nnz = nnz + 1
-                    A.append(F_MO[ia+ndns,ia+ndns] + F_MO[ib+ndns,ib+ndns] - F_MO[i,i] - F_MO[j,j])
-                    IROW.append(ijab)
-                    ICOL.append(i + jab)
+                    A[nnz] = (F_MO[ia+ndns,ia+ndns] + F_MO[ib+ndns,ib+ndns] - F_MO[i,i] - F_MO[j,j])
+                    IROW[nnz] = (ijab)
+                    ICOL[nnz] = (i + jab)
 
                     for k in range(i):
                         if(abs(F_MO[i,k])>1e-10):
-                            nnz += 1
                             Cki = FI2[k]*FI2[i]
-                            A.append(- Cki*F_MO[i,k])
-                            IROW.append(ijab)
-                            ICOL.append(k + jab)
-                            A.append(- Cki*F_MO[i,k])
-                            ICOL.append(ijab)
-                            IROW.append(k + jab)
+                            nnz += 1
+                            A[nnz]=(- Cki*F_MO[i,k])
+                            IROW[nnz]=(ijab)
+                            ICOL[nnz]=(k + jab)
+                            nnz += 1
+                            A[nnz]=(- Cki*F_MO[i,k])
+                            ICOL[nnz]=(ijab)
+                            IROW[nnz]=(k + jab)
 
                     for k in range(j):
                         if(abs(F_MO[j,k])>1e-10):
-                            nnz += 1
                             Ckj = FI2[k]*FI2[j]
-                            A.append(- Ckj*F_MO[j,k])
-                            IROW.append(ijab)
-                            ICOL.append(k*ndns + iab)
-                            A.append(- Ckj*F_MO[j,k])
-                            ICOL.append(ijab)
-                            IROW.append(k*ndns + iab)
+                            nnz += 1
+                            A[nnz]=(- Ckj*F_MO[j,k])
+                            IROW[nnz]=(ijab)
+                            ICOL[nnz]=(k*ndns + iab)
+                            nnz += 1
+                            A[nnz]=(- Ckj*F_MO[j,k])
+                            ICOL[nnz]=(ijab)
+                            IROW[nnz]=(k*ndns + iab)
 
                     for k in range(ia):
                         if(abs(F_MO[ia+ndns,k+ndns])>1e-10):
-                            nnz += 1
                             if(npair[k]==npair[ia]):
                                 Ckia = FI1[k+ndns]*FI1[ia+ndns]
                             else:
                                 Ckia = FI2[k+ndns]*FI2[ia+ndns]
-                            A.append(Ckia*F_MO[ia+ndns,k+ndns])
-                            IROW.append(ijab)
-                            ICOL.append(k*ndns*ndns + ijb)
-                            A.append(Ckia*F_MO[ia+ndns,k+ndns])
-                            ICOL.append(ijab)
-                            IROW.append(k*ndns*ndns + ijb)
+                            nnz += 1
+                            A[nnz]=(Ckia*F_MO[ia+ndns,k+ndns])
+                            IROW[nnz]=(ijab)
+                            ICOL[nnz]=(k*ndns*ndns + ijb)
+                            nnz += 1
+                            A[nnz]=(Ckia*F_MO[ia+ndns,k+ndns])
+                            ICOL[nnz]=(ijab)
+                            IROW[nnz]=(k*ndns*ndns + ijb)
 
                     for k in range(ib):
                         if(abs(F_MO[ib+ndns,k+ndns])>1e-10):
-                            nnz += 1
                             if(npair[k]==npair[ib]):
                                 Ckib = FI1[k+ndns]*FI1[ib+ndns]
                             else:
                                 Ckib = FI2[k+ndns]*FI2[ib+ndns]
-                            A.append(Ckib*F_MO[ib+ndns,k+ndns])
-                            IROW.append(ijab)
-                            ICOL.append(k*ndns*ndns*nvir + ija)
-                            A.append(Ckib*F_MO[ib+ndns,k+ndns])
-                            ICOL.append(ijab)
-                            IROW.append(k*ndns*ndns*nvir + ija)
-    A = np.array(A)
-    IROW = np.array(IROW)
-    ICOL = np.array(ICOL)
+                            nnz += 1
+                            A[nnz]=(Ckib*F_MO[ib+ndns,k+ndns])
+                            IROW[nnz]=(ijab)
+                            ICOL[nnz]=(k*ndns*ndns*nvir + ija)
+                            nnz += 1
+                            A[nnz]=(Ckib*F_MO[ib+ndns,k+ndns])
+                            ICOL[nnz]=(ijab)
+                            IROW[nnz]=(k*ndns*ndns*nvir + ija)
 
-    return A,IROW,ICOL
+    return A[:nnz+1],IROW[:nnz+1],ICOL[:nnz+1]
 
 @njit
 def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
