@@ -89,9 +89,10 @@ def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
 
     print("")
 
-    A,IROW,ICOL = build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf)
-    A_CSR = csr_matrix((A, (IROW.astype(int), ICOL.astype(int))))
-    print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
+    #A,IROW,ICOL = build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf)
+    A_CSR = csr_matrix(build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf))
+    #print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
+    print("A matrix completed")
 
     B = build_B(iajb,FI1,FI2,p.ndoc,p.ndns,p.nvir,p.ncwo)
     print("B vector Computed")
@@ -113,15 +114,16 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
         ul = ncwo*(ndoc - i)
         npair[ll:ul] = i + 1
 
-    A = np.zeros((2*ndns**2*nvir**2*(nbf-no1)))
-    IROW = np.zeros((2*ndns**2*nvir**2*(nbf-no1)))
-    ICOL = np.zeros((2*ndns**2*nvir**2*(nbf-no1)))
+    A = np.empty((2*ndns**2*nvir**2*(nbf-no1)))
+    IROW = np.empty((2*ndns**2*nvir**2*(nbf-no1)),dtype=np.int32)
+    ICOL = np.empty((2*ndns**2*nvir**2*(nbf-no1)),dtype=np.int32)
 
     nnz = -1
     for ib in range(nvir):
         for ia in range(nvir):
             for j in range(ndns):
                 for i in range(ndns):
+                    #print(nnz)
                     jab =     (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
                     iab = i            + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
                     ijb = i + (j)*ndns                  + (ib)*ndns*ndns*nvir
@@ -187,7 +189,11 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
                             ICOL[nnz]=(ijab)
                             IROW[nnz]=(k*ndns*ndns*nvir + ija)
 
-    return A[:nnz+1],IROW[:nnz+1],ICOL[:nnz+1]
+    A = A[:nnz+1]
+    IROW = IROW[:nnz+1]
+    ICOL = ICOL[:nnz+1]
+
+    return A,(IROW,ICOL)
 
 @njit
 def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
