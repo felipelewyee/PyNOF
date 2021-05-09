@@ -101,13 +101,14 @@ def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
     #print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
     #Tijab = solve_Tijab(A_CSR,B,Tijab,p)
 
-    res = root(build_R, Tijab, args=(B,F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf))
+    res = root(build_R, Tijab, args=(B,F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf),method="krylov")
     if(res.success):
         print("....Tijab found as a Root of R = B - A*Tijab in {} iterations".format(res.nit))
     else:
         print("....WARNING! Tijab NOT FOUND as a Root of R = B - A*Tijab in {} iterations".format(res.nit))
         print(res)
     Tijab = res.x
+    print("")
 
     return Tijab
 
