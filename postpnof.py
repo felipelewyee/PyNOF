@@ -1,5 +1,7 @@
 import numpy as np
+from scipy.optimize import minimize
 from scipy.sparse import csr_matrix
+from scipy.optimize import root
 from time import time
 import minimization
 import integrals
@@ -87,22 +89,25 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
 def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
 
-    print("")
-
-    #A,IROW,ICOL = build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf)
-    A_CSR = csr_matrix(build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf))
-    #print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
-    print("A matrix completed")
+    print("Starting CalTijab")
 
     B = build_B(iajb,FI1,FI2,p.ndoc,p.ndns,p.nvir,p.ncwo)
-    print("B vector Computed")
+    print("....B vector Computed")
     
     Tijab = Tijab_guess(iajb,eig,p.ndoc,p.ndns,p.nvir)
-    print("Tijab Guess Computed")
-    Tijab = solve_Tijab(A_CSR,B,Tijab,p)
-    print("Tijab Computed")
+    print("....Tijab Guess Computed")
 
-    print("")
+    #A_CSR = csr_matrix(build_A(F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf))
+    #print("A matrix has {}/{} elements with Tol = {}".format(len(A),p.nvir**4*p.ndoc**4,1e-10))
+    #Tijab = solve_Tijab(A_CSR,B,Tijab,p)
+
+    res = root(build_R, Tijab, args=(B,F_MO,FI1,FI2,p.no1,p.ndoc,p.ndns,p.nvir,p.ncwo,p.nbf))
+    if(res.success):
+        print("....Tijab found as a Root of R = B - A*Tijab in {} iterations".format(res.nit))
+    else:
+        print("....WARNING! Tijab NOT FOUND as a Root of R = B - A*Tijab in {} iterations".format(res.nit))
+        print(res)
+    Tijab = res.x
 
     return Tijab
 
@@ -194,6 +199,80 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
     ICOL = ICOL[:nnz+1]
 
     return A,(IROW,ICOL)
+
+@njit(parallel=True)
+def build_R(T,B,F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
+    npair = np.zeros((nvir))
+    for i in range(ndoc):
+        ll = ncwo*(ndoc - i - 1)
+        ul = ncwo*(ndoc - i)
+        npair[ll:ul] = i + 1
+
+    Bp = np.zeros((ndns**2*nvir**2))
+    
+    for ib in prange(nvir):
+        for ia in prange(nvir):
+            for j in prange(ndns):
+                for i in prange(ndns):
+                    jab =     (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
+                    iab = i            + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
+                    ijb = i + (j)*ndns                  + (ib)*ndns*ndns*nvir
+                    ija = i + (j)*ndns + (ia)*ndns*ndns
+                    ijab= i + (j)*ndns + (ia)*ndns*ndns + (ib)*ndns*ndns*nvir
+
+                    Bp[ijab] += (F_MO[ia+ndns,ia+ndns] + F_MO[ib+ndns,ib+ndns] - F_MO[i,i] - F_MO[j,j])*T[i+jab]
+
+                    for k in range(i):
+                        if(abs(F_MO[i,k])>1e-10):
+                            Cki = FI2[k]*FI2[i]
+                            Bp[ijab] += (- Cki*F_MO[i,k])*T[k+jab]
+                    for k in range(i+1,ndns):
+                        if(abs(F_MO[i,k])>1e-10):
+                            Cki = FI2[k]*FI2[i]
+                            Bp[ijab] += (- Cki*F_MO[i,k])*T[k+jab]
+
+                    for k in range(j):
+                        if(abs(F_MO[j,k])>1e-10):
+                            Ckj = FI2[k]*FI2[j]
+                            Bp[ijab] += (- Ckj*F_MO[j,k])*T[k*ndns+iab]
+                    for k in range(j+1,ndns):
+                        if(abs(F_MO[j,k])>1e-10):
+                            Ckj = FI2[k]*FI2[j]
+                            Bp[ijab] += (- Ckj*F_MO[j,k])*T[k*ndns+iab]
+
+                    for k in range(ia):
+                        if(abs(F_MO[ia+ndns,k+ndns])>1e-10):
+                            if(npair[k]==npair[ia]):
+                                Ckia = FI1[k+ndns]*FI1[ia+ndns]
+                            else:
+                                Ckia = FI2[k+ndns]*FI2[ia+ndns]
+                            Bp[ijab] += (Ckia*F_MO[ia+ndns,k+ndns]) * T[k*ndns*ndns + ijb] 
+                    for k in range(ia+1,nvir):
+                        if(abs(F_MO[ia+ndns,k+ndns])>1e-10):
+                            if(npair[k]==npair[ia]):
+                                Ckia = FI1[k+ndns]*FI1[ia+ndns]
+                            else:
+                                Ckia = FI2[k+ndns]*FI2[ia+ndns]
+                            Bp[ijab] += (Ckia*F_MO[ia+ndns,k+ndns]) * T[k*ndns*ndns + ijb] 
+
+                    for k in range(ib):
+                        if(abs(F_MO[ib+ndns,k+ndns])>1e-10):
+                            if(npair[k]==npair[ib]):
+                                Ckib = FI1[k+ndns]*FI1[ib+ndns]
+                            else:
+                                Ckib = FI2[k+ndns]*FI2[ib+ndns]
+                            Bp[ijab] += (Ckib*F_MO[ib+ndns,k+ndns]) * T[k*ndns*ndns*nvir + ija] 
+                    for k in range(ib+1,nvir):
+                        if(abs(F_MO[ib+ndns,k+ndns])>1e-10):
+                            if(npair[k]==npair[ib]):
+                                Ckib = FI1[k+ndns]*FI1[ib+ndns]
+                            else:
+                                Ckib = FI2[k+ndns]*FI2[ib+ndns]
+                            Bp[ijab] += (Ckib*F_MO[ib+ndns,k+ndns]) * T[k*ndns*ndns*nvir + ija] 
+
+
+    R = B-Bp
+    return R
 
 @njit
 def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
