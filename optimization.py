@@ -19,7 +19,7 @@ def optgeo(mol,wfn,p=None,gradient="analytical"):
     for symbol,xyz in zip(symbols,coord):
         print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
 
-    res = minimize(energy_optgeo, coord, args=(symbols,p,gradient), method='Nelder-Mead')
+    res = minimize(energy_optgeo, coord, args=(symbols,p,gradient), method='Powell')
 
     coord = res.x
 
@@ -52,7 +52,8 @@ def energy_optgeo(coord,symbols,p,gradient):
    
     #C,gamma,fmiug0 = guess.read_all()
 
-    p.autozeros(restart=True)
+    p.autozeros()
+    #p.autozeros(restart=True)
     
     t1 = time()
     #E_t,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,printmode=False)

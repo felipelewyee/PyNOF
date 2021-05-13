@@ -44,7 +44,7 @@ p.jit = True
 #p.MSpin = p.nsoc
 #C,gamma,fmiug0 = guess.read_all()
 #p.ista=1
-p.set_ncwo(4)
+p.set_ncwo(1)
 p.autozeros()
 
 

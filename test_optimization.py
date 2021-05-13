@@ -38,12 +38,13 @@ p.optimizer = "Newton-CG"
 p.RI = False 
 p.gpu = True
 p.jit = False
-p.threshl = 10**-4
+p.threshl = 10**-5
 p.threshe = 10**-7
 
 p.autozeros()
 
 t1 = time()
-E,C,gamma,fmiug0 = optimization.optgeo(mol,wfn,p,p.gradient)
+optimization.optgeo(mol,wfn,p,p.gradient)
+#E,C,gamma,fmiug0 = optimization.optgeo(mol,wfn,p,p.gradient)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
