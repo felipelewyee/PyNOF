@@ -57,7 +57,8 @@ class param():
         self.nac = self.ndoc * (1 + ncwo)
         self.nbf5 = no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
         self.no0 = self.nbf - self.nbf5
-   
+  
+        self.title = "pydonof"
         self.maxit = 10000  # Número máximo de iteraciones de Occ-SCF
         self.no1 = no1     # Número de orbitales inactivos con ocupación 1
         self.thresheid = 10**-6#8 # Convergencia de la energía total

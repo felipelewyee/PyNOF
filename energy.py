@@ -63,9 +63,9 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
             break
         #print(t2-t1,t3-t2)
 
-    np.save("C.npy",C)
-    np.save("gamma.npy",gamma)
-    np.save("fmiug0.npy",fmiug0)
+    np.save(p.title+"_C.npy",C)
+    np.save(p.title+"_gamma.npy",gamma)
+    np.save(p.title+"_fmiug0.npy",fmiug0)
 
     if(printmode):
         print("")
