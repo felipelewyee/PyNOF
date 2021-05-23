@@ -72,7 +72,7 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = integrals.computeJKH_MO(C,H,I,b_mnl,p)
 
-    if (not convgdelag):
+    if (not convgdelag and p.ndoc>0):
         if(p.gradient=="analytical"):
             res = minimize(pnof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pnof.calcg, method=p.optimizer)
         elif(p.gradient=="numerical"):
