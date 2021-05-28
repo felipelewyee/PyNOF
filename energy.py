@@ -6,7 +6,7 @@ import integrals
 import utils
 import postpnof
 
-def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,printmode=True):
+def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,gradients=False,printmode=True):
 
     S,T,V,H,I,b_mnl = integrals.compute_integrals(wfn,mol,p)
 
@@ -66,7 +66,7 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)
     np.save(p.title+"_fmiug0.npy",fmiug0)
-
+ 
     if(printmode):
         print("")
         print("RESULTS OF THE OCCUPATION OPTIMIZATION")
@@ -92,5 +92,8 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
     if(nofmp2):
         postpnof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
 
-    return E_t,C,gamma,fmiug0
-
+    if gradients:
+        grad = integrals.compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p)
+        return E_t,C,gamma,fmiug0,grad.flatten()
+    else:
+        return E_t,C,gamma,fmiug0
