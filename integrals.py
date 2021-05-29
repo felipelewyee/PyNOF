@@ -380,31 +380,41 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
 
 ######################################### J_mn^(j) K_mn^(j) #########################################
 
-def computeJK_HF(C,I,b_mnl,p):
+def computeD_HF(C,I,b_mnl,p):
+
+    if(p.gpu):
+        D = cp.einsum('mj,nj->mn',C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
+        return D.get()
+    else:
+        D = np.einsum('mj,nj->mn',C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
+        return D
+
+def computeDalpha_HF(C,I,b_mnl,p):
+
+    if(p.gpu):
+        D = cp.einsum('mj,nj->mn',C[:,p.nbeta:p.nalpha],C[:,p.nbeta:p.nalpha],optimize=True)
+        return D.get()
+    else:
+        D = np.einsum('mj,nj->mn',C[:,p.nbeta:p.nalpha],C[:,p.nbeta:p.nalpha],optimize=True)
+        return D
+
+def computeJK_HF(D,I,b_mnl,p):
 
     if(p.gpu):
 #        if(p.RI):
 #            J,K = JKj_RI_GPU(C,b_mnl,p)
 #        else:
-        D,J,K = JK_HF_Full_GPU(C,I,p)
+        J,K = JK_HF_Full_GPU(D,I,p)
     else:
 #        if(p.RI):
 #            J,K = JKj_RI_jit(C,b_mnl,p.nbf,p.nbf5,p.nbfaux)
 #        else:
-        D,J,K = JK_HF_Full_jit(C,I,p.nbeta,p.nbf,p.nbf5)
+        J,K = JK_HF_Full_jit(D,I,p.nbeta,p.nbf,p.nbf5)
 
-    return D,J,K
+    return J,K
 
 @njit(parallel=True)
-def JK_HF_Full_jit(C,I,nbeta,nbf,nbf5):
-
-    #denmatj
-    D = np.zeros((nbf,nbf))
-    for mu in prange(nbf):
-        for nu in prange(mu+1):
-            for i in prange(nbeta):
-                D[mu][nu] += C[mu][i]*C[nu][i]
-            D[nu][mu] = D[mu][nu]
+def JK_HF_Full_jit(D,I,nbeta,nbf,nbf5):
 
     #hstarj
     J = np.zeros((nbf,nbf))
@@ -424,16 +434,15 @@ def JK_HF_Full_jit(C,I,nbeta,nbf,nbf5):
                     K[m][s] += D[n][l]*I[m][n][s][l]
             K[s][m] = K[m][s]
 
-    return D,J,K
+    return J,K
 
-def JK_HF_Full_GPU(C,I,p):
+def JK_HF_Full_GPU(D,I,p):
 
     #denmatj
-    D = cp.einsum("mj,nj->mn",C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
     J = cp.einsum("ls,mnsl->mn",D,I,optimize=True)
     K = cp.einsum("nl,mnsl->ms",D,I,optimize=True)
     
-    return D.get(),J.get(),K.get()
+    return J.get(),K.get()
 
 def computeJKalpha_HF(C,I,b_mnl,p):
 

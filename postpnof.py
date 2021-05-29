@@ -18,23 +18,25 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     occ = n[p.no1:p.nbf5]
     vec = C[:,p.no1:p.nbf]
 
-    D,J,K = integrals.computeJK_HF(C,I,b_mnl,p)
+    D = integrals.computeD_HF(C,I,b_mnl,p)
     if(p.MSpin==0):
         if(p.nsoc>0):
-            Dalpha,Jalpha,Kalpha = integrals.computeJKalpha_HF(C,I,b_mnl,p)
-            D = D + Dalpha
-            J = J + Jalpha
-            K = K + Kalpha
+            Dalpha = integrals.computeDalpha_HF(C,I,b_mnl,p)
+            D = D + 0.5*Dalpha
+        J,K = integrals.computeJK_HF(D,I,b_mnl,p)
         F = H + 2*J - K
         EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
     elif(not p.MSpin==0):
-        Dalpha,Jalpha,Kalpha = integrals.computeJKalpha_HF(C,I,b_mnl,p)
+        D = integrals.computeD_HF(C,I,b_mnl,p)
+        Dalpha = integrals.computeDalpha_HF(C,I,b_mnl,p)
+        J,K = integrals.computeJK_HF(D,I,b_mnl,p)
         F = 2*J - K
-        EHFL = 2*np.trace(np.matmul(D+Dalpha,H)+np.matmul(D+2*Dalpha,F))
+        EHFL = 2*np.trace(np.matmul(D+0.5*Dalpha,H)+np.matmul(D+Dalpha,F))
         F = H + F
         if(p.nsoc>1):
+            J,K = integrals.computeJK_HF(0.5*Dalpha,I,b_mnl,p)
             Falpha = J - K
-            EHFL = EHFL + 2*np.trace(np.matmul(Dalpha,Falpha))
+            EHFL = EHFL + 2*np.trace(np.matmul(0.5*Dalpha,Falpha))
             F = F + Falpha
 
     F_MO = np.matmul(np.matmul(np.transpose(vec),F),vec)
@@ -50,16 +52,32 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     FI2[p.nalpha-p.no1:p.nbf5-p.no1] = abs(1-2*occ[p.nalpha-p.no1:p.nbf5-p.no1])**2
 
     Tijab = CalTijab(iajb,F_MO,eig,FI1,FI2,p)
-    
     ECd = 0
     for k in range(p.nvir):
         for l in range(p.nvir):
             for i in range(p.ndoc):
                 for j in range(p.ndoc):
                     Xijkl = iajb[j,k,i,l]
-                    ijkl = i+j*p.ndoc+k*p.ndoc*p.ndoc+l*p.ndoc*p.ndoc*p.nvir
-                    ijlk = i+j*p.ndoc+l*p.ndoc*p.ndoc+k*p.ndoc*p.ndoc*p.nvir
+                    ijkl = i+j*p.ndns+k*p.ndns*p.ndns+l*p.ndns*p.ndns*p.nvir
+                    ijlk = i+j*p.ndns+l*p.ndns*p.ndns+k*p.ndns*p.ndns*p.nvir
                     ECd = ECd + Xijkl*(2*Tijab[ijkl]-Tijab[ijlk])
+                for j in range(p.ndoc,p.ndns):
+                    Xijkl = iajb[j,k,i,l]
+                    ijkl = i+j*p.ndns+k*p.ndns*p.ndns+l*p.ndns*p.ndns*p.nvir
+                    ijlk = i+j*p.ndns+l*p.ndns*p.ndns+k*p.ndns*p.ndns*p.nvir
+                    ECd = ECd + Xijkl*(Tijab[ijkl]-0.5*Tijab[ijlk])
+            for i in range(p.ndoc,p.ndns):
+                for j in range(p.ndoc):
+                    Xijkl = iajb[j,k,i,l]
+                    ijkl = i+j*p.ndns+k*p.ndns*p.ndns+l*p.ndns*p.ndns*p.nvir
+                    ijlk = i+j*p.ndns+l*p.ndns*p.ndns+k*p.ndns*p.ndns*p.nvir
+                    ECd = ECd + Xijkl*(Tijab[ijkl]-0.5*Tijab[ijlk])
+                for j in range(p.ndoc,p.ndns):
+                    Xijkl = iajb[j,k,i,l]
+                    ijkl = i+j*p.ndns+k*p.ndns*p.ndns+l*p.ndns*p.ndns*p.nvir
+                    ijlk = i+j*p.ndns+l*p.ndns*p.ndns+k*p.ndns*p.ndns*p.nvir
+                    if(j!=i):
+                        ECd = ECd + Xijkl*(Tijab[ijkl]-0.5*Tijab[ijlk])/2
 
     fi = 2*n*(1-n)
 
@@ -76,15 +94,16 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
     #C^K KMO
     J_MO,K_MO,H_core = integrals.computeJKH_MO(C,H,I,b_mnl,p)
+    ECndHF = - np.einsum('ii,ii',CK12nd[p.nbeta:p.nalpha,p.nbeta:p.nalpha],K_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha]) # sum_ij
     ECndl = - np.einsum('ij,ji',CK12nd,K_MO) # sum_ij
     ECndl += np.einsum('ii,ii',CK12nd,K_MO) # Quita i=j
 
-    print("      Ehfc      = {:f}".format(EHFL+E_nuc))
+    print("      Ehfc      = {:f}".format(EHFL+E_nuc+ECndHF))
     print("")
     print("      ECd       = {:f}".format(ECd))
     print("      ECnd      = {:f}".format(ECndl))
     print("      Ecorre    = {:f}".format(ECd+ECndl))
-    print("      E(NOFMP2) = {:f}".format(EHFL+ECd+ECndl+E_nuc))
+    print("      E(NOFMP2) = {:f}".format(EHFL+ECd+ECndl+E_nuc+ECndHF))
     print("")
 
 def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
@@ -279,8 +298,8 @@ def build_R(T,B,F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
 def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
     B = np.zeros((ndns**2*nvir**2))
     for i in range(ndns):
-        lmin_i = ndoc+ncwo*(ndns-i-1)
-        lmax_i = ndoc+ncwo*(ndns-i-1)+ncwo
+        lmin_i = ndns+ncwo*(ndns-i-1)
+        lmax_i = ndns+ncwo*(ndns-i-1)+ncwo
         for j in range(ndns):
             if(i==j):
                 for k in range(nvir):
@@ -288,7 +307,7 @@ def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
                     kn = k + ndns
                     for l in range(nvir):
                         ln = l + ndns
-                        if(lmin_i <= kn and kn <= lmax_i and lmin_i <= ln and ln <= lmax_i):
+                        if(lmin_i <= kn and kn < lmax_i and lmin_i <= ln and ln < lmax_i):
                             Ciikl = FI1[kn]*FI1[ln]*FI1[i]*FI1[i]
                         else:
                             Ciikl = FI2[kn]*FI2[ln]*FI2[i]*FI2[i]
@@ -299,11 +318,10 @@ def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
                     ik = i + k*ndns
                     kn = k + ndns
                     for l in range(nvir):
-                        ln = l + ndoc
+                        ln = l + ndns
                         ijkl =  i + j*ndns + k*ndns*ndns + l*ndns*ndns*nvir
                         Cijkl = FI2[kn]*FI2[ln]*FI2[i]*FI2[j]
                         B[ijkl] = - Cijkl*iajb[j,k,i,l]
-
     return B
 
 @njit
