@@ -31,7 +31,7 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
         Dalpha = integrals.computeDalpha_HF(C,I,b_mnl,p)
         J,K = integrals.computeJK_HF(D,I,b_mnl,p)
         F = 2*J - K
-        EHFL = 2*np.trace(np.matmul(D+0.5*Dalpha,H)+np.matmul(D+Dalpha,F))
+        EHFL = 2*np.trace(np.matmul(D+0.5*Dalpha,H))+np.trace(np.matmul(D+Dalpha,F))
         F = H + F
         if(p.nsoc>1):
             J,K = integrals.computeJK_HF(0.5*Dalpha,I,b_mnl,p)
@@ -94,9 +94,20 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
     #C^K KMO
     J_MO,K_MO,H_core = integrals.computeJKH_MO(C,H,I,b_mnl,p)
-    ECndHF = - np.einsum('ii,ii',CK12nd[p.nbeta:p.nalpha,p.nbeta:p.nalpha],K_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha]) # sum_ij
-    ECndl = - np.einsum('ij,ji',CK12nd,K_MO) # sum_ij
-    ECndl += np.einsum('ii,ii',CK12nd,K_MO) # Quita i=j
+
+    ECndHF = 0
+    ECndl = 0
+    if (p.MSpin==0):
+       ECndHF = - np.einsum('ii,ii->',CK12nd[p.nbeta:p.nalpha,p.nbeta:p.nalpha],K_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd,K_MO) # sum_ij
+       ECndl += np.einsum('ii,ii->',CK12nd,K_MO) # Quita i=j
+    elif (not p.MSpin==0):
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.no1:p.nbeta,p.no1:p.nbeta],K_MO[p.no1:p.nbeta,p.no1:p.nbeta]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.no1:p.nbeta,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.no1:p.nbeta]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.nalpha:p.nbf5,p.no1:p.nbeta],K_MO[p.no1:p.nbeta,p.nalpha:p.nbf5]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.nalpha:p.nbf5,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5]) # sum_ij
+       ECndl += np.einsum('ii,ii->',CK12nd[p.no1:p.nbeta,p.no1:p.nbeta],K_MO[p.no1:p.nbeta,p.no1:p.nbeta]) # Quita i=j
+       ECndl += np.einsum('ii,ii->',CK12nd[p.nalpha:p.nbf5,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5]) # Quita i=j
 
     print("      Ehfc      = {:f}".format(EHFL+E_nuc+ECndHF))
     print("")

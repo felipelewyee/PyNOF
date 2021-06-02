@@ -16,7 +16,8 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     cj12 = 2*np.einsum('i,j->ij',n,n)
     ck12 = np.einsum('i,j->ij',n,n)
-    ck12[p.nbeta:p.nalpha,p.nbeta:p.nalpha] = 2*np.einsum('i,j->ij',n[p.nbeta:p.nalpha],n[p.nbeta:p.nalpha])
+    if(p.MSpin==0):
+        ck12[p.nbeta:p.nalpha,p.nbeta:p.nalpha] = 2*np.einsum('i,j->ij',n[p.nbeta:p.nalpha],n[p.nbeta:p.nalpha])
 
     if(printmode):
         print("Hartree-Fock")

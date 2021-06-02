@@ -136,7 +136,7 @@ def computeF_RO_GPU(J,K,n,H,cj12,ck12,p):
 
     # nH
     F[:p.nbeta,:,:] += cp.einsum('i,mn->imn',n[:p.nbeta],H,optimize=True)                      # i = [1,nbf5]
-    F[p.nbeta:p.nalpha,:,:] += 0.5*H                                                           # i = [nbeta,nalpha]
+    F[p.nbeta:p.nalpha,:,:] += 0.5*H.get()                                                           # i = [nbeta,nalpha]
     F[p.nalpha:p.nbf5,:,:] += cp.einsum('i,mn->imn',n[p.nalpha:p.nbf5],H,optimize=True)        # i = [nalpha,nbf5]
 
     # nJ

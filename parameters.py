@@ -50,19 +50,19 @@ class param():
             else:
                 ncwo = 0
 
-        noptorb = self.nbf
-
         self.closed = (self.nbeta == (self.ne+self.mul-1)/2 and self.nalpha == (self.ne-self.mul+1)/2)
         
         self.nac = self.ndoc * (1 + ncwo)
         self.nbf5 = no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
         self.no0 = self.nbf - self.nbf5
+
+        noptorb = self.nbf
   
         self.title = "pydonof"
         self.maxit = 10000  # Número máximo de iteraciones de Occ-SCF
         self.no1 = no1     # Número de orbitales inactivos con ocupación 1
         self.thresheid = 10**-6#8 # Convergencia de la energía total
-        self.maxitid = 30  # Número máximo de iteraciones externas en HF
+        self.maxitid = 300  # Número máximo de iteraciones externas en HF
         self.maxloop = 30  # Iteraciones internas en optimización orbital
         self.ipnof = 7     # PNOFi a calcular
         self.ista = 0     # PNOFi a calcular
