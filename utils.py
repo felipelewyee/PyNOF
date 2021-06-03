@@ -136,7 +136,7 @@ def computeF_RO_GPU(J,K,n,H,cj12,ck12,p):
 
     # nH
     F[:p.nbeta,:,:] += cp.einsum('i,mn->imn',n[:p.nbeta],H,optimize=True)                      # i = [1,nbf5]
-    F[p.nbeta:p.nalpha,:,:] += 0.5*H.get()                                                           # i = [nbeta,nalpha]
+    F[p.nbeta:p.nalpha,:,:] += 0.5*cp.array(H)                                                           # i = [nbeta,nalpha]
     F[p.nalpha:p.nbf5,:,:] += cp.einsum('i,mn->imn',n[p.nalpha:p.nbf5],H,optimize=True)        # i = [nalpha,nbf5]
 
     # nJ
@@ -162,12 +162,12 @@ def computeF_RO_GPU(J,K,n,H,cj12,ck12,p):
     # SUMij
     F[:p.nbeta,:,:] += cp.einsum('i,jmn->imn',n[:p.nbeta],J[p.nbeta:p.nalpha,:,:]-0.5*K[p.nbeta:p.nalpha,:,:])
     F[p.nbeta:p.nalpha,:,:] += 0.5*cp.einsum('jmn->mn',J[p.nbeta:p.nalpha,:,:]-K[p.nbeta:p.nalpha,:,:])
-    F[p.nbeta:p.nalpha,:,:] -= 0.5*(J[p.nbeta:p.nalpha,:,:]-K[p.nbeta:p.nalpha,:,:]) #Remove diag.
+    F[p.nbeta:p.nalpha,:,:] -= 0.5*cp.array((J[p.nbeta:p.nalpha,:,:]-K[p.nbeta:p.nalpha,:,:])) #Remove diag.
     F[p.nalpha:p.nbf5,:,:] += cp.einsum('i,jmn->imn',n[p.nalpha:p.nbf5],J[p.nbeta:p.nalpha,:,:]-0.5*K[p.nbeta:p.nalpha,:,:])
 
     # PRODWROij
-    F[p.nbeta:p.nalpha,:,:] += cp.einsum('j,jmn->mn',n[:p.nbeta],J[:p.nbeta,:,:]) - 0.5*np.einsum('j,jmn->mn',n[:p.nbeta],K[:p.nbeta,:,:])
-    F[p.nbeta:p.nalpha,:,:] += cp.einsum('j,jmn->mn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:]) - 0.5*np.einsum('j,jmn->mn',n[p.nalpha:p.nbf5],K[p.nalpha:p.nbf5,:,:])
+    F[p.nbeta:p.nalpha,:,:] += cp.einsum('j,jmn->mn',n[:p.nbeta],J[:p.nbeta,:,:]) - 0.5*cp.einsum('j,jmn->mn',n[:p.nbeta],K[:p.nbeta,:,:])
+    F[p.nbeta:p.nalpha,:,:] += cp.einsum('j,jmn->mn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:]) - 0.5*cp.einsum('j,jmn->mn',n[p.nalpha:p.nbf5],K[p.nalpha:p.nbf5,:,:])
 
     return F.get()
 
