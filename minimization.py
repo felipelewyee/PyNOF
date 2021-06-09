@@ -16,7 +16,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     cj12 = 2*np.einsum('i,j->ij',n,n)
     ck12 = np.einsum('i,j->ij',n,n)
-    if(p.MSpin==0):
+    if(p.MSpin==0 and p.nsoc>1):
         ck12[p.nbeta:p.nalpha,p.nbeta:p.nalpha] = 2*np.einsum('i,j->ij',n[p.nbeta:p.nalpha],n[p.nbeta:p.nalpha])
 
     if(printmode):

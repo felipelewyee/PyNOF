@@ -71,8 +71,16 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print("")
         print("RESULTS OF THE OCCUPATION OPTIMIZATION")
         print("========================================")
-        for i,ni in enumerate(n):
-            print(" {:d}    {:9.7f}  {:10.8f}".format(i,2*ni,elag[i][i]))
+        for i in range(p.nbeta):
+            print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n[i],elag[i][i]))
+        for i in range(p.nbeta,p.nalpha):
+            if(not p.HighSpin):
+                print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n[i],elag[i][i]))
+            else:
+                print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,n[i],elag[i][i]))
+        for i in range(p.nalpha,p.nbf5):
+            print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n[i],elag[i][i]))
+
         print("")
 
         print("----------------")
