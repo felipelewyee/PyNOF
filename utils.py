@@ -3,6 +3,7 @@ import integrals
 from numba import prange,njit,jit
 from time import time
 import cupy as cp
+from scipy.linalg import eigh
 
 def computeF_RC_driver(J,K,n,H,cj12,ck12,p):
 
@@ -284,6 +285,9 @@ def check_ortho(C,S,p):
         orthonormality = False
     if not orthonormality:
         print("Orthonormality violations {:d}, Maximum Violation {:f}".format((ortho_deviation > 10**-6).sum(),ortho_deviation.max()))
+        print("Trying to orthonormalize")
+        C = orthonormalize(C,S)
+        C = check_ortho(C,S,p)
     else:
         print("No violations of the orthonormality")
     for j in range(p.nbf):
@@ -297,4 +301,26 @@ def check_ortho(C,S,p):
     C[0:p.nbf,j] = sign*C[0:p.nbf,j]
 
     return C
+
+def orthonormalize(C,S):
+    eigval,eigvec = eigh(S) 
+    S_12 = np.einsum('ij,j->ij',eigvec,eigval**(-1/2),optimize=True)
+
+    Cnew = np.einsum('ik,kj->ij',S,C,optimize=True)
+
+    Cnew2 = np.einsum('ki,kj->ij',S_12,Cnew)
+
+    for i in range(Cnew2.shape[1]):
+        norm = np.einsum('k,k->',Cnew2[:,i],Cnew2[:,i],optimize=True)
+        Cnew2[:,i] = Cnew2[:,i]/np.sqrt(norm)
+        for j in range(i+1,Cnew2.shape[1]):
+            val = -np.einsum('k,k->',Cnew2[:,i],Cnew2[:,j],optimize=True)
+            Cnew2[:,j] = Cnew2[:,j] + val*Cnew2[:,i]
+
+    C = np.einsum("ik,kj->ij",S_12,Cnew2,optimize=True)
+
+    return C
+
+
+
 
