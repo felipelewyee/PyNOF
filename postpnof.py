@@ -305,10 +305,10 @@ def build_R(T,B,F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
     R = B-Bp
     return R
 
-@njit
+@njit(parallel=True)
 def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
     B = np.zeros((ndns**2*nvir**2))
-    for i in range(ndns):
+    for i in prange(ndns):
         lmin_i = ndns+ncwo*(ndns-i-1)
         lmax_i = ndns+ncwo*(ndns-i-1)+ncwo
         for j in range(ndns):
@@ -335,10 +335,10 @@ def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
                         B[ijkl] = - Cijkl*iajb[j,k,i,l]
     return B
 
-@njit
+@njit(parallel=True)
 def Tijab_guess(iajb,eig,ndoc,ndns,nvir):
     Tijab = np.zeros(nvir**2*ndns**2)
-    for ia in range(nvir):
+    for ia in prange(nvir):
         for i in range(ndns):
             for ib in range(nvir):
                 for j in range(ndns):

@@ -10,6 +10,18 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
 
     S,T,V,H,I,b_mnl = integrals.compute_integrals(wfn,mol,p)
 
+    print("Number of basis functions                   (NBF)    =",p.nbf)
+    if(p.RI):
+        print("Number of auxiliary basis functions         (NBFAUX) =",p.nbfaux)
+    print("Inactive Doubly occupied orbitals up to     (NO1)    =",p.no1)
+    print("No. considered Strongly Doubly occupied MOs (NDOC)   =",p.ndoc)
+    print("No. considered Strongly Singly occupied MOs (NSOC)   =",p.nsoc)
+    print("NO. of Weakly occ. per St. Doubly occ.  MOs (NCWO)   =",p.ncwo)
+    print("Dimension of the Active Nat. Orb. subspace  (NBF5)   =",p.nbf5)
+    print("No. of electrons                                     =",p.ne)
+    print("Multiplicity                                         =",p.mul)
+    print("")
+
     # Energía Nuclear
     E_nuc = mol.nuclear_repulsion_energy()
 
