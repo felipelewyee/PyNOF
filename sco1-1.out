@@ -1,0 +1,10 @@
+
+  Memory set to   3.725 GiB by Python driver.
+   => Loading Basis Set <=
+
+    Name: DEF2-TZVPD
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1 entry SC         line   786 file /home/jfhlewyee/anaconda3/envs/pydonof/share/psi4/basis/def2-tzvpd.gbs 
+    atoms 2 entry O          line   208 file /home/jfhlewyee/anaconda3/envs/pydonof/share/psi4/basis/def2-tzvpd.gbs 
+

@@ -64,7 +64,7 @@ def der_CJCKD5(n,gamma,dn_dgamma,p):
     return Dcj12r,Dck12r
 
 #CJCKD7
-@njit
+@njit(parallel=True)
 def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     if(ista==0):
@@ -104,7 +104,7 @@ def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     return cj12,ck12        
        
-@njit
+@njit(parallel=True)
 def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
 
     if(ista==0):
