@@ -22,8 +22,9 @@ psi4.set_memory('4 GB')
 
 mol = psi4.geometry("""
 1 3
-Sc    0.0000000    0.0000000   0.0000000
-symmetry c1
+SC   0.000000000000     0.000000000000     0.000000000000
+ O   0.000000000000     0.000000000000     1.618393584983
+  symmetry c1
 """)
 
 psi4.set_options({'basis': 'def2-TZVPD'}),
@@ -34,7 +35,7 @@ p = parameters.param(mol,wfn)
 p.ipnof = 7
 p.gradient = "analytical"
 p.optimizer = "L-BFGS-B"
-p.RI = True
+p.RI =True 
 p.gpu = True
 p.jit = False
 p.threshl = 10**-5
@@ -44,9 +45,6 @@ p.set_ncwo(2)
 p.autozeros()
 
 t1 = time()
-E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
-p.RI = False
-p.autozeros()
-E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False)
+optimization.optgeo(mol,wfn,p,p.gradient)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
