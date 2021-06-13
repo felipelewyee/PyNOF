@@ -22,11 +22,20 @@ psi4.set_memory('4 GB')
 
 mol = psi4.geometry("""
 0 1 
-O 0.0000   0.000   0.116
-H 0.0000   0.749  -0.453
-H 0.0000  -0.749  -0.453
+  O    0.0000000    0.0184016   -0.0000000
+  H    0.0000000   -0.5383158   -0.7588684
+  H   -0.0000000   -0.5383158    0.7588684
   symmetry c1
 """)
+#mol = psi4.geometry("""
+#0 1 
+#  C    0.0000000    0.0000000    0.0000000
+#  H    0.6177648   -0.6177648    0.6177648
+#  H    0.6177648    0.6177648   -0.6177648
+#  H   -0.6177648    0.6177648    0.6177648
+#  H   -0.6177648   -0.6177648   -0.6177648
+#  symmetry c1
+#""")
 
 psi4.set_options({'basis': 'cc-pVDZ'}),
 
@@ -36,9 +45,9 @@ p = parameters.param(mol,wfn)
 p.ipnof = 7
 p.gradient = "analytical"
 #p.gradient = "numerical"
-p.optimizer = "CG"
+p.optimizer = "L-BFGS-B"
 p.RI = False#True
-p.gpu = True
+p.gpu = False
 p.jit = True
 #p.HighSpin = True
 #p.MSpin = p.nsoc
@@ -49,7 +58,7 @@ p.autozeros()
 
 
 t1 = time()
-E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
+E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,gradients=True)
 #p.RI = False
 #E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False)
 t2 = time()

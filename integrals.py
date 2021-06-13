@@ -43,6 +43,49 @@ def compute_integrals(wfn,mol,p):
 
     return S,T,V,H,I,b_mnl
 
+def compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p):
+
+    mints = psi4.core.MintsHelper(wfn.basisset())
+
+    RDM1 = 2*np.einsum('p,mp,np->mn',n,C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
+    lag = 2*np.einsum('mq,qp,np->mn',C,elag,C,optimize=True)
+    
+    grad = np.zeros((p.natoms,3))
+
+    grad += np.array(mol.nuclear_repulsion_energy_deriv1())
+
+    for i in range(p.natoms):
+        dSx,dSy,dSz = np.array(mints.ao_oei_deriv1("OVERLAP",i))
+        grad[i,0] -= np.einsum('mn,mn->',lag,dSx,optimize=True)
+        grad[i,1] -= np.einsum('mn,mn->',lag,dSy,optimize=True)
+        grad[i,2] -= np.einsum('mn,mn->',lag,dSz,optimize=True)
+
+        dTx,dTy,dTz = np.array(mints.ao_oei_deriv1("KINETIC",i))
+        grad[i,0] += np.einsum('mn,mn->',RDM1,dTx,optimize=True)
+        grad[i,1] += np.einsum('mn,mn->',RDM1,dTy,optimize=True)
+        grad[i,2] += np.einsum('mn,mn->',RDM1,dTz,optimize=True)
+
+        dVx,dVy,dVz = np.array(mints.ao_oei_deriv1("POTENTIAL",i))
+        grad[i,0] += np.einsum('mn,mn->',RDM1,dVx,optimize=True)
+        grad[i,1] += np.einsum('mn,mn->',RDM1,dVy,optimize=True)
+        grad[i,2] += np.einsum('mn,mn->',RDM1,dVz,optimize=True)
+
+    np.fill_diagonal(cj12,0) # Remove diag.
+    np.fill_diagonal(ck12,0) # Remove diag.
+    RDM2 = np.einsum('qp,mp,np,sq,lq->msnl',cj12,C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
+    RDM2 += np.einsum('p,mp,np,sp,lp->msnl',n[:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
+    RDM2 += np.einsum('p,mp,np,sp,lp->msnl',n[p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],optimize=True)
+    RDM2 -= np.einsum('qp,mp,lp,sq,nq->msnl',ck12,C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
+
+    for i in range(p.natoms):
+        derix,deriy,deriz = np.array(mints.ao_tei_deriv1(i))
+        grad[i,0] += np.einsum("msnl,mnsl->",RDM2,derix,optimize=True)
+        grad[i,1] += np.einsum("msnl,mnsl->",RDM2,deriy,optimize=True)
+        grad[i,2] += np.einsum("msnl,mnsl->",RDM2,deriz,optimize=True)
+
+    return grad
+
+
 ######################################### J_mn^(j) K_mn^(j) #########################################
 
 def computeJKj(C,I,b_mnl,p):

@@ -19,22 +19,29 @@ def optgeo(mol,wfn,p=None,gradient="analytical"):
     for symbol,xyz in zip(symbols,coord):
         print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
 
-    res = minimize(energy_optgeo, coord, args=(symbols,p,gradient), jac=False, method='Nelder-Mead')
+    res = minimize(energy_optgeo, coord, args=(symbols,p,gradient,False), jac=True, method='L-BFGS-B')
 
     print(res)
     coord = res.x
 
-    energy_optgeo(coord,symbols,p,gradient)
+    if(res.success):
+        print("\n\n================¡Converged! :) ================\n\n")
+    else:
+        print("\n\n================¡Not Converged! :( ================\n\n")
+
+    E,grad = energy_optgeo(coord,symbols,p,gradient,printmode=True)
 
     coord = np.reshape(coord,(int(len(coord)/3),3))
 
-    print("Final Geometry (Bohrs)")
-    print("======================")
-    for symbol,xyz in zip(symbols,coord):
-        print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
+    return coord
+
+    #print("Final Geometry (Bohrs)")
+    #print("======================")
+    #for symbol,xyz in zip(symbols,coord):
+    #    print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
 
 
-def energy_optgeo(coord,symbols,p,gradient):
+def energy_optgeo(coord,symbols,p,gradient,printmode=False):
 
     coord = np.reshape(coord,(int(len(coord)/3),3))
     print("Iter Geometry (Bohrs)")
@@ -57,16 +64,14 @@ def energy_optgeo(coord,symbols,p,gradient):
     #p.autozeros(restart=True)
     
     t1 = time()
-    E_t,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,gradients=False,printmode=False)
-    #E_t,C,gamma,fmiug0,grad = energy.compute_energy(mol,wfn,p,p.gradient,None,gamma,fmiug0,printmode=False)
-    #E_t,C,gamma,fmiug0,grad = energy.compute_energy(mol,wfn,p,p.gradient,C=None,gamma=None,fmiug0=None,gradients=True,printmode=False)
+    E_t,C,gamma,fmiug0,grad = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     t2 = time()
     print("                       Total Energy:", E_t)
 
-    #print("====Gradient====")
-    #for i in range(p.natoms):
-    #    print("Atom {:2d} {} {} {}".format(i,grad[i*3+0],grad[i*3+1],grad[i*3+2]))
+    print("====Gradient====")
+    for i in range(p.natoms):
+        print("Atom {:2d} {:10.4f} {:10.4f} {:10.4f}".format(i,grad[i*3+0],grad[i*3+1],grad[i*3+2]))
 
-    return E_t#,grad
+    return E_t,grad
 
 

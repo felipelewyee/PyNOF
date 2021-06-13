@@ -21,9 +21,17 @@ import guess
 psi4.set_memory('4 GB')
 
 mol = psi4.geometry("""
-O  0.0000   0.000   0.116
-H  0.0000   0.749  -0.453
-H  0.0000  -0.749  -0.453
+  C    0.0000000    0.0000000    0.0000000
+  H    0.6177648   -0.6177648    0.6177648
+  H    0.6177648    0.6177648   -0.6177648
+  H   -0.6177648    0.6177648    0.6177648
+  H   -0.6177648   -0.6177648   -0.6177648
+  symmetry c1
+""")
+mol = psi4.geometry("""
+  O    0.0000000    0.0184016   -0.0000000
+  H    0.0000000   -0.5383158   -0.7588684
+  H   -0.0000000   -0.5383158    0.7588684
   symmetry c1
 """)
 
@@ -34,7 +42,7 @@ wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
 p = parameters.param(mol,wfn)
 p.ipnof = 7
 p.gradient = "analytical"
-p.optimizer = "Newton-CG"
+p.optimizer = "L-BFGS-B"
 p.RI = False 
 p.gpu = True
 p.jit = False
