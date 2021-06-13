@@ -12,7 +12,8 @@ from scipy.optimize import minimize
 def optgeo(mol,wfn,p=None,gradient="analytical"):
     
     coord, mass, symbols, Z, key = wfn.molecule().to_arrays()
-    E_t = energy.compute_energy(mol,wfn,p,p.gradient,printmode=False)
+    p.RI = True
+    E_t = energy.compute_energy(mol,wfn,p,p.gradient,printmode=True)
     
     print("Initial Geometry (Bohrs)")
     print("========================")
@@ -64,6 +65,9 @@ def energy_optgeo(coord,symbols,p,gradient,printmode=False):
     #p.autozeros(restart=True)
     
     t1 = time()
+    p.RI = True
+    E_t,C,gamma,fmiug0,grad = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
+    p.RI = False
     E_t,C,gamma,fmiug0,grad = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     t2 = time()
     print("                       Total Energy:", E_t)

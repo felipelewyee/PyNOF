@@ -37,6 +37,8 @@ p.optimizer = "L-BFGS-B"
 p.RI = True
 p.gpu = True
 p.jit = False
+p.threshl = 10**-5
+p.threshe = 10**-6
 p.set_ncwo(1)
 
 p.autozeros()
@@ -44,6 +46,7 @@ p.autozeros()
 t1 = time()
 E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
 p.RI = False
+p.autozeros()
 E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient,C,gamma,fmiug0,hfidr=False)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
