@@ -106,7 +106,8 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
         #if (p.nzeros>p.nzerosm):
         #    p.nzeros = p.nzerosr
         if (p.nzeros>abs(int(np.log10(maxdiff)))+1):
-            p.nzeros = abs(int(np.log10(maxdiff)))
+            p.nzeros = p.nzerosr
+            #p.nzeros = abs(int(np.log10(maxdiff)))
     sumdiff_old = sumdiff
 
     if i_ext==0:
