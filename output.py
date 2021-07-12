@@ -5,7 +5,10 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
     f = open(filename+".fchk","w")
 
     print("{}".format(filename),file=f)
-    print("{} PNOF{} {}".format(jobtype,p.ipnof,wfn.basisset().blend()),file=f)
+    if(p.ista==0):
+        print("{} PNOF{} {}".format(jobtype,p.ipnof,wfn.basisset().blend()),file=f)
+    else:
+        print("{} PNOF{}s {}".format(jobtype,p.ipnof,wfn.basisset().blend()),file=f)
     print("Number of atoms                            I           {:6d}".format(p.natoms),file=f)
     print("Charge                                     I           {:6d}".format(p.charge),file=f)
     print("Multiplicity                               I           {:6d}".format(p.mul),file=f)
