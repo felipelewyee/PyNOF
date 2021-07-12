@@ -5,6 +5,7 @@ import minimization
 import integrals
 import utils
 import postpnof
+import output
 
 def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,gradients=False,printmode=True):
 
@@ -84,15 +85,21 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print("")
         print("RESULTS OF THE OCCUPATION OPTIMIZATION")
         print("========================================")
+        e_val = elag[np.diag_indices(p.nbf5)]
+        sort_indices = np.array(list(e_val[:p.nbeta].argsort()) + list(e_val[p.nbeta:p.nalpha].argsort()) + list(e_val[p.nalpha:p.nbf5].argsort()))
+        sort_indices[p.nbeta:p.nalpha] += p.nbeta
+        sort_indices[p.nalpha:p.nbf5] += p.nalpha
+        n_sorted = n[sort_indices]
+        e_sorted = e_val[sort_indices]
         for i in range(p.nbeta):
-            print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n[i],elag[i][i]))
+            print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n_sorted[i],e_sorted[i]))
         for i in range(p.nbeta,p.nalpha):
             if(not p.HighSpin):
-                print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n[i],elag[i][i]))
+                print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n_sorted[i],e_sorted[i]))
             else:
-                print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,n[i],elag[i][i]))
+                print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,n_sorted[i],e_sorted[i]))
         for i in range(p.nalpha,p.nbf5):
-            print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n[i],elag[i][i]))
+            print(" {:3d}    {:9.7f}  {:10.8f}".format(i+1,2*n_sorted[i],e_sorted[i]))
 
         print("")
 
@@ -109,6 +116,8 @@ def compute_energy(mol,wfn,p=None,gradient="analytical",C=None,gamma=None,fmiug0
         print("")
 
     E_t = E_nuc + E_old
+
+    output.fchk(p.title,wfn,mol,"Energy",E_t,elag,n,C,p)
 
     if(nofmp2):
         postpnof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)

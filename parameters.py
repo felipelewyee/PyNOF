@@ -11,6 +11,7 @@ class param():
         self.nbeta = wfn.nbeta()
         self.ne = self.nalpha + self.nbeta
         self.mul = mol.multiplicity()
+        self.charge = mol.molecular_charge()
         no1 = 0 #Number of inactive doubly occupied orbitals | Se puede variar
         for i in range(self.natoms):
             Z = mol.Z(i)
