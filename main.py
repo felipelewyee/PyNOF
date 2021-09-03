@@ -21,8 +21,8 @@ import projection
 # Seleccionamos una molécula, y otros datos como la memoria del sistema y la base
 psi4.set_memory('4 GB')
 
-mol = psi4.geometry("""
-0 3
+mol = pynof.molecule("""
+0 1
 O  0.0000   0.000   0.116
 H  0.0000   0.749  -0.453
 H  0.0000  -0.749  -0.453
@@ -33,19 +33,19 @@ psi4.set_options({'basis': 'def2-TZVPD'})
 
 # Paramdetros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
-p = parameters.param(mol,wfn)
-p.ipnof = 7
+p = pynof.param(mol,wfn)
+#p.ipnof = 7
 #p.gradient = "analytical"
-p.gradient = "numerical"
-p.optimizer = "Newton-CG"
-p.RI = False#True 
-p.gpu = True
-p.jit = False
+#p.gradient = "numerical"
+#p.optimizer = "Newton-CG"
+#p.RI = False#True 
+#p.gpu = True
+#p.jit = False
 
 p.autozeros()
 
-t1 = time()
-E,C,gamma,fmiug0 = energy.compute_energy(mol,wfn,p,p.gradient)
+#t1 = time()
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,wfn,p,p.gradient)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
 
