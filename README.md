@@ -8,9 +8,16 @@ You should install the folowing libreries: psi4, numpy, scipy, numba, cupy; then
 
 # Installation
 
+First, clone PyNOF from github and change to the project directory
+~~~
+git clone https://github.com/felipelewyee/PyNOF.git
+cd PyNOF
+~~~
+
 In the PyNOF folder, execute the following code
 ~~~
 conda create -n pynof
+conda activate pynof
 conda install -c psi4 psi4
 conda install numpy, scipy, numba, cupy, pip
 cd dist
