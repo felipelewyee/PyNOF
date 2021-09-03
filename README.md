@@ -43,7 +43,25 @@ E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient)
 
 Minimal working examples are provided in test_energy.py and test_optimization.py.
 
-You can edit the behavior of the calculation through the parmeter object. FOr example, if you have a GPU, you can set
+You can edit the behavior of the calculation through the parmeter object. For example, if you have a GPU, you can set
 ~~~
 p.gpu = true
+~~~
+
+Here are other possible options
+~~~
+p.ipnof = 7
+p.gradient = "analytical"
+p.optimizer = "L-BFGS-B"
+p.RI = True
+p.gpu = False
+p.jit = True
+p.HighSpin = True
+p.MSpin = p.nsoc
+p.ista=1
+p.set_ncwo(1)
+p.threshl = 10**-4   
+p.threshe = 10**-5   
+p.threshec = 10**-10 
+p.threshen = 10**-10 
 ~~~
