@@ -29,11 +29,11 @@ H  0.0000  -0.749  -0.453
   symmetry c1
 """)
 
-psi4.set_options({'basis': 'def2-TZVPD'})
+psi4.set_options({'basis': 'cc-pVDZ'})
 
 # Paramdetros del sistema
 wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
-p = pynof.param(mol,wfn)
+p = pynof.param(mol,"cc-pVDZ")
 #p.ipnof = 7
 #p.gradient = "analytical"
 #p.gradient = "numerical"
@@ -45,7 +45,7 @@ p = pynof.param(mol,wfn)
 p.autozeros()
 
 #t1 = time()
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,wfn,p,p.gradient)
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient)
 t2 = time()
 print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
 
