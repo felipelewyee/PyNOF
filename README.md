@@ -19,7 +19,7 @@ In the PyNOF folder, execute the following code
 conda create -n pynof
 conda activate pynof
 conda install -c psi4 psi4
-conda install numpy, scipy, numba, cupy, pip
+conda install numpy scipy numba cupy pip
 cd dist
 pip install PyNOF-0.1-py3-none-any.whl
 ~~~
