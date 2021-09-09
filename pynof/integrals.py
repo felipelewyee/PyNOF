@@ -1,7 +1,7 @@
 from time import time
 import psi4
 import numpy as np
-import cupy as cp
+#import cupy as cp
 from numba import prange,njit
 
 def compute_integrals(wfn,mol,p):
