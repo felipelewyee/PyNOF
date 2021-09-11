@@ -46,7 +46,7 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
                 print("",file=f)
     print("Shell types                                I   N=      {:6d}".format(wfn.basisset().nshell()),file=f)
     for ishell in range(wfn.basisset().nshell()):
-        if(wfn.basisset().has_puream() && wfn.basisset().shell(ishell).am > 1):
+        if(wfn.basisset().has_puream() and wfn.basisset().shell(ishell).am > 1):
             print(" {:11d}".format(-1*wfn.basisset().shell(ishell).am),end ="", file=f)
         else:
             print(" {:11d}".format(wfn.basisset().shell(ishell).am),end ="", file=f)
