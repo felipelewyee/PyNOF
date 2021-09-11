@@ -46,7 +46,10 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
                 print("",file=f)
     print("Shell types                                I   N=      {:6d}".format(wfn.basisset().nshell()),file=f)
     for ishell in range(wfn.basisset().nshell()):
-        print(" {:11d}".format(wfn.basisset().shell(ishell).am),end ="", file=f)
+        if(wfn.basisset().has_puream() && wfn.basisset().shell(ishell).am > 1):
+            print(" {:11d}".format(-1*wfn.basisset().shell(ishell).am),end ="", file=f)
+        else:
+            print(" {:11d}".format(wfn.basisset().shell(ishell).am),end ="", file=f)
         if((ishell+1)%6==0 or ishell+1==wfn.basisset().nshell()):
             print("",file=f)
     print("Number of primitives per shell             I   N=      {:6d}".format(wfn.basisset().nshell()),file=f)
