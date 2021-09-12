@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import minimize
 from time import time
 import pynof 
+from numba import njit
 
 def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
@@ -26,7 +27,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
-    fmiug0 = None
+    fmiug0 = np.zeros((p.nbf))
 
     ext = True
     # iteraciones externas
@@ -128,7 +129,7 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
         if(p.scaling):
             fmiug = pynof.fmiug_scaling(fmiug0,elag,i_ext,p.nzeros,p.nbf,p.noptorb)
         if(p.diis and maxdiff < p.thdiis):
-            fk,fmiug,idiis,bdiis = pynof.fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p)
+            fk,fmiug,idiis,bdiis = pynof.fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,p.noptorb,p.ndiis,p.perdiis)
 
         eigval, eigvec = np.linalg.eigh(fmiug)
         fmiug0 = eigval

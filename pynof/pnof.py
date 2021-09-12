@@ -183,7 +183,7 @@ def der_PNOFi_selector(n,dn_dgamma,p):
         
     return Dcj12r,Dck12r
 
-@njit
+@njit(parallel=True)
 def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     n = np.zeros((nbf5))
