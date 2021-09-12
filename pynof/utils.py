@@ -225,27 +225,43 @@ def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
     return E,elag,sumdiff,maxdiff
 
-@njit(parallel=True)
 def fmiug_scaling(fmiug0,elag,i_ext,nzeros,nbf,noptorb):
 
     #scaling
     fmiug = np.zeros((nbf,nbf))
-    if(i_ext == 0 and np.sum(fmiug0)==0):
-        fmiug = (elag + elag.T) / 2
+    if(i_ext == 0 and fmiug0 is None):
+        fmiug[:noptorb,:noptorb] = ((elag[:noptorb,:noptorb] + elag[:noptorb,:noptorb].T) / 2)
 
     else:
-        fmiug = elag - elag.T
+        fmiug[:noptorb,:noptorb] = (elag[:noptorb,:noptorb] - elag[:noptorb,:noptorb].T)
         fmiug = np.tril(fmiug,-1) + np.tril(fmiug,-1).T
-        for i in prange(nbf):
-            for j in prange(nbf):
-                for k in range(nzeros+9+1):
-                    val = np.abs(fmiug[i,j])
-                    if(val>10**(9.-k) and val<10**(10.-k)):
-                        fmiug[i,j] *= 0.1
-
-        np.fill_diagonal(fmiug,fmiug0)
+        for k in range(nzeros+9+1):
+            fmiug[(abs(fmiug) > 10**(9-k)) & (abs(fmiug) < 10**(10-k))] *= 0.1
+        np.fill_diagonal(fmiug[:noptorb,:noptorb],fmiug0[:noptorb])
 
     return fmiug
+
+#@njit(parallel=True)
+#def fmiug_scaling(fmiug0,elag,i_ext,nzeros,nbf,noptorb):
+#
+#    #scaling
+#    fmiug = np.zeros((nbf,nbf))
+#    if(i_ext == 0 and np.sum(fmiug0)==0):
+#        fmiug = (elag + elag.T) / 2
+#
+#    else:
+#        fmiug = elag - elag.T
+#        fmiug = np.tril(fmiug,-1) + np.tril(fmiug,-1).T
+#        for i in prange(nbf):
+#            for j in prange(nbf):
+#                for k in range(nzeros+9+1):
+#                    val = np.abs(fmiug[i,j])
+#                    if(val>10**(9.-k) and val<10**(10.-k)):
+#                        fmiug[i,j] *= 0.1
+#
+#        np.fill_diagonal(fmiug,fmiug0)
+#
+#    return fmiug
 
 @njit(parallel=True)
 def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,noptorb,ndiis,perdiis):
