@@ -66,7 +66,7 @@ class param():
 
         noptorb = self.nbf
   
-        self.title = "pydonof"
+        self.title = "pynof"
         self.maxit = 1000  # Número máximo de iteraciones de Occ-SCF
         self.no1 = no1     # Número de orbitales inactivos con ocupación 1
         self.thresheid = 10**-6#8 # Convergencia de la energía total
@@ -99,6 +99,8 @@ class param():
 
         self.HighSpin = False
         self.MSpin = 0
+
+        self.lamb = 0.0
 
     def autozeros(self,restart=False):
         if(restart):

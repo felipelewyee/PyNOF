@@ -241,29 +241,7 @@ def fmiug_scaling(fmiug0,elag,i_ext,nzeros,nbf,noptorb):
 
     return fmiug
 
-#@njit(parallel=True)
-#def fmiug_scaling(fmiug0,elag,i_ext,nzeros,nbf,noptorb):
-#
-#    #scaling
-#    fmiug = np.zeros((nbf,nbf))
-#    if(i_ext == 0 and np.sum(fmiug0)==0):
-#        fmiug = (elag + elag.T) / 2
-#
-#    else:
-#        fmiug = elag - elag.T
-#        fmiug = np.tril(fmiug,-1) + np.tril(fmiug,-1).T
-#        for i in prange(nbf):
-#            for j in prange(nbf):
-#                for k in range(nzeros+9+1):
-#                    val = np.abs(fmiug[i,j])
-#                    if(val>10**(9.-k) and val<10**(10.-k)):
-#                        fmiug[i,j] *= 0.1
-#
-#        np.fill_diagonal(fmiug,fmiug0)
-#
-#    return fmiug
-
-@njit(parallel=True)
+@njit
 def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,noptorb,ndiis,perdiis):
 
     fk[idiis,0:noptorb,0:noptorb] = fmiug[0:noptorb,0:noptorb]
@@ -273,23 +251,23 @@ def fmiug_diis(fk,fmiug,idiis,bdiis,cdiis,maxdiff,noptorb,ndiis,perdiis):
             for j in range(i):
                 bdiis[m][idiis] = bdiis[m][idiis] + fk[m][i][j]*fk[idiis][j][i]
         bdiis[idiis][m] = bdiis[m][idiis]
-        bdiis[m][idiis+1] = -1
-        bdiis[idiis+1][m] = -1
-    bdiis[idiis+1][idiis+1] = 0
+        bdiis[m][idiis+1] = -1.
+        bdiis[idiis+1][m] = -1.
+    bdiis[idiis+1][idiis+1] = 0.
 
     if(idiis>=ndiis):
         cdiis = np.zeros((idiis+2))
-        cdiis[0:idiis+1] = 0
-        cdiis[idiis+1] = -1
+        cdiis[0:idiis+1] = 0.
+        cdiis[idiis+1] = -1.
         x = np.linalg.solve(bdiis[0:idiis+2,0:idiis+2],cdiis[0:idiis+2])
 
         for i in range(noptorb):
             for j in range(i):
-                fmiug[i][j] = 0
+                fmiug[i][j] = 0.
                 for k in range(idiis+1):
                     fmiug[i][j] = fmiug[i][j] + x[k]*fk[k][i][j]
                 fmiug[j][i] = fmiug[i][j]
-
+#        print("idiis", idiis)
     if(idiis>=ndiis and perdiis):
         idiis = 0
     else:

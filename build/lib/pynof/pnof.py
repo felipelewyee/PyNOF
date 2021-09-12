@@ -164,6 +164,50 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
                         
     return Dcj12r,Dck12r
 
+#CJCKD8
+@njit(parallel=True)
+def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin,lamb):
+
+    nbf5 = len(n)
+    delta = np.zeros((nbf5,nbf5))
+    for i in range(nbf5):
+        for j in range(nbf5):
+            delta[i,j] = lamb*min(n[i]*n[j],(1-n[i])*(1-n[j]))
+    pi = np.zeros((nbf5,nbf5))
+    for i in range(nbf5):
+        for j in range(nbf5):
+            pi[i,j] = np.sqrt((n[i]*(1-n[j])+delta[i,j]) * (n[j]*(1-n[i])+delta[j,i]))
+
+    # Interpair Electron correlation #
+
+    #cj12 = 2*np.einsum('i,j->ij',n,n)
+    #ck12 = np.einsum('i,j->ij',n,n) + np.einsum('i,j->ij',fi,fi)
+    cj12 = 2*np.outer(n,n) - delta
+    ck12 = np.outer(n,n) - delta + pi
+
+    # Intrapair Electron Correlation
+
+    if(MSpin==0 and nsoc>1):
+        ck12[nbeta:nalpha,nbeta:nalpha] = 2*np.outer(n[nbeta:nalpha],n[nbeta:nalpha])
+
+    for l in range(ndoc):
+        ldx = no1 + l
+        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+        ll = no1 + ndns + ncwo*(ndoc - l - 1)
+        ul = no1 + ndns + ncwo*(ndoc - l)
+
+        cj12[ldx,ll:ul] = 0
+        cj12[ll:ul,ldx] = 0
+
+        cj12[ll:ul,ll:ul] = 0
+
+        ck12[ldx,ll:ul] = np.sqrt(n[ldx]*n[ll:ul])
+        ck12[ll:ul,ldx] = np.sqrt(n[ldx]*n[ll:ul])
+
+        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n[ll:ul],n[ll:ul]))
+
+    return cj12,ck12
+
 
 # Creamos un seleccionador de PNOF
 
@@ -172,6 +216,8 @@ def PNOFi_selector(n,p):
         cj12,ck12 = CJCKD5(n,p)
     if(p.ipnof==7):
         cj12,ck12 = CJCKD7(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
+    if(p.ipnof==8):
+        cj12,ck12 = CJCKD8(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin,p.lamb)
         
     return cj12,ck12
 
@@ -183,7 +229,7 @@ def der_PNOFi_selector(n,dn_dgamma,p):
         
     return Dcj12r,Dck12r
 
-@njit(parallel=True)
+@njit
 def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     n = np.zeros((nbf5))

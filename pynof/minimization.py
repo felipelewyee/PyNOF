@@ -2,7 +2,6 @@ import numpy as np
 from scipy.optimize import minimize
 from time import time
 import pynof 
-from numba import njit
 
 def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
@@ -27,7 +26,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
-    fmiug0 = np.zeros((p.nbf))
+    fmiug0 = None
 
     ext = True
     # iteraciones externas

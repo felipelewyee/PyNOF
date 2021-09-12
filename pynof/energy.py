@@ -46,9 +46,6 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 ig = p.ndoc+i*(p.ncwo-1)+j
                 gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
 
-    if(fmiug0 is None):
-        fmiug0 = np.zeros((p.nbf))
-
     elag = np.zeros((p.nbf,p.nbf)) #temporal
     gamma,n,cj12,ck12 = pynof.occoptr(gamma,True,False,C,H,I,b_mnl,p)
 
