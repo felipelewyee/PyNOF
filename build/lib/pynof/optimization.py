@@ -47,7 +47,7 @@ def energy_optgeo(coord,symbols,p,gradient,printmode=False):
     for symbol,xyz in zip(symbols,coord):
         print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
 
-    mol_string = ""
+    mol_string = "{} {} \n".format(p.charge,p.mul)
     for symbol,xyz in zip(symbols,coord):
         mol_string += "{:s} {} {} {}\n".format(symbol,xyz[0],xyz[1],xyz[2])
     mol_string += "units bohr"
