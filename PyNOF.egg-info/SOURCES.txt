@@ -18,5 +18,4 @@ pynof/parameters.py
 pynof/pnof.py
 pynof/postpnof.py
 pynof/projection.py
-pynof/test.py
 pynof/utils.py
