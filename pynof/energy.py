@@ -4,6 +4,8 @@ from time import time
 import pynof
 
 def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,gradients=False,printmode=True):
+ 
+    t1 = time()
 
     wfn = p.wfn
 
@@ -135,11 +137,47 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
     pynof.fchk(p.title,wfn,mol,"Energy",E_t,elag,n,C,p)
 
+    t2 = time()
+    print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
+
     if(nofmp2):
         pynof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
+
 
     if gradients:
         grad = pynof.compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p)
         return E_t,C,gamma,fmiug0,grad.flatten()
     else:
         return E_t,C,gamma,fmiug0
+
+
+
+def brute_force_energy(mol,p,intents=5,RI_last=False,gpu_last=False):
+    t1 = time()
+    
+    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,hfidr=True)
+    E_min = E
+    C_min = C
+    gamma_min = gamma
+    fmiug0_min = fmiug0
+    
+    for i in range(intents):
+        p.autozeros()
+        E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C,gamma,None,hfidr=False,nofmp2=False)
+        if(E<E_min):
+            E_min = E
+            C_min = C
+            gamma_min = gamma
+            fmiug0_min = fmiug0
+    
+    p.RI = RI_last
+    p.gpu = gpu_last
+    p.jit = True
+    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C_min,gamma_min,fmiug0_min,hfidr=False,nofmp2=False)
+    
+    t2 = time()
+    
+    print("Best Total NOF Energy {}".format(E))
+    print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
+    
+    

@@ -10,6 +10,8 @@ from scipy.sparse.linalg import cg,minres
 
 def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
+    t1 = time()
+
     print(" NOF-MP2")
     print("=========")
 
@@ -114,6 +116,9 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     print("      Ecorre    = {:f}".format(ECd+ECndl))
     print("      E(NOFMP2) = {:f}".format(EHFL+ECd+ECndl+E_nuc+ECndHF))
     print("")
+
+    t2 = time()
+    print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
 
 def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
 
