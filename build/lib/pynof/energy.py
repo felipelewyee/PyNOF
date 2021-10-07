@@ -179,5 +179,6 @@ def brute_force_energy(mol,p,intents=5,RI_last=False,gpu_last=False):
     
     print("Best Total NOF Energy {}".format(E))
     print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
-    
+   
+    return E,C,gamma,fmiug0
     
