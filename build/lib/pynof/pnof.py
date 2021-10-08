@@ -86,7 +86,7 @@ def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     if(MSpin==0 and nsoc>1):
         ck12[nbeta:nalpha,nbeta:nalpha] = 2*np.outer(n[nbeta:nalpha],n[nbeta:nalpha])
 
-    for l in range(ndoc):            
+    for l in prange(ndoc):            
         ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
         ll = no1 + ndns + ncwo*(ndoc - l - 1)
@@ -115,7 +115,7 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
         fi = 2*n*(1-n)
             
     dfi_dgamma = np.zeros((nbf5,nv))
-    for i in range(no1,nbf5):
+    for i in prange(no1,nbf5):
         a = max(fi[i],10**-15)
         for k in range(nv):
             if(ista==0):
@@ -128,7 +128,7 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
 
     Dcj12r = np.zeros((nbf5,nbf5,nv))
     Dck12r = np.zeros((nbf5,nbf5,nv))
-    for k in range(nv):
+    for k in prange(nv):
         Dcj12r[:,:,k] = 2*np.outer(dn_dgamma[:,k],n)    
         Dck12r[:,:,k] = np.outer(dn_dgamma[:,k],n) + np.outer(dfi_dgamma[:,k],fi)
     #Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)    
@@ -136,7 +136,7 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
 
     # Intrapair Electron Correlation
 
-    for l in range(ndoc):            
+    for l in prange(ndoc):            
         ldx = no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
