@@ -155,10 +155,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,RI_last=False,gpu_last=False):
     t1 = time()
     
-    if(C==None and gamma==None and fmiug0==None):
-        E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,hfidr)
-    else:
-        E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C,gamma,fmiug0,hfidr)
+    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C,gamma,fmiug0,hfidr)
     E_min = E
     C_min = C
     gamma_min = gamma
