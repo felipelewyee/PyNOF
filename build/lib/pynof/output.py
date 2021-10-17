@@ -90,6 +90,8 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
                 print("",file=f)
 
     e_val = elag[np.diag_indices(p.nbf)]
+    print(e_val)
+    print(e_val.argsort())
     n_sorted = n[e_val.argsort()[:p.nbf5]]
     C_sorted = C[:,e_val.argsort()]
     e_sorted = e_val[e_val.argsort()]

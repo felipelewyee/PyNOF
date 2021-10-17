@@ -90,7 +90,10 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
                 print("",file=f)
 
     e_val = elag[np.diag_indices(p.nbf)]
-    n_sorted = n[e_val.argsort()[:p.nbf5]]
+    try:
+        n_sorted = n[e_val.argsort()[:p.nbf5]]
+    except:
+        print("Orbital Sorting Problem: Optimized Orbitals are not the lowest in energy",file=f)
     C_sorted = C[:,e_val.argsort()]
     e_sorted = e_val[e_val.argsort()]
 
