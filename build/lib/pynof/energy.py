@@ -97,8 +97,8 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             key[idx] = val
             key[ll:ul] = val
         for i in range(p.nsoc):
-            idx = p.ndoc + i
             val += 1
+            idx = p.no1 + p.ndoc + i
             key[idx] = val
 
         e_val = elag[np.diag_indices(p.nbf5)]
