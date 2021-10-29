@@ -353,3 +353,24 @@ def Tijab_guess(iajb,eig,ndoc,ndns,nvir):
 def solve_Tijab(A_CSR,B,Tijab,p):
     Tijab,info = cg(A_CSR, B,x0=Tijab)
     return Tijab
+
+def ext_koopmans(p,elag,n):
+    elag_small = elag[:p.nbf5,:p.nbf5]
+    nu = -np.einsum("qp,q,p->qp",elag_small,1/np.sqrt(n),1/np.sqrt(n))
+
+    print("")
+    print("---------------------------")
+    print(" Extended Koopmans Theorem ")
+    print("   Ionization Potentials   ")
+    print("---------------------------")
+
+    eigval, eigvec = np.linalg.eigh(nu)
+    print(" OM        (eV)")
+    print("")
+    for i,val in enumerate(eigval[::-1]):
+        print("{: 3d}      {: 7.3f}".format(i+1,val*27.2114))
+
+    print("")
+    print("EKT IP: {: 7.3f} eV".format(eigval[0]*27.2114))
+    print("")
+
