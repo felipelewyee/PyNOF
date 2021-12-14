@@ -7,6 +7,7 @@ import pynof
 from numba import prange,njit,jit
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import cg,minres
+from scipy.linalg import fractional_matrix_power
 
 def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
@@ -366,11 +367,56 @@ def ext_koopmans(p,elag,n):
 
     eigval, eigvec = np.linalg.eigh(nu)
     print(" OM        (eV)")
-    print("")
+    print("---------------------------")
     for i,val in enumerate(eigval[::-1]):
-        print("{: 3d}      {: 7.3f}".format(i+1,val*27.2114))
+        print("{: 3d}      {: 7.3f}".format(i,val*27.2114))
 
     print("")
     print("EKT IP: {: 7.3f} eV".format(eigval[0]*27.2114))
+    print("")
+
+def mulliken_pop(p,wfn,n,C,S):
+
+    nPS = 2*np.einsum("i,mi,ni,nm->m",n,C[:,:p.nbf5],C[:,:p.nbf5],S,optimize=True)
+
+    pop = np.zeros((p.natoms))
+
+    for mu in range(C.shape[0]):
+        iatom = wfn.basisset().function_to_center(mu)
+        pop[iatom] += nPS[mu]
+
+    print("")
+    print("---------------------------------")
+    print("  Mulliken Population Analysis   ")
+    print("---------------------------------")
+    print(" Idx  Atom   Population   Charge ")
+    print("---------------------------------")
+    for iatom in range(p.natoms):
+        symbol = wfn.molecule().flabel(iatom)
+        print("{: 3d}    {:2s}    {: 5.2f}      {: 5.2f}".format(iatom, symbol, pop[iatom], wfn.molecule().Z(iatom)-pop[iatom]))
+    print("")
+
+
+def lowdin_pop(p,wfn,n,C,S):
+
+    S_12 = fractional_matrix_power(S, 0.5)
+
+    S_12nPS_12 = 2*np.einsum("sm,i,mi,ni,ns->s",S_12,n,C[:,:p.nbf5],C[:,:p.nbf5],S_12,optimize=True)
+
+    pop = np.zeros((p.natoms))
+
+    for mu in range(C.shape[0]):
+        iatom = wfn.basisset().function_to_center(mu)
+        pop[iatom] += S_12nPS_12[mu]
+
+    print("")
+    print("---------------------------------")
+    print("   Lowdin Population Analysis    ")
+    print("---------------------------------")
+    print(" Idx  Atom   Population   Charge ")
+    print("---------------------------------")
+    for iatom in range(p.natoms):
+        symbol = wfn.molecule().flabel(iatom)
+        print("{: 3d}    {:2s}    {: 5.2f}      {: 5.2f}".format(iatom, symbol, pop[iatom], wfn.molecule().Z(iatom)-pop[iatom]))
     print("")
 
