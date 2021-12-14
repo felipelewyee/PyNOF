@@ -18,7 +18,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         print("Inactive Doubly occupied orbitals up to     (NO1)    =",p.no1)
         print("No. considered Strongly Doubly occupied MOs (NDOC)   =",p.ndoc)
         print("No. considered Strongly Singly occupied MOs (NSOC)   =",p.nsoc)
-        print("NO. of Weakly occ. per St. Doubly occ.  MOs (NCWO)   =",p.ncwo)
+        print("No. of Weakly occ. per St. Doubly occ.  MOs (NCWO)   =",p.ncwo)
         print("Dimension of the Nat. Orb. subspace         (NBF5)   =",p.nbf5)
         print("No. of electrons                                     =",p.ne)
         print("Multiplicity                                         =",p.mul)
