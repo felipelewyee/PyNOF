@@ -396,7 +396,6 @@ def mulliken_pop(p,wfn,n,C,S):
         print("{: 3d}    {:2s}    {: 5.2f}      {: 5.2f}".format(iatom, symbol, pop[iatom], wfn.molecule().Z(iatom)-pop[iatom]))
     print("")
 
-
 def lowdin_pop(p,wfn,n,C,S):
 
     S_12 = fractional_matrix_power(S, 0.5)
@@ -418,5 +417,29 @@ def lowdin_pop(p,wfn,n,C,S):
     for iatom in range(p.natoms):
         symbol = wfn.molecule().flabel(iatom)
         print("{: 3d}    {:2s}    {: 5.2f}      {: 5.2f}".format(iatom, symbol, pop[iatom], wfn.molecule().Z(iatom)-pop[iatom]))
+    print("")
+
+def M_diagnostic(p,n):
+
+    m_vals = 2*n
+    if(p.HighSpin):
+        m_vals[p.nbeta:p.nalpha] = n[p.nbeta:p.nalpha]
+
+    m_diagnostic = 0
+
+    m_vals[p.no1:p.nbeta] = 2.0 - m_vals[p.no1:p.nbeta]
+    m_diagnostic += max(m_vals[p.no1:p.nbeta])
+
+    #if(p.nsoc!=0): #This is always zero
+    #    m_vals[p.nbeta:p.nalpha] = 1.0 - m_vals[p.nbeta:p.nalpha]
+    #    m_diagnostic += max(m_vals[p.nbeta:p.nalpha]) 
+
+    m_vals[p.nalpha:p.nbf5] = m_vals[p.nalpha:p.nbf5] - 0.0
+    m_diagnostic += max(m_vals[p.nalpha:p.nbf5])
+
+    print("")
+    print("---------------------------------")
+    print("   M Diagnostic: {:4.2f} ".format(m_diagnostic))
+    print("---------------------------------")
     print("")
 

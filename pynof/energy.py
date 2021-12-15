@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False):
+def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
  
     t1 = time()
 
@@ -152,6 +152,9 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
     if(lowdin_pop):
         pynof.lowdin_pop(p,wfn,n,C,S)
 
+    if(m_diagnostic):
+        pynof.M_diagnostic(p,n)
+
 
     if gradients:
         grad = pynof.compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p)
@@ -161,7 +164,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
 
 
-def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,RI_last=False,gpu_last=False,ekt=False,mulliken_pop=False,lowdin_pop=False):
+def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,RI_last=False,gpu_last=False,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
     t1 = time()
     
     E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C,gamma,fmiug0,hfidr)
@@ -182,7 +185,7 @@ def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,
     p.RI = RI_last
     p.gpu = gpu_last
     p.jit = True
-    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C_min,gamma_min,fmiug0_min,hfidr=False,nofmp2=False,ekt=ekt,mulliken_pop=mulliken_pop,lowdin_pop=lowdin_pop)
+    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C_min,gamma_min,fmiug0_min,hfidr=False,nofmp2=False,ekt=ekt,mulliken_pop=mulliken_pop,lowdin_pop=lowdin_pop,m_diagnostic=m_diagnostic)
     
     t2 = time()
     
