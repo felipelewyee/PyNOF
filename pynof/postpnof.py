@@ -437,6 +437,8 @@ def M_diagnostic(p,n):
     m_vals[p.nalpha:p.nbf5] = m_vals[p.nalpha:p.nbf5] - 0.0
     m_diagnostic += max(m_vals[p.nalpha:p.nbf5])
 
+    m_diagnostic = 0.5*m_diagnostic
+
     print("")
     print("---------------------------------")
     print("   M Diagnostic: {:4.2f} ".format(m_diagnostic))
