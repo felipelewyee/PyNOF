@@ -3,13 +3,13 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
+def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
  
     t1 = time()
 
     wfn = p.wfn
 
-    S,T,V,H,I,b_mnl = pynof.compute_integrals(wfn,mol,p)
+    S,T,V,H,I,b_mnl,Dipole = pynof.compute_integrals(wfn,mol,p)
 
     if(printmode):
         print("Number of basis functions                   (NBF)    =",p.nbf)
@@ -142,6 +142,9 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
     if(nofmp2):
         pynof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
+
+    if(mbpt):
+        pynof.mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_old,p)
 
     if(ekt):
         pynof.ext_koopmans(p,elag,n)

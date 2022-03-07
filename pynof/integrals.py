@@ -15,6 +15,8 @@ def compute_integrals(wfn,mol,p):
     V = np.asarray(mints.ao_potential())
     H = T + V
     
+    Dipole = np.asarray(mints.ao_dipole())
+
     I = []
     b_mnl = []
     if (not p.RI):
@@ -41,7 +43,7 @@ def compute_integrals(wfn,mol,p):
         I = cp.array(I)
         b_mnl = cp.array(b_mnl)
 
-    return S,T,V,H,I,b_mnl
+    return S,T,V,H,I,b_mnl,Dipole
 
 def compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p):
 
@@ -423,7 +425,7 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
 
 ######################################### J_mn^(j) K_mn^(j) #########################################
 
-def computeD_HF(C,I,b_mnl,p):
+def computeD_HF(C,p):
 
     if(p.gpu):
         D = cp.einsum('mj,nj->mn',C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
@@ -432,7 +434,7 @@ def computeD_HF(C,I,b_mnl,p):
         D = np.einsum('mj,nj->mn',C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
         return D
 
-def computeDalpha_HF(C,I,b_mnl,p):
+def computeDalpha_HF(C,p):
 
     if(p.gpu):
         D = cp.einsum('mj,nj->mn',C[:,p.nbeta:p.nalpha],C[:,p.nbeta:p.nalpha],optimize=True)
@@ -456,26 +458,10 @@ def computeJK_HF(D,I,b_mnl,p):
 
     return J,K
 
-@njit(parallel=True)
 def JK_HF_Full_jit(D,I,nbeta,nbf,nbf5):
 
-    #hstarj
-    J = np.zeros((nbf,nbf))
-    for m in prange(nbf):
-        for n in prange(m+1):
-            for s in range(nbf):
-                for l in range(nbf):
-                    J[m][n] += D[s][l]*I[m][n][s][l]
-            J[n][m] = J[m][n]
-
-    #hstark
-    K = np.zeros((nbf,nbf))
-    for m in prange(nbf):
-        for s in prange(m+1):
-            for n in range(nbf):
-                for l in range(nbf):
-                    K[m][s] += D[n][l]*I[m][n][s][l]
-            K[s][m] = K[m][s]
+    J = np.einsum("ls,mnsl->mn",D,I,optimize=True)
+    K = np.einsum("nl,mnsl->ms",D,I,optimize=True)
 
     return J,K
 
@@ -508,7 +494,7 @@ def JKalpha_HF_Full_jit(C,I,nbeta,nalpha,nbf,nbf5):
     #denmatj
     D = np.zeros((nbf,nbf))
     for mu in prange(nbf):
-        for nu in prange(mu+1):
+        for nu in prange(mu):
             for i in prange(nbeta,nalpha):
                 D[mu][nu] += C[mu][i]*C[nu][i]
             D[nu][mu] = D[mu][nu]
@@ -516,7 +502,7 @@ def JKalpha_HF_Full_jit(C,I,nbeta,nalpha,nbf,nbf5):
     #hstarj
     J = np.zeros((nbf,nbf))
     for m in prange(nbf):
-        for n in prange(m+1):
+        for n in prange(m):
             for s in range(nbf):
                 for l in range(nbf):
                     J[m][n] += D[s][l]*I[m][n][s][l]
@@ -525,7 +511,7 @@ def JKalpha_HF_Full_jit(C,I,nbeta,nalpha,nbf,nbf5):
     #hstark
     K = np.zeros((nbf,nbf))
     for m in prange(nbf):
-        for s in prange(m+1):
+        for s in prange(m):
             for n in range(nbf):
                 for l in range(nbf):
                     K[m][s] += D[n][l]*I[m][n][s][l]
@@ -562,4 +548,27 @@ def iajb_Full_GPU(C,I,p):
     iajb = cp.einsum('mi,na,mnsl,sj,lb->iajb',C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],I,C[:,p.no1:p.nalpha],C[:,p.nalpha:p.nbf],optimize=True)
 
     return iajb.get()
+
+def compute_pqrt(C,I,b_mnl,p):
+
+    if(p.gpu):
+        pqrt = pqrt_Full_GPU(C,I,p)
+    else:
+        pqrt = pqrt_Full_jit(C,I,p.no1,p.nalpha,p.nbf,p.nbf5)
+
+    return pqrt
+
+
+def pqrt_Full_jit(C,I,no1,nalpha,nbf,nbf5):
+
+    pqrt = np.einsum('mp,nq,mnsl,sr,lt->pqrt',C,C,I,C,C,optimize=True)
+
+    return pqrt
+
+def pqrt_Full_GPU(C,I,p):
+
+    pqrt = cp.einsum('mp,nq,mnsl,sr,lt->pqrt',C,C,I,C,C,optimize=True)
+
+    return pqrt.get()
+
 

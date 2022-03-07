@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 from scipy.optimize import minimize
 from scipy.sparse import csr_matrix
 from scipy.optimize import root
@@ -8,6 +9,382 @@ from numba import prange,njit,jit
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import cg,minres
 from scipy.linalg import fractional_matrix_power
+from scipy.linalg import eigh
+from scipy.linalg import eig
+from scipy.linalg import cholesky
+
+def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p):
+    EcGoWo = 0
+    EcGMSOS = 0
+    for a in range(p.nalpha,p.nbf):
+        for b in range(p.nalpha,p.nbf):
+            for i in range(p.nbeta):
+                for j in range(p.nbeta):
+                    l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+                    for s in range(nab):
+                        EcGoWo += wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                        EcGMSOS -= wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+    if(p.nalpha != p.nbeta):
+        for a in range(p.nalpha,p.nbf):
+            for b in range(p.nalpha,p.nbf):
+                for i in range(p.nbeta):
+                    for j in range(p.nbeta,p.nalpha):
+                        l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+                        for s in range(nab):
+                            EcGoWo += 0.5*wmn[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGMSOS -= 0.5*wmn[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                for i in range(p.nbeta,p.nalpha):
+                    for j in range(p.nbeta,p.nalpha):
+                        l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+                        for s in range(nab):
+                            EcGoWo += 0.5*wmn[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGMSOS -= 0.5*wmn[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                    for j in range(p.nbeta,p.nalpha):
+                        if(i!=j):
+                            l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+                            for s in range(nab):
+                                EcGoWo += 0.25*wmn[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                                EcGMSOS -= 0.25*wmn[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+
+    return EcGoWo, EcGMSOS 
+
+def build_wmn(pqrt,pqrt_at,XpY,nab,p):
+    wmn = np.zeros((p.nbf,p.nbf,nab))
+    wmn_at = np.zeros((p.nbf,p.nbf,nab))
+    for k in range(nab):
+        for i in range(p.nbf):
+            for j in range(p.nbf):
+                a = 0
+                b = p.nalpha
+                for l in range(nab):
+                    wmn[i,j,k] += pqrt[a,j,i,b]*XpY[l,k]
+                    wmn_at[i,j,k] += pqrt_at[a,j,i,b]*XpY[l,k]
+                    b += 1
+                    if(b==p.nbf):
+                        b = p.nalpha
+                        a += 1
+                wmn[i,j,k] *= np.sqrt(2)
+                wmn_at[i,j,k] *= np.sqrt(2)
+
+    return wmn,wmn_at
+
+
+def td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p):
+
+    Dipole_MO = Dipole
+    for i in range(3):
+        Dipole_MO[i] = np.einsum("mi,mn,nj->ij",C,Dipole[i],C,optimize=True)
+
+    oscstr = np.zeros((nab))
+    tempm = np.zeros((3,nab))
+    for k in range(nab):
+        EcRPA = EcRPA + 0.5*np.abs(bigomega[k])
+        dipsum = np.zeros((3))
+        l=0
+        for i in range(p.nalpha):
+            for a in range(p.nalpha,p.nbf):
+                for xyz in range(3):
+                    dipsum[xyz] += np.sqrt(2)*Dipole_MO[xyz,i,a]*XpY[l,k]
+                l += 1
+        tempm[:,k] = dipsum[:]
+        oscstr[k] = 2.0*(dipsum[0]**2 + dipsum[1]**2 + dipsum[2]**2)*bigomega[k]/3
+
+    print("TD-H (RPA) CASIDA eq. solved")
+    print("N. excitation   a.u.         eV            nm      osc. strenght")
+    for i in range(nab):
+        if(oscstr[i] > 10**-6):
+            print("{:^ 10d} {: 11.5f} {: 11.5f} {: 11.5f} {: 11.5f} ".format(i,bigomega[i],bigomega[i]*27.211399,1239.84193/(bigomega[i]*27.211399),oscstr[i]))
+    print("")
+    
+    print("Static Polarizability:")
+    print("")
+    staticpol = 2*np.einsum("ji,ki,i->jk",tempm,tempm,1/(bigomega + 1e-10),optimize=True)
+    for xyz in range(3):
+        print("{:15.5f} {:15.5f} {:15.5f}".format(staticpol[xyz,0],staticpol[xyz,1],staticpol[xyz,2]))
+    print("")
+    print("Trace of the static polarizability {:9.5f}".format((staticpol[0,0]+staticpol[1,1]+staticpol[2,2])/3))
+    print("")
+
+    return EcRPA
+
+def build_F_MO(C,H,I,b_mnl,p):
+    D = pynof.computeD_HF(C,p)
+    if(p.MSpin==0):
+        if(p.nsoc>0):
+            Dalpha = pynof.computeDalpha_HF(C,p)
+            D = D + 0.5*Dalpha
+        J,K = pynof.computeJK_HF(D,I,b_mnl,p)
+        F = H + 2*J - K
+        EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
+    elif(not p.MSpin==0):
+        Dalpha = pynof.computeDalpha_HF(C,p)
+        J,K = pynof.computeJK_HF(D,I,b_mnl,p)
+        F = 2*J - K
+        EHFL = 2*np.trace(np.matmul(D+0.5*Dalpha,H))+np.trace(np.matmul(D+Dalpha,F))
+        F = H + F
+        if(p.nsoc>1):
+            J,K = pynof.computeJK_HF(0.5*Dalpha,I,b_mnl,p)
+            Falpha = J - K
+            EHFL = EHFL + 2*np.trace(np.matmul(0.5*Dalpha,Falpha))
+            F = F + Falpha
+
+    F_MO = np.matmul(np.matmul(np.transpose(C),F),C)
+
+    eig = np.einsum("ii->i",F_MO) #JFHLY: Print info
+
+    return EHFL,F_MO
+
+
+def ERIS_atenuatted(pqrt,Cintra,Cinter,p):
+    subspaces = np.zeros((p.nbf))
+    for i in range(p.no1):
+        subspaces[i] = i
+    for i in range(p.ndoc):
+        subspaces[p.no1+i] = p.no1+i
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-i-1)
+        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-i)
+        subspaces[ll:ul] = p.no1+i
+    for i in range(p.nsoc):
+        subspaces[p.no1+p.ndoc+i] = p.no1+p.ndoc+i
+    subspaces[p.nbf5:] = -1
+
+    pqrt_at = np.zeros((p.nbf,p.nbf,p.nbf,p.nbf))
+    for pp in range(p.nbf):
+        for q in range(p.nbf):
+            for r in range(p.nbf):
+                for t in range(p.nbf):
+                    if(subspaces[pp]==subspaces[q] and subspaces[pp]==subspaces[r] and subspaces[pp]==subspaces[t] and subspaces[pp]!=-1):
+                        pqrt_at[pp,q,r,t] = pqrt[pp,q,r,t] * Cintra[pp]*Cintra[q]*Cintra[r]*Cintra[t]
+                    else:
+                        pqrt_at[pp,q,r,t] = pqrt[pp,q,r,t] * Cinter[pp]*Cinter[q]*Cinter[r]*Cinter[t]
+
+    return pqrt_at
+
+def F_MO_atenuatted(F_MO,Cintra,Cinter,p):
+
+    F_MO_at = np.zeros((p.nbf,p.nbf))
+#    diag_F_MO = F_MO.diagonal()
+#    F_MO_at[:p.nalpha,p.nalpha:p.nbf] = 0.0
+#    F_MO_at[p.nalpha:p.nbf,:p.nalpha] = 0.0
+#    F_MO_at[:p.nalpha,:p.nalpha] = np.einsum("ik,i,k->ik",F_MO[:p.nalpha,:p.nalpha],Cinter[:p.nalpha],Cinter[:p.nalpha],optimize=True)
+#    for l in range(p.ndoc):
+#        ldx = p.no1 + l
+#        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+#        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
+#        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
+#        F_MO_at[ll:ul,ll:ul] = np.einsum("ik,i,k->ik",F_MO[ll:ul,ll:ul],Cintra[ll:ul],Cintra[ll:ul],optimize=True)
+#        F_MO_at[p.nalpha:ll,ll:ul] = np.einsum("ik,i,k->ik",F_MO[p.nalpha:ll,ll:ul],Cinter[p.nalpha:ll],Cinter[ll:ul],optimize=True)
+#        F_MO_at[ul:p.nbf,ll:ul] = np.einsum("ik,i,k->ik",F_MO[ul:p.nbf,ll:ul],Cinter[ul:p.nbf],Cinter[ll:ul],optimize=True)
+#        F_MO_at[ll:ul,p.nalpha:ll] = np.einsum("ik,i,k->ik",F_MO[ll:ul,p.nalpha:ll],Cinter[ll:ul],Cinter[p.nalpha:ll],optimize=True)
+#        F_MO_at[ll:ul,ul:p.nbf] = np.einsum("ik,i,k->ik",F_MO[ll:ul,ul:p.nbf],Cinter[ll:ul],Cinter[ul:p.nbf],optimize=True)
+#    F_MO_at[p.nbf5:p.nbf,p.nbf5:p.nbf] = np.einsum("ik,i,k->ik",F_MO[p.nbf5:p.nbf,p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],optimize=True)
+#    np.fill_diagonal(F_MO_at,diag_F_MO)
+
+    subspaces = np.zeros((p.nbf))
+    for i in range(p.no1):
+        subspaces[i] = i
+    for i in range(p.ndoc):
+        subspaces[p.no1+i] = p.no1+i
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-i-1)
+        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-i)
+        subspaces[ll:ul] = p.no1+i
+    for i in range(p.nsoc):
+        subspaces[p.no1+p.ndoc+i] = p.no1+p.ndoc+i
+    subspaces[p.nbf5:] = -1
+
+    for pp in range(p.nbf):
+        for q in range(p.nbf):
+            if(pp != q):
+                if(subspaces[pp]==subspaces[q]):
+                    F_MO_at[pp,q] = F_MO[pp,q]*Cintra[pp]*Cintra[q]
+                else:
+                    F_MO_at[pp,q] = F_MO[pp,q]*Cinter[pp]*Cinter[q]
+            else:
+                F_MO_at[pp,q] = F_MO[pp,q]
+    F_MO_at[:p.nalpha,p.nalpha:p.nbf] = 0.0
+    F_MO_at[p.nalpha:p.nbf,:p.nalpha] = 0.0
+ 
+    return F_MO_at
+
+def mp2_eq(eig,pqrt,pqrt_at,p):
+
+    EcMP2 = 0
+    for a in range(p.nalpha,p.nbf):
+        for b in range(p.nalpha,p.nbf):
+            for i in range(p.nbeta):
+                for j in range(p.nbeta):
+                    EcMP2 += pqrt[i,a,j,b]*(2*pqrt_at[i,a,j,b]-pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
+                for j in range(p.nbeta,p.nalpha):
+                    EcMP2 += pqrt[i,a,j,b]*(pqrt_at[i,a,j,b]-0.5*pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
+            for i in range(p.nbeta,p.nalpha):
+                for j in range(p.nbeta):
+                    EcMP2 += pqrt[i,a,j,b]*(pqrt_at[i,a,j,b]-0.5*pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
+                for j in range(p.nbeta,p.nalpha):
+                    EcMP2 += 0.5*pqrt[i,a,j,b]*(pqrt_at[i,a,j,b]-0.5*pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
+
+    return EcMP2
+
+def ECorrNonDyn(n,C,H,I,b_mnl,p):
+    fi = 2*n*(1-n)
+
+    CK12nd = np.outer(fi,fi)
+
+    beta = np.sqrt((1-abs(1-2*n))*n)
+
+    for l in range(p.ndoc):
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - l - 1)
+        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc - l)
+        CK12nd[p.no1+l,ll:ul] = beta[p.no1+l]*beta[ll:ul]
+        CK12nd[ll:ul,p.no1+l] = beta[ll:ul]*beta[p.no1+l]
+        CK12nd[ll:ul,ll:ul] = -np.outer(beta[ll:ul],beta[ll:ul])
+
+    #C^K KMO
+    J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+
+    ECndHF = 0
+    ECndl = 0
+    if (p.MSpin==0):
+       ECndHF = - np.einsum('ii,ii->',CK12nd[p.nbeta:p.nalpha,p.nbeta:p.nalpha],K_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd,K_MO) # sum_ij
+       ECndl += np.einsum('ii,ii->',CK12nd,K_MO) # Quita i=j
+    elif (not p.MSpin==0):
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.no1:p.nbeta,p.no1:p.nbeta],K_MO[p.no1:p.nbeta,p.no1:p.nbeta]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.no1:p.nbeta,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.no1:p.nbeta]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.nalpha:p.nbf5,p.no1:p.nbeta],K_MO[p.no1:p.nbeta,p.nalpha:p.nbf5]) # sum_ij
+       ECndl -= np.einsum('ij,ji->',CK12nd[p.nalpha:p.nbf5,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5]) # sum_ij
+       ECndl += np.einsum('ii,ii->',CK12nd[p.no1:p.nbeta,p.no1:p.nbeta],K_MO[p.no1:p.nbeta,p.no1:p.nbeta]) # Quita i=j
+       ECndl += np.einsum('ii,ii->',CK12nd[p.nalpha:p.nbf5,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5]) # Quita i=j
+
+    return ECndHF,ECndl
+
+
+def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
+
+    t1 = time()
+
+    print(" MBPT")
+    print("=========")
+
+    nab = p.nvir*p.nalpha
+    last_coup = p.nalpha + p.ncwo*(p.ndoc)
+
+    print("Number of orbitals        (NBASIS) = {}".format(p.nbf))
+    print("Number of frozen pairs       (NFR) = {}".format(p.no1))
+    print("Number of occupied orbs.     (NOC) = {}".format(p.nalpha))
+    print("Number of virtual orbs.     (NVIR) = {}".format(p.nvir))
+    print("Size of A+B and A-B (NAB=NOCxNVIR) = {}".format(nab))
+
+    occ = np.zeros((p.nbf))
+    occ[:p.nbf5] = n
+
+    EHFL,F_MO = build_F_MO(C,H,I,b_mnl,p)
+
+    pqrt = pynof.compute_pqrt(C,I,b_mnl,p)
+
+    Cintra = 1 - (1 - abs(1-2*occ))**2
+    Cinter = abs(1-2*occ)**2
+    Cinter[:p.nalpha] = 1.0
+
+    F_MO_at = F_MO_atenuatted(F_MO,Cintra,Cinter,p)
+
+    pqrt_at = ERIS_atenuatted(pqrt,Cintra,Cinter,p)
+
+    eig,C_can = eigh(F_MO_at)
+
+    pqrt = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt,C_can,C_can,C_can,C_can)
+    pqrt_at = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt_at,C_can,C_can,C_can,C_can,optimize=True)
+
+    print("List of qp-orbital energies (a.u.) and occ numbers used")
+    print()
+    mu = (eig[p.nalpha] + eig[p.nalpha-1])/2
+    eig = eig - mu
+    for i in range(p.nbf):
+        print(" {: 8.6f} {:5.3f}".format(eig[i],occ[i]))
+    print("Chemical potential used for qp-orbital energies: {}".format(mu))
+    print("")
+
+    AmB = np.zeros((nab,nab))
+    ApB = np.zeros((nab,nab))
+
+    EcRPA = 0
+    
+    k = 0
+    for i in range(p.nalpha):
+        for a in range(p.nalpha,p.nbf):
+            l = 0
+            for j in range(p.nalpha):
+                for b in range(p.nalpha,p.nbf):
+                    ApB[k,l] = 4*pqrt_at[i,a,j,b]
+                    AmB[k,l] = 0.0
+                    if(i==j and a==b):
+                        AmB[k,l] = eig[a] - eig[i]
+                        ApB[k,l] = ApB[k,l] + AmB[k,l]
+                    if(k==l):
+                        EcRPA = EcRPA - 0.25*(ApB[k,k] + AmB[k,k])
+                    l += 1
+            k += 1
+
+    L = sp.linalg.cholesky(ApB, lower=True)
+
+    bigomega2,tempm = np.linalg.eigh(np.matmul(np.matmul(np.transpose(L),AmB),L))
+#    bigomega2,tempm = np.linalg.eigh(np.matmul(ApB,AmB))
+
+    bigomega = np.sqrt(bigomega2)
+
+    XmY = np.matmul(L,tempm)
+
+    XpY = sp.linalg.solve(np.transpose(L),tempm)
+
+    for i in range(nab):
+        XmY[:,i] /= np.sqrt(bigomega[i]) 
+        XpY[:,i] *= np.sqrt(bigomega[i]) 
+
+    EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p)
+
+    wmn,wmn_at = build_wmn(pqrt,pqrt_at,XpY,nab,p)
+
+    EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p)
+
+    EcGoWo *= 2
+    EcGoWoSOS = EcGoWo + EcGMSOS
+
+    EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p)
+
+    ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
+
+    ESD = EHFL+E_nuc+ECndHF
+    ESDc = ESD + ECndl
+    EPNOF = E_elec + E_nuc
+
+    print(" E(SD)                = {: f}".format(ESD))
+    print(" E(SD+ND)             = {: f}".format(ESDc))
+    print(" E(PNOFi)             = {: f}".format(EPNOF))
+    print("")
+    print(" Ec(ND)               = {: f}".format(ECndl))
+    print(" Ec(RPA-FURCHE)       = {: f}".format(EcRPA))
+    print(" Ec(GW@GM)            = {: f}".format(EcGoWo))
+    print(" Ec(SOSEX@GM)         = {: f}".format(EcGMSOS))
+    print(" Ec(GW@GM+SOSEX@GM)   = {: f}".format(EcGoWoSOS))
+    print(" Ec(MP2)              = {: f}".format(EcMP2))
+    print("")
+    print(" E(RPA-FURCHE)       = {: f}".format(ESD + EcRPA))
+    print(" E(GW@GM)            = {: f}".format(ESD + EcGoWo))
+    print(" E(SOSEX@GM)         = {: f}".format(ESD + EcGMSOS))
+    print(" E(GW@GM+SOSEX@GM)   = {: f}".format(ESD + EcGoWoSOS))
+    print(" E(MP2)              = {: f}".format(ESD + EcMP2))
+    print("")
+    print(" E(NOF-c-RPA-FURCHE)       = {: f}".format(EPNOF + EcRPA))
+    print(" E(NOF-c-GW@GM)            = {: f}".format(EPNOF + EcGoWo))
+    print(" E(NOF-c-SOSEX@GM)         = {: f}".format(EPNOF + EcGMSOS))
+    print(" E(NOF-c-GW@GM+SOSEX@GM)   = {: f}".format(EPNOF + EcGoWoSOS))
+    print(" E(NOF-c-MP2)              = {: f}".format(EPNOF + EcMP2))
+
+    print("")
+
+    t2 = time()
+    print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
+
+
 
 def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
 
@@ -19,17 +396,16 @@ def nofmp2(n,C,H,I,b_mnl,E_nuc,p):
     occ = n[p.no1:p.nbf5]
     vec = C[:,p.no1:p.nbf]
 
-    D = pynof.computeD_HF(C,I,b_mnl,p)
+    D = pynof.computeD_HF(C,p)
     if(p.MSpin==0):
         if(p.nsoc>0):
-            Dalpha = pynof.computeDalpha_HF(C,I,b_mnl,p)
+            Dalpha = pynof.computeDalpha_HF(C,p)
             D = D + 0.5*Dalpha
         J,K = pynof.computeJK_HF(D,I,b_mnl,p)
         F = H + 2*J - K
         EHFL = np.trace(np.matmul(D,H)+np.matmul(D,F))
     elif(not p.MSpin==0):
-        D = pynof.computeD_HF(C,I,b_mnl,p)
-        Dalpha = pynof.computeDalpha_HF(C,I,b_mnl,p)
+        Dalpha = pynof.computeDalpha_HF(C,p)
         J,K = pynof.computeJK_HF(D,I,b_mnl,p)
         F = 2*J - K
         EHFL = 2*np.trace(np.matmul(D+0.5*Dalpha,H))+np.trace(np.matmul(D+Dalpha,F))
