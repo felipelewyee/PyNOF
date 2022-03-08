@@ -395,17 +395,17 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
                     iEcSOSEX += pqrt[i,a,j,b]*integral
                 for j in range(p.nbeta,p.nalpha):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -pqrt[i,b,j,a]*integral
-                    iEcSOSEX += pqrt[i,a,j,b]*integral
+                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
+                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
             for i in range(p.nbeta,p.nalpha):
                 for j in range(p.nbeta):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -pqrt[i,b,j,a]*integral
-                    iEcSOSEX += pqrt[i,a,j,b]*integral
+                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
+                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
                 for j in range(p.nbeta,p.nalpha):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -pqrt[i,b,j,a]*integral
-                    iEcSOSEX += pqrt[i,a,j,b]*integral
+                    iEcRPA += -0.25*pqrt[i,b,j,a]*integral
+                    iEcSOSEX += 0.25*pqrt[i,a,j,b]*integral
 
     iEcRPA = iEcRPA/np.pi
     iEcSOSEX = 0.5*iEcSOSEX/np.pi
