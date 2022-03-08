@@ -15,6 +15,7 @@ from scipy.linalg import cholesky
 from scipy.integrate import quad
 from scipy.special import roots_legendre
 
+@njit
 def W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreq):
 
     w_iajb = eri_at
@@ -23,18 +24,58 @@ def W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreq):
 
     return w_iajb
 
+@njit(parallel=True)
 def integrated_omega(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order):
 
     integral = 0
-    for ii in range(order):
+    for ii in prange(order):
         integral += W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreqs[ii])*weights[ii] * 2*(eig[i] - eig[a])/((eig[i] - eig[a])**2 + freqs[ii]**2) *2*(eig[j] - eig[b])/((eig[j] - eig[b])**2 + freqs[ii]**2)
 
     if(np.abs(integral.imag)>1e-4):
-        "Warning, large imaginary component"
-    else:
-        integral = integral.real
+        print("Warning, large imaginary component",integral)
+
+    integral = integral.real
 
     return integral
+
+@njit
+def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbeta,nalpha,nbf):
+
+    iEcRPA=0
+    iEcSOSEX=0
+
+    weights = weights/sumw
+    freqs = (freqs + 1)/2
+
+    weights = weights/(1-freqs)**2
+    freqs = freqs/(1-freqs)
+    cfreqs = freqs*1j
+
+    for a in range(nalpha,nbf):
+        for b in range(nalpha,nbf):
+            for i in range(nbeta):
+                for j in range(nbeta):
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -pqrt[i,b,j,a]*integral
+                    iEcSOSEX += pqrt[i,a,j,b]*integral
+                for j in range(nbeta,nalpha):
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
+                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
+            for i in range(nbeta,nalpha):
+                for j in range(nbeta):
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
+                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
+                for j in range(nbeta,nalpha):
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -0.25*pqrt[i,b,j,a]*integral
+                    iEcSOSEX += 0.25*pqrt[i,a,j,b]*integral
+
+    iEcRPA = iEcRPA/np.pi
+    iEcSOSEX = 0.5*iEcSOSEX/np.pi
+
+    return iEcRPA, iEcSOSEX
 
 def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p):
     EcGoWo = 0
@@ -373,44 +414,11 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
     EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p)
 
-    iEcRPA=0
-    iEcSOSEX=0
-
     order = 40
     freqs, weights, sumw = roots_legendre(order, mu=True)
+    iEcRPA, iEcSOSEX = rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,p.nbeta,p.nalpha,p.nbf)
 
-    weights = weights/sumw
-    freqs = (freqs + 1)/2
-
-    weights = weights/(1-freqs)**2
-    freqs = freqs/(1-freqs)
-    cfreqs = freqs*1j
-
-    for a in range(p.nalpha,p.nbf):
-        for b in range(p.nalpha,p.nbf):
-            for i in range(p.nbeta):
-                for j in range(p.nbeta):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -pqrt[i,b,j,a]*integral
-                    iEcSOSEX += pqrt[i,a,j,b]*integral
-                for j in range(p.nbeta,p.nalpha):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
-                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
-            for i in range(p.nbeta,p.nalpha):
-                for j in range(p.nbeta):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
-                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
-                for j in range(p.nbeta,p.nalpha):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -0.25*pqrt[i,b,j,a]*integral
-                    iEcSOSEX += 0.25*pqrt[i,a,j,b]*integral
-
-    iEcRPA = iEcRPA/np.pi
-    iEcSOSEX = 0.5*iEcSOSEX/np.pi
-
-    iEcRPASOS=iEcRPA+iEcSOSEX
+    iEcRPASOS = iEcRPA+iEcSOSEX
 
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
