@@ -15,4 +15,9 @@ p.threshe=10**-6
 
 p.set_ncwo(1)
 
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,mbpt=True)
+p.RI = True
+
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p)
+p.RI = False
+
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,C=C,gamma=gamma,fmiug0=fmiug0,mbpt=True)

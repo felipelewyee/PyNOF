@@ -28,7 +28,8 @@ def compute_integrals(wfn,mol,p):
         aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", orb.blend())
         zero_bas = psi4.core.BasisSet.zero_ao_basis_set()
 
-        Ppq = mints.ao_eri(orb, orb, aux, zero_bas)
+        Ppq = np.transpose(mints.ao_eri(aux, zero_bas, orb, orb))
+        #Ppq = mints.ao_eri(orb, orb, aux, zero_bas)
         
         metric = mints.ao_eri(aux, zero_bas, aux, zero_bas)
         metric.power(-0.5, 1.e-14)
