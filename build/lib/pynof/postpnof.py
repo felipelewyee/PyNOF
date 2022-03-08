@@ -12,6 +12,29 @@ from scipy.linalg import fractional_matrix_power
 from scipy.linalg import eigh
 from scipy.linalg import eig
 from scipy.linalg import cholesky
+from scipy.integrate import quad
+from scipy.special import roots_legendre
+
+def W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreq):
+
+    w_iajb = eri_at
+    for s in range(nab):
+        w_iajb += wmn_at[i,a,s]*wmn_at[j,b,s]*(1/(cfreq-bigomega[s]) - 1/(cfreq+bigomega[s]))
+
+    return w_iajb
+
+def integrated_omega(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order):
+
+    integral = 0
+    for ii in range(order):
+        integral += W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreqs[ii])*weights[ii] * 2*(eig[i] - eig[a])/((eig[i] - eig[a])**2 + freqs[ii]**2) *2*(eig[j] - eig[b])/((eig[j] - eig[b])**2 + freqs[ii]**2)
+
+    if(np.abs(integral.imag)>1e-4):
+        "Warning, large imaginary component"
+    else:
+        integral = integral.real
+
+    return integral
 
 def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p):
     EcGoWo = 0
@@ -285,7 +308,6 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     Cinter = abs(1-2*occ)**2
     Cinter[:p.nalpha] = 1.0
 
-
     F_MO_at = F_MO_atenuatted(F_MO,Cintra,Cinter,p)
 
     pqrt_at = ERIS_atenuatted(pqrt,Cintra,Cinter,p)
@@ -325,15 +347,12 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
                     l += 1
             k += 1
 
-    print("EcRPA",EcRPA)
-
     L = sp.linalg.cholesky(ApB, lower=True)
 
-#    bigomega2,tempm = np.linalg.eigh(np.matmul(np.matmul(np.transpose(L),AmB),L))
-    bigomega2,tempm = np.linalg.eigh(np.matmul(ApB,AmB))
+    bigomega2,tempm = np.linalg.eigh(np.matmul(np.matmul(np.transpose(L),AmB),L))
+#    bigomega2,tempm = np.linalg.eigh(np.matmul(ApB,AmB))
 
     bigomega = np.sqrt(bigomega2)
-
 
     XmY = np.matmul(L,tempm)
 
@@ -349,12 +368,38 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
     EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p)
 
-    print("EcGoWo",EcGoWo)
-
     EcGoWo *= 2
     EcGoWoSOS = EcGoWo + EcGMSOS
 
     EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p)
+
+    iEcRPA=0
+    iEcSOSEX=0
+
+    order = 40
+    freqs, weights, sumw = roots_legendre(order, mu=True)
+
+    weights = weights/sumw
+    freqs = (freqs + 1)/2
+
+    weights = weights/(1-freqs)**2
+    freqs = freqs/(1-freqs)
+    cfreqs = freqs*1j
+
+    for a in range(p.nalpha,p.nbf):
+        for b in range(p.nalpha,p.nbf):
+            for i in range(p.nbeta):
+                for j in range(p.nbeta):
+                    #integral = quad(integrated_omega,0,np.inf,args=(i,a,j,b,pqrt_at,wmn_at,eig,nab,bigomega)) 
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -pqrt[i,b,j,a]*integral
+                    iEcSOSEX += pqrt[i,a,j,b]*integral
+
+    iEcRPA = iEcRPA/np.pi
+    iEcSOSEX = 0.5*iEcSOSEX/np.pi
+
+    iEcRPASOS=iEcRPA+iEcSOSEX
+
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
 
@@ -368,24 +413,29 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print("")
     print(" Ec(ND)               = {: f}".format(ECndl))
     print(" Ec(RPA-FURCHE)       = {: f}".format(EcRPA))
+    print(" Ec(RPA)              = {: f}".format(iEcRPA))
+    print(" Ec(AC-SOSEX)         = {: f}".format(iEcSOSEX))
+    print(" Ec(RPA+AC-SOSEX)     = {: f}".format(iEcRPASOS))
     print(" Ec(GW@GM)            = {: f}".format(EcGoWo))
     print(" Ec(SOSEX@GM)         = {: f}".format(EcGMSOS))
     print(" Ec(GW@GM+SOSEX@GM)   = {: f}".format(EcGoWoSOS))
     print(" Ec(MP2)              = {: f}".format(EcMP2))
     print("")
     print(" E(RPA-FURCHE)       = {: f}".format(ESD + EcRPA))
+    print(" E(RPA)              = {: f}".format(ESD + iEcRPA))
+    print(" E(RPA+AC-SOSEX)     = {: f}".format(ESD + iEcRPASOS))
     print(" E(GW@GM)            = {: f}".format(ESD + EcGoWo))
     print(" E(SOSEX@GM)         = {: f}".format(ESD + EcGMSOS))
     print(" E(GW@GM+SOSEX@GM)   = {: f}".format(ESD + EcGoWoSOS))
     print(" E(MP2)              = {: f}".format(ESD + EcMP2))
     print("")
     print(" E(NOF-c-RPA-FURCHE)       = {: f}".format(EPNOF + EcRPA))
+    print(" E(NOF-c-RPA)              = {: f}".format(EPNOF + iEcRPA))
+    print(" E(NOF-c-RPA+AC+SOSEX)     = {: f}".format(EPNOF + iEcRPASOS))
     print(" E(NOF-c-GW@GM)            = {: f}".format(EPNOF + EcGoWo))
     print(" E(NOF-c-SOSEX@GM)         = {: f}".format(EPNOF + EcGMSOS))
     print(" E(NOF-c-GW@GM+SOSEX@GM)   = {: f}".format(EPNOF + EcGoWoSOS))
     print(" E(NOF-c-MP2)              = {: f}".format(EPNOF + EcMP2))
-
-
 
     print("")
 
