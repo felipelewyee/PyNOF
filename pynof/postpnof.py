@@ -228,22 +228,6 @@ def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 
     F_MO_at = np.zeros((nbf,nbf))
-#    diag_F_MO = F_MO.diagonal()
-#    F_MO_at[:p.nalpha,p.nalpha:p.nbf] = 0.0
-#    F_MO_at[p.nalpha:p.nbf,:p.nalpha] = 0.0
-#    F_MO_at[:p.nalpha,:p.nalpha] = np.einsum("ik,i,k->ik",F_MO[:p.nalpha,:p.nalpha],Cinter[:p.nalpha],Cinter[:p.nalpha],optimize=True)
-#    for l in range(p.ndoc):
-#        ldx = p.no1 + l
-#        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-#        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
-#        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
-#        F_MO_at[ll:ul,ll:ul] = np.einsum("ik,i,k->ik",F_MO[ll:ul,ll:ul],Cintra[ll:ul],Cintra[ll:ul],optimize=True)
-#        F_MO_at[p.nalpha:ll,ll:ul] = np.einsum("ik,i,k->ik",F_MO[p.nalpha:ll,ll:ul],Cinter[p.nalpha:ll],Cinter[ll:ul],optimize=True)
-#        F_MO_at[ul:p.nbf,ll:ul] = np.einsum("ik,i,k->ik",F_MO[ul:p.nbf,ll:ul],Cinter[ul:p.nbf],Cinter[ll:ul],optimize=True)
-#        F_MO_at[ll:ul,p.nalpha:ll] = np.einsum("ik,i,k->ik",F_MO[ll:ul,p.nalpha:ll],Cinter[ll:ul],Cinter[p.nalpha:ll],optimize=True)
-#        F_MO_at[ll:ul,ul:p.nbf] = np.einsum("ik,i,k->ik",F_MO[ll:ul,ul:p.nbf],Cinter[ll:ul],Cinter[ul:p.nbf],optimize=True)
-#    F_MO_at[p.nbf5:p.nbf,p.nbf5:p.nbf] = np.einsum("ik,i,k->ik",F_MO[p.nbf5:p.nbf,p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],optimize=True)
-#    np.fill_diagonal(F_MO_at,diag_F_MO)
 
     subspaces = np.zeros((nbf))
     for i in range(no1):
