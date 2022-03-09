@@ -198,25 +198,25 @@ def build_F_MO(C,H,I,b_mnl,p):
 
     return EHFL,F_MO
 
-
-def ERIS_atenuatted(pqrt,Cintra,Cinter,p):
-    subspaces = np.zeros((p.nbf))
-    for i in range(p.no1):
+@njit
+def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
+    subspaces = np.zeros((nbf))
+    for i in range(no1):
         subspaces[i] = i
-    for i in range(p.ndoc):
-        subspaces[p.no1+i] = p.no1+i
-        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-i-1)
-        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-i)
-        subspaces[ll:ul] = p.no1+i
-    for i in range(p.nsoc):
-        subspaces[p.no1+p.ndoc+i] = p.no1+p.ndoc+i
-    subspaces[p.nbf5:] = -1
+    for i in range(ndoc):
+        subspaces[no1+i] = no1+i
+        ll = no1 + ndns + ncwo*(ndoc-i-1)
+        ul = no1 + ndns + ncwo*(ndoc-i)
+        subspaces[ll:ul] = no1+i
+    for i in range(nsoc):
+        subspaces[no1+ndoc+i] = no1+ndoc+i
+    subspaces[nbf5:] = -1
 
-    pqrt_at = np.zeros((p.nbf,p.nbf,p.nbf,p.nbf))
-    for pp in range(p.nbf):
-        for q in range(p.nbf):
-            for r in range(p.nbf):
-                for t in range(p.nbf):
+    pqrt_at = np.zeros((nbf,nbf,nbf,nbf))
+    for pp in range(nbf):
+        for q in range(nbf):
+            for r in range(nbf):
+                for t in range(nbf):
                     if(subspaces[pp]==subspaces[q] and subspaces[pp]==subspaces[r] and subspaces[pp]==subspaces[t] and subspaces[pp]!=-1):
                         pqrt_at[pp,q,r,t] = pqrt[pp,q,r,t] * Cintra[pp]*Cintra[q]*Cintra[r]*Cintra[t]
                     else:
@@ -224,9 +224,10 @@ def ERIS_atenuatted(pqrt,Cintra,Cinter,p):
 
     return pqrt_at
 
-def F_MO_atenuatted(F_MO,Cintra,Cinter,p):
+@njit
+def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 
-    F_MO_at = np.zeros((p.nbf,p.nbf))
+    F_MO_at = np.zeros((nbf,nbf))
 #    diag_F_MO = F_MO.diagonal()
 #    F_MO_at[:p.nalpha,p.nalpha:p.nbf] = 0.0
 #    F_MO_at[p.nalpha:p.nbf,:p.nalpha] = 0.0
@@ -244,20 +245,20 @@ def F_MO_atenuatted(F_MO,Cintra,Cinter,p):
 #    F_MO_at[p.nbf5:p.nbf,p.nbf5:p.nbf] = np.einsum("ik,i,k->ik",F_MO[p.nbf5:p.nbf,p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],optimize=True)
 #    np.fill_diagonal(F_MO_at,diag_F_MO)
 
-    subspaces = np.zeros((p.nbf))
-    for i in range(p.no1):
+    subspaces = np.zeros((nbf))
+    for i in range(no1):
         subspaces[i] = i
-    for i in range(p.ndoc):
-        subspaces[p.no1+i] = p.no1+i
-        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-i-1)
-        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-i)
-        subspaces[ll:ul] = p.no1+i
-    for i in range(p.nsoc):
-        subspaces[p.no1+p.ndoc+i] = p.no1+p.ndoc+i
-    subspaces[p.nbf5:] = -1
+    for i in range(ndoc):
+        subspaces[no1+i] = no1+i
+        ll = no1 + ndns + ncwo*(ndoc-i-1)
+        ul = no1 + ndns + ncwo*(ndoc-i)
+        subspaces[ll:ul] = no1+i
+    for i in range(nsoc):
+        subspaces[no1+ndoc+i] = no1+ndoc+i
+    subspaces[nbf5:] = -1
 
-    for pp in range(p.nbf):
-        for q in range(p.nbf):
+    for pp in range(nbf):
+        for q in range(nbf):
             if(pp != q):
                 if(subspaces[pp]==subspaces[q]):
                     F_MO_at[pp,q] = F_MO[pp,q]*Cintra[pp]*Cintra[q]
@@ -265,8 +266,8 @@ def F_MO_atenuatted(F_MO,Cintra,Cinter,p):
                     F_MO_at[pp,q] = F_MO[pp,q]*Cinter[pp]*Cinter[q]
             else:
                 F_MO_at[pp,q] = F_MO[pp,q]
-    F_MO_at[:p.nalpha,p.nalpha:p.nbf] = 0.0
-    F_MO_at[p.nalpha:p.nbf,:p.nalpha] = 0.0
+    F_MO_at[:nalpha,nalpha:nbf] = 0.0
+    F_MO_at[nalpha:nbf,:nalpha] = 0.0
  
     return F_MO_at
 
@@ -337,26 +338,34 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print("Number of occupied orbs.     (NOC) = {}".format(p.nalpha))
     print("Number of virtual orbs.     (NVIR) = {}".format(p.nvir))
     print("Size of A+B and A-B (NAB=NOCxNVIR) = {}".format(nab))
+    print("")
 
     occ = np.zeros((p.nbf))
     occ[:p.nbf5] = n
 
+    print("Building F_MO")
     EHFL,F_MO = build_F_MO(C,H,I,b_mnl,p)
 
+    print("Transforming ERIs mnsl->pqrt")
     pqrt = pynof.compute_pqrt(C,I,b_mnl,p)
 
     Cintra = 1 - (1 - abs(1-2*occ))**2
     Cinter = abs(1-2*occ)**2
     Cinter[:p.nalpha] = 1.0
 
-    F_MO_at = F_MO_atenuatted(F_MO,Cintra,Cinter,p)
+    print("Attenuating F_MO")
+    F_MO_at = F_MO_attenuated(F_MO,Cintra,Cinter,p.no1,p.nalpha,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
 
-    pqrt_at = ERIS_atenuatted(pqrt,Cintra,Cinter,p)
+    print("Attenuating pqrt")
+    pqrt_at = ERIS_attenuated(pqrt,Cintra,Cinter,p.no1,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
 
     eig,C_can = eigh(F_MO_at)
 
+    print("Canonicalizing pqrt")
     pqrt = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt,C_can,C_can,C_can,C_can)
+    print("Canonicalizing pqrt_at")
     pqrt_at = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt_at,C_can,C_can,C_can,C_can,optimize=True)
+    print("")
 
     print("List of qp-orbital energies (a.u.) and occ numbers used")
     print()
