@@ -396,23 +396,27 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
         XmY[:,i] /= np.sqrt(bigomega[i]) 
         XpY[:,i] *= np.sqrt(bigomega[i]) 
 
+    print(" ....Computing Polarizabilities")
     EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p)
 
+    print(" ....Computing wmn")
     wmn,wmn_at = build_wmn(pqrt,pqrt_at,XpY,nab,p)
 
+    print(" ....Computing gw_gm")
     EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p)
 
     EcGoWo *= 2
     EcGoWoSOS = EcGoWo + EcGMSOS
 
+    print(" ....Computing mp2")
     EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p)
 
     order = 40
     freqs, weights, sumw = roots_legendre(order, mu=True)
+    print(" ....Computing rpa_sosex")
     iEcRPA, iEcSOSEX = rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,p.nbeta,p.nalpha,p.nbf)
 
     iEcRPASOS = iEcRPA+iEcSOSEX
-
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
 

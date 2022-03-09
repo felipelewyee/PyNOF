@@ -228,22 +228,6 @@ def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 
     F_MO_at = np.zeros((nbf,nbf))
-#    diag_F_MO = F_MO.diagonal()
-#    F_MO_at[:p.nalpha,p.nalpha:p.nbf] = 0.0
-#    F_MO_at[p.nalpha:p.nbf,:p.nalpha] = 0.0
-#    F_MO_at[:p.nalpha,:p.nalpha] = np.einsum("ik,i,k->ik",F_MO[:p.nalpha,:p.nalpha],Cinter[:p.nalpha],Cinter[:p.nalpha],optimize=True)
-#    for l in range(p.ndoc):
-#        ldx = p.no1 + l
-#        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-#        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
-#        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
-#        F_MO_at[ll:ul,ll:ul] = np.einsum("ik,i,k->ik",F_MO[ll:ul,ll:ul],Cintra[ll:ul],Cintra[ll:ul],optimize=True)
-#        F_MO_at[p.nalpha:ll,ll:ul] = np.einsum("ik,i,k->ik",F_MO[p.nalpha:ll,ll:ul],Cinter[p.nalpha:ll],Cinter[ll:ul],optimize=True)
-#        F_MO_at[ul:p.nbf,ll:ul] = np.einsum("ik,i,k->ik",F_MO[ul:p.nbf,ll:ul],Cinter[ul:p.nbf],Cinter[ll:ul],optimize=True)
-#        F_MO_at[ll:ul,p.nalpha:ll] = np.einsum("ik,i,k->ik",F_MO[ll:ul,p.nalpha:ll],Cinter[ll:ul],Cinter[p.nalpha:ll],optimize=True)
-#        F_MO_at[ll:ul,ul:p.nbf] = np.einsum("ik,i,k->ik",F_MO[ll:ul,ul:p.nbf],Cinter[ll:ul],Cinter[ul:p.nbf],optimize=True)
-#    F_MO_at[p.nbf5:p.nbf,p.nbf5:p.nbf] = np.einsum("ik,i,k->ik",F_MO[p.nbf5:p.nbf,p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],Cintra[p.nbf5:p.nbf],optimize=True)
-#    np.fill_diagonal(F_MO_at,diag_F_MO)
 
     subspaces = np.zeros((nbf))
     for i in range(no1):
@@ -412,22 +396,46 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
         XmY[:,i] /= np.sqrt(bigomega[i]) 
         XpY[:,i] *= np.sqrt(bigomega[i]) 
 
+    print(" ....Computing Polarizabilities")
     EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p)
 
+    print(" ....Computing wmn")
     wmn,wmn_at = build_wmn(pqrt,pqrt_at,XpY,nab,p)
 
+    print(" ....Computing gw_gm")
     EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p)
 
     EcGoWo *= 2
     EcGoWoSOS = EcGoWo + EcGMSOS
 
+    print(" ....Computing mp2")
     EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p)
 
     order = 40
     freqs, weights, sumw = roots_legendre(order, mu=True)
+    print(" ....Computing rpa_sosex")
     iEcRPA, iEcSOSEX = rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,p.nbeta,p.nalpha,p.nbf)
 
     iEcRPASOS = iEcRPA+iEcSOSEX
+
+    #CCSD
+
+    #FockM = np.zeros((p,nbf,p.nbf))
+    #for p in range(p.nbf):
+    #    FockM[p,p] = eig[p]
+    #ERItmp = np.zeros((p,nbf,p.nbf,p.nbf,p.nbf))
+    #for pp in range(p.nbf):
+    #    for q in range(p.nbf):
+    #        for r in range(p.nbf):
+    #            for s in range(p.nbf):
+    #                if(np.abs(pqrt_at[p,s,q,r])>1e-7):
+    #                    ERItmp[pp,r,q,s] = pqrt_at[pp,s,q,r]
+
+
+
+
+
+
 
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
