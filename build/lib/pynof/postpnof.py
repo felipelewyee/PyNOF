@@ -343,27 +343,27 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     occ = np.zeros((p.nbf))
     occ[:p.nbf5] = n
 
-    print("Building F_MO")
+    print(" ....Building F_MO")
     EHFL,F_MO = build_F_MO(C,H,I,b_mnl,p)
 
-    print("Transforming ERIs mnsl->pqrt")
+    print(" ....Transforming ERIs mnsl->pqrt")
     pqrt = pynof.compute_pqrt(C,I,b_mnl,p)
 
     Cintra = 1 - (1 - abs(1-2*occ))**2
     Cinter = abs(1-2*occ)**2
     Cinter[:p.nalpha] = 1.0
 
-    print("Attenuating F_MO")
+    print(" ....Attenuating F_MO")
     F_MO_at = F_MO_attenuated(F_MO,Cintra,Cinter,p.no1,p.nalpha,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
 
-    print("Attenuating pqrt")
+    print(" ....Attenuating pqrt")
     pqrt_at = ERIS_attenuated(pqrt,Cintra,Cinter,p.no1,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
 
     eig,C_can = eigh(F_MO_at)
 
-    print("Canonicalizing pqrt")
+    print(" ....Canonicalizing pqrt")
     pqrt = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt,C_can,C_can,C_can,C_can)
-    print("Canonicalizing pqrt_at")
+    print(" ....Canonicalizing pqrt_at")
     pqrt_at = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt_at,C_can,C_can,C_can,C_can,optimize=True)
     print("")
 

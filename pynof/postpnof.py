@@ -362,7 +362,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     eig,C_can = eigh(F_MO_at)
 
     print(" ....Canonicalizing pqrt")
-    pqrt = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt,C_can,C_can,C_can,C_can)
+    pqrt = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt,C_can,C_can,C_can,C_can,optimize=True)
     print(" ....Canonicalizing pqrt_at")
     pqrt_at = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt_at,C_can,C_can,C_can,C_can,optimize=True)
     print("")
