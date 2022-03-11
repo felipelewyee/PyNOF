@@ -17,7 +17,7 @@ p.set_ncwo(1)
 
 p.RI = True
 
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p)
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=False)
 p.RI = False
 
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,C=C,gamma=gamma,fmiug0=fmiug0,mbpt=True)
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=False,C=C,gamma=gamma,fmiug0=fmiug0,mbpt=True)

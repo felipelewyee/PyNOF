@@ -16,6 +16,246 @@ from scipy.integrate import quad
 from scipy.special import roots_legendre
 
 @njit
+def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
+    #CCSD
+    Eccsd = 0
+    FockM_in = np.zeros((nbf,nbf))
+    for pp in range(nbf):
+        FockM_in[pp,pp] = eig[pp]
+    ERItmp = np.zeros((nbf,nbf,nbf,nbf))
+
+    for pp in range(nbf):
+        for q in range(nbf):
+            for r in range(nbf):
+                for s in range(nbf):
+                    if(np.abs(pqrt_at[pp,s,q,r])>1e-7):
+                        ERItmp[pp,r,q,s] = pqrt_at[pp,s,q,r]
+    pqrt_at = np.copy(ERItmp)
+
+    ERItmp = np.zeros((nbf,nbf,nbf,nbf))
+
+    for pp in range(nbf):
+        for q in range(nbf):
+            for r in range(nbf):
+                for s in range(nbf):
+                    if(np.abs(pqrt_at[pp,s,q,r])>1e-7):
+                        ERItmp[pp,r,q,s] = pqrt[pp,s,q,r]
+    pqrt = np.copy(ERItmp)
+
+    nocc = max(nbeta,nalpha)
+    nocc2 = 2*nocc
+    nbf2 = 2*nbf
+    nco2 = nbeta*2
+    na2 = nalpha*2
+    nvir2 = nbf2-nocc2
+
+    FockM = np.zeros((nbf2,nbf2))
+    for i in range(nbf2):
+        for j in range(nbf2):
+            if(i%2==j%2):
+                FockM[j,i] = FockM_in[slbasis(j),slbasis(i)]
+
+    td = np.zeros((nocc2,nocc2,nvir2,nvir2))
+    for i in range(nocc2):
+        for j in range(nocc2):
+            for aidx,a in enumerate(range(nocc2,nbf2)):
+                for bidx,b in enumerate(range(nocc2,nbf2)):
+                    td[i,j,aidx,bidx] = spin_int(i,j,a,b,pqrt_at)/(FockM[i,i]+FockM[j,j]-FockM[a,a]-FockM[b,b]+1e-8)
+
+    deltaE = 1
+    itera = 0
+    ts = np.zeros((nocc2,nvir2))
+    print("")
+    while(np.abs(deltaE) > 1e-6 and itera<1000000):
+
+        Fmi,Wmnij,Fae,Wabef,Fme,Wmbej = ccsd_update_interm(ts,td,FockM,pqrt_at,nocc2,nvir2,nbf2)
+
+        tsnew,tdnew = ccsd_update_t1_t2(ts,td,Fmi,Wmnij,Fae,Wabef,Fme,Wmbej,FockM,pqrt_at,nocc2,nvir2,nbf2)
+        for i in range(nocc2):
+            for j in range(nocc2):
+                for aidx,a in enumerate(range(nocc2,nbf2)):
+                    if(j==0):
+                        if(np.abs(tsnew[i,aidx])<1e-8):
+                            tsnew[i,aidx] = 0
+                    for bidx,b in enumerate(range(nocc2,nbf2)):
+                        if(np.abs(tdnew[i,j,aidx,bidx])<1e-8):
+                            tdnew[i,j,aidx,bidx] = 0.0
+        ts = tsnew.copy()
+        td = tdnew.copy()
+
+        ccsd_en_nof = 0
+        nsocc = na2
+        ndocc = nco2
+        for aidx,a in enumerate(range(nsocc,nbf2)):
+            for bidx,b in enumerate(range(nsocc,nbf2)):
+                for i in range(ndocc):
+                    if(b==nsocc):
+                        ccsd_en_nof += FockM[i,a] * ts[i,aidx]
+                    for j in range(nsocc):
+                        ccsd_en_nof += 0.25*spin_int(i,j,a,b,pqrt)*td[i,j,aidx,bidx] + 0.5*spin_int(i,j,a,b,pqrt)*ts[i,aidx]*ts[j,bidx]
+                    for j in range(ndocc,nsocc):
+                        ccsd_en_nof += 0.5*(0.25*spin_int(i,j,a,b,pqrt)*td[i,j,aidx,bidx] + 0.5*spin_int(i,j,a,b,pqrt)*ts[i,aidx]*ts[j,bidx])
+                for i in range(ndocc,nsocc):
+                    for j in range(ndocc):
+                        ccsd_en_nof += 0.5*(0.25*spin_int(i,j,a,b,pqrt)*td[i,j,aidx,bidx] + 0.5*spin_int(i,j,aidx,bidx,pqrt)*ts[i,aidx]*ts[j,bidx])
+                    for j in range(ndocc,nsocc):
+                        if(i%2==0):
+                            k=i+1
+                        else:
+                            k=i-1
+                        if(j!=i and j!=k):
+                            ccsd_en_nof += 0.25*(0.25*spin_int(i,j,a,b,pqrt)*td[i,j,aidx,bidx] + 0.5*spin_int(i,j,a,b,pqrt)*ts[i,aidx]*ts[j,bidx])
+        Eccsd_new = ccsd_en_nof
+        deltaE = Eccsd - Eccsd_new
+        Eccsd = Eccsd_new
+        itera += 1
+        if(itera%2==0):
+            #print("CCSD corr. energy {:5.3f} iter {:d} deltaE {:5.3f}".format(Eccsd,itera,deltaE))
+            print(" ....CCSD corr. energy", Eccsd, " iter", itera, "deltaE", deltaE)
+        #break
+    #print("CCSD procedure finished after {:5.3f} iter. with deltaE {:5.3f}".format(itera,deltaE))
+    print(" ....CCSD procedure finished after", itera, "iter. with deltaE", deltaE)
+    print("")
+    EcCCSD = Eccsd_new
+
+    return EcCCSD
+
+@njit
+def ccsd_update_interm(ts,td,FockM,pqrt_at,nocc2,nvir2,nbf2):
+    Fmi = np.zeros((nocc2,nocc2))
+    Wmnij = np.zeros((nocc2,nocc2,nocc2,nocc2))
+    for m in range(nocc2):
+        for i in range(nocc2):
+            if(i!=m):
+                Fmi[m,i] = FockM[m,i]
+            for n in range(nocc2):
+                for j in range(nocc2):
+                    Wmnij[m,n,i,j] = spin_int(m,n,i,j,pqrt_at)
+                    for eidx,e in enumerate(range(nocc2,nbf2)):
+                        if(j==0):
+                            Fmi[m,i] += ts[n,eidx]*spin_int(m,n,i,e,pqrt_at)
+                            if(n==0):
+                                Fmi[m,i] += 0.5*ts[i,eidx]*FockM[m,e]
+                        Wmnij[m,n,i,j] += ts[j,eidx]*spin_int(m,n,i,e,pqrt_at) - ts[i,eidx]*spin_int(m,n,j,e,pqrt_at)
+                        for fidx,f in enumerate(range(nocc2,nbf2)):
+                            tau = td[i,j,eidx,fidx] + ts[i,eidx]*ts[j,fidx] - ts[i,fidx]*ts[j,eidx]
+                            Wmnij[m,n,i,j] += 0.25*tau*spin_int(m,n,e,f,pqrt_at)
+                            if(j==0):
+                                taus = td[i,n,eidx,fidx] + 0.5*(ts[i,eidx]*ts[j,fidx] - ts[i,fidx]*ts[j,eidx])
+                                Fmi[m,i] += 0.5*taus*spin_int(m,n,e,f,pqrt_at)
+
+    Fae = np.zeros((nvir2,nvir2))
+    Wabef = np.zeros((nvir2,nvir2,nvir2,nvir2))
+    for aidx,a in enumerate(range(nocc2,nbf2)):
+        for eidx,e in enumerate(range(nocc2,nbf2)):
+            if(a!=e):
+                Fae[aidx,eidx] = FockM[a,e]
+            for bidx,b in enumerate(range(nocc2,nbf2)):
+                for fidx,f in enumerate(range(nocc2,nbf2)):
+                    Wabef[aidx,bidx,eidx,fidx] = spin_int(a,b,e,f,pqrt_at)
+                    for m in range(nocc2):
+                        if(b==nocc2):
+                            if(f==nocc2):
+                                Fae[aidx,eidx] += -0.5*ts[m,aidx]*FockM[m,e]
+                            Fae[aidx,eidx] += ts[m,fidx]*spin_int(m,a,f,e,pqrt_at)
+                        Wabef[aidx,bidx,eidx,fidx] += -ts[m,bidx]*spin_int(a,m,e,f,pqrt_at) + ts[m,aidx]*spin_int(b,m,e,f,pqrt_at)
+                        for n in range(nocc2):
+                            tau = td[m,n,aidx,bidx] + ts[m,aidx]*ts[n,bidx] - ts[m,bidx]*ts[n,aidx]
+                            Wabef[aidx,bidx,eidx,fidx] += 0.25*tau*spin_int(m,n,e,f,pqrt_at)
+                            if(b==nocc2):
+                                taus = td[m,n,aidx,fidx] + 0.5*(ts[m,aidx]*ts[n,fidx] - ts[m,fidx]*ts[n,aidx])
+                                Fae[aidx,eidx] += -0.5*taus*spin_int(m,n,e,f,pqrt_at)
+
+    Fme = np.zeros((nocc2,nvir2))
+    Wmbej = np.zeros((nocc2,nvir2,nvir2,nocc2))
+    for m in range(nocc2):
+        for eidx,e in enumerate(range(nocc2,nbf2)):
+            Fme[m,eidx] = FockM[m,e]
+            for bidx,b in enumerate(range(nocc2,nbf2)):
+                for j in range(nocc2):
+                    Fme[m,eidx] += ts[j,bidx]*spin_int(m,j,e,b,pqrt_at)
+                    Wmbej[m,bidx,eidx,j] = spin_int(m,b,e,j,pqrt_at)
+                    for fidx,f in enumerate(range(nocc2,nbf2)):
+                        Wmbej[m,bidx,eidx,j] += ts[j,fidx]*spin_int(m,b,e,f,pqrt_at)
+                    for n in range(nocc2):
+                        Wmbej[m,bidx,eidx,j] += -ts[n,bidx]*spin_int(m,n,e,j,pqrt_at)
+                        for fidx,f in enumerate(range(nocc2,nbf2)):
+                            Wmbej[m,bidx,eidx,j] += -(0.5*td[j,n,fidx,bidx] + ts[j,fidx]*ts[n,bidx])*spin_int(m,n,e,f,pqrt_at)
+
+    return Fmi,Wmnij,Fae,Wabef,Fme,Wmbej
+
+@njit
+def ccsd_update_t1_t2(ts,td,Fmi,Wmnij,Fae,Wabef,Fme,Wmbej,FockM,pqrt_at,nocc2,nvir2,nbf2):
+    tsnew = np.zeros((nocc2,nvir2))
+    tdnew = np.zeros((nocc2,nocc2,nvir2,nvir2))
+    
+    for aidx,a in enumerate(range(nocc2,nbf2)):
+        for bidx,b in enumerate(range(nocc2,nbf2)):
+            for i in range(nocc2):
+                # T1
+                if(b==nocc2):
+                    tsnew[i,aidx]=FockM[i,a]
+                    for m in range(nocc2):
+                        tsnew[i,aidx] -= ts[m,aidx]*Fmi[m,i]
+                        for eidx,e in enumerate(range(nocc2,nbf2)):
+                            tsnew[i,aidx] +=  td[i,m,aidx,eidx]*Fme[m,eidx]
+                            tsnew[i,aidx] += -ts[m,eidx]*spin_int(m,a,i,e,pqrt_at)
+                            if(m==0):
+                                tsnew[i,aidx] += ts[i,eidx]*Fae[aidx,eidx]
+                            for fidx,f in enumerate(range(nocc2,nbf2)):
+                                tsnew[i,aidx] += -0.5*td[i,m,eidx,fidx]*spin_int(m,a,e,f,pqrt_at)
+                            for n in range(nocc2):
+                                tsnew[i,aidx] += -0.5*td[m,n,aidx,eidx]*spin_int(n,m,e,i,pqrt_at)
+#                    if(qnewton):
+#                        ria=tsnew[i,a]-ts[i,a]*(FockM[i,i]-FockM[a,a])
+#                        if(abs(ria)>tol8):
+#                            tsnew[i,a] += ria/(FockM[i,i]-FockM[a,a]+1e-8)
+#                    else:
+                    tsnew[i,aidx] = tsnew[i,aidx]/(FockM[i,i]-FockM[a,a]+1e-8)
+
+               #T2
+                for j in range(nocc2):
+                    tdnew[i,j,aidx,bidx]=spin_int(i,j,a,b,pqrt_at)
+                    for eidx,e in enumerate(range(nocc2,nbf2)):
+                        tdnew[i,j,aidx,bidx] += td[i,j,aidx,eidx]*Fae[bidx,eidx]-td[i,j,bidx,eidx]*Fae[aidx,eidx]
+                        for m in range(nocc2):
+                            tdnew[i,j,aidx,bidx] += -0.5*td[i,j,aidx,eidx]*ts[m,bidx]*Fme[m,eidx] + 0.5*td[i,j,bidx,eidx]*ts[m,aidx]*Fme[m,eidx]
+                            if(e==nocc2):
+                                tdnew[i,j,aidx,bidx] += -td[i,m,aidx,bidx]*Fmi[m,j] + td[j,m,aidx,bidx]*Fmi[m,i]
+                                tdnew[i,j,aidx,bidx] += -ts[m,aidx]*spin_int(m,b,i,j,pqrt_at) + ts[m,bidx]*spin_int(m,a,i,j,pqrt_at)
+                                for n in range(nocc2):
+                                    tau = td[m,n,aidx,bidx] + ts[m,aidx]*ts[n,bidx] - ts[m,bidx]*ts[n,aidx]
+                                    tdnew[i,j,aidx,bidx] += 0.5*tau*Wmnij[m,n,i,j]
+                            tdnew[i,j,aidx,bidx] += -0.5*td[i,m,aidx,bidx]*ts[j,eidx]*Fme[m,eidx] + 0.5*td[j,m,aidx,bidx]*ts[i,eidx]*Fme[m,eidx]
+                            tdnew[i,j,aidx,bidx] +=  td[i,m,aidx,eidx]*Wmbej[m,bidx,eidx,j] -ts[i,eidx]*ts[m,aidx]*spin_int(m,b,e,j,pqrt_at)
+                            tdnew[i,j,aidx,bidx] += -td[j,m,aidx,eidx]*Wmbej[m,bidx,eidx,i]+ts[j,eidx]*ts[m,aidx]*spin_int(m,b,e,i,pqrt_at)
+                            tdnew[i,j,aidx,bidx] += -td[i,m,bidx,eidx]*Wmbej[m,aidx,eidx,j]+ts[i,eidx]*ts[m,bidx]*spin_int(m,a,e,j,pqrt_at)
+                            tdnew[i,j,aidx,bidx] +=  td[j,m,bidx,eidx]*Wmbej[m,aidx,eidx,i]-ts[j,eidx]*ts[m,bidx]*spin_int(m,a,e,i,pqrt_at)
+                        tdnew[i,j,aidx,bidx] += ts[i,eidx]*spin_int(a,b,e,j,pqrt_at)-ts[j,eidx]*spin_int(a,b,e,i,pqrt_at)
+                        for fidx,f in enumerate(range(nocc2,nbf2)):
+                            tau = td[i,j,eidx,fidx] + ts[i,eidx]*ts[j,fidx] - ts[i,fidx]*ts[j,eidx]
+                            tdnew[i,j,aidx,bidx] += 0.5*tau*Wabef[aidx,bidx,eidx,fidx]
+                    tdnew[i,j,aidx,bidx] = tdnew[i,j,aidx,bidx]/(FockM[i,i]+FockM[j,j]-FockM[a,a]-FockM[b,b]+1e-8)
+
+    return tsnew,tdnew
+
+@njit
+def slbasis(i):
+    if(i%2==0):
+        return int(i/2)
+    else:
+        return int((i+1)/2)-1
+
+@njit
+def spin_int(p,q,r,s,ERImol):
+    value1, value2 = 0, 0
+    if(p%2==r%2 and q%2==s%2):
+        value1 = ERImol[slbasis(p),slbasis(r),slbasis(q),slbasis(s)]
+    if(p%2==s%2 and q%2==r%2):
+        value2 = ERImol[slbasis(p),slbasis(s),slbasis(q),slbasis(r)]
+    return value1 - value2
+
+@njit
 def W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreq):
 
     w_iajb = eri_at
@@ -77,55 +317,57 @@ def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbet
 
     return iEcRPA, iEcSOSEX
 
-def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p):
+@njit
+def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,nbeta,nalpha,nbf):
     EcGoWo = 0
     EcGMSOS = 0
-    for a in range(p.nalpha,p.nbf):
-        for b in range(p.nalpha,p.nbf):
-            for i in range(p.nbeta):
-                for j in range(p.nbeta):
-                    l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+    for a in range(nalpha,nbf):
+        for b in range(nalpha,nbf):
+            for i in range(nbeta):
+                for j in range(nbeta):
+                    l = j*(nbf-nalpha) + (b-nalpha)
                     for s in range(nab):
                         EcGoWo += wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
                         EcGMSOS -= wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-    if(p.nalpha != p.nbeta):
-        for a in range(p.nalpha,p.nbf):
-            for b in range(p.nalpha,p.nbf):
-                for i in range(p.nbeta):
-                    for j in range(p.nbeta,p.nalpha):
-                        l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+    if(nalpha != nbeta):
+        for a in range(nalpha,nbf):
+            for b in range(nalpha,nbf):
+                for i in range(nbeta):
+                    for j in range(nbeta,nalpha):
+                        l = j*(nbf-nalpha) + (b-nalpha)
                         for s in range(nab):
-                            EcGoWo += 0.5*wmn[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                            EcGMSOS -= 0.5*wmn[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                for i in range(p.nbeta,p.nalpha):
-                    for j in range(p.nbeta,p.nalpha):
-                        l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+                            EcGoWo += 0.5*wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGMSOS -= 0.5*wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                for i in range(nbeta,nalpha):
+                    for j in range(nbeta,nalpha):
+                        l = j*(nbf-nalpha) + (b-nalpha)
                         for s in range(nab):
-                            EcGoWo += 0.5*wmn[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                            EcGMSOS -= 0.5*wmn[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                    for j in range(p.nbeta,p.nalpha):
+                            EcGoWo += 0.5*wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGMSOS -= 0.5*wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                    for j in range(nbeta,nalpha):
                         if(i!=j):
-                            l = j*(p.nbf-p.nalpha) + (b-p.nalpha)
+                            l = j*(nbf-nalpha) + (b-nalpha)
                             for s in range(nab):
-                                EcGoWo += 0.25*wmn[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                                EcGMSOS -= 0.25*wmn[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                                EcGoWo += 0.25*wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                                EcGMSOS -= 0.25*wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
 
     return EcGoWo, EcGMSOS 
 
-def build_wmn(pqrt,pqrt_at,XpY,nab,p):
-    wmn = np.zeros((p.nbf,p.nbf,nab))
-    wmn_at = np.zeros((p.nbf,p.nbf,nab))
+@njit
+def build_wmn(pqrt,pqrt_at,XpY,nab,nalpha,nbf):
+    wmn = np.zeros((nbf,nbf,nab))
+    wmn_at = np.zeros((nbf,nbf,nab))
     for k in range(nab):
-        for i in range(p.nbf):
-            for j in range(p.nbf):
+        for i in range(nbf):
+            for j in range(nbf):
                 a = 0
-                b = p.nalpha
+                b = nalpha
                 for l in range(nab):
                     wmn[i,j,k] += pqrt[a,j,i,b]*XpY[l,k]
                     wmn_at[i,j,k] += pqrt_at[a,j,i,b]*XpY[l,k]
                     b += 1
-                    if(b==p.nbf):
-                        b = p.nalpha
+                    if(b==nbf):
+                        b = nalpha
                         a += 1
                 wmn[i,j,k] *= np.sqrt(2)
                 wmn_at[i,j,k] *= np.sqrt(2)
@@ -333,9 +575,19 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print(" ....Transforming ERIs mnsl->pqrt")
     pqrt = pynof.compute_pqrt(C,I,b_mnl,p)
 
+
+#    print("Original pqrt",np.sum(pqrt))
+#    pqrt2 = pqrt.copy()
+
+#    print("New pqrt",np.sum(pqrt))
+#    print("Diff pqrt",np.sum(pqrt2-pqrt))
+#    print("Abs Diff pqrt",np.sum(np.abs(pqrt2)-np.abs(pqrt)))
+
+
     Cintra = 1 - (1 - abs(1-2*occ))**2
     Cinter = abs(1-2*occ)**2
     Cinter[:p.nalpha] = 1.0
+
 
     print(" ....Attenuating F_MO")
     F_MO_at = F_MO_attenuated(F_MO,Cintra,Cinter,p.no1,p.nalpha,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
@@ -350,6 +602,19 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print(" ....Canonicalizing pqrt_at")
     pqrt_at = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt_at,C_can,C_can,C_can,C_can,optimize=True)
     print("")
+
+
+#    print("Original pqrt",np.sum(pqrt))
+#    pqrt2 = pqrt.copy()
+#    print("Original pqrt_at",np.sum(pqrt_at))
+#    pqrt_at2 = pqrt_at.copy()
+#
+#    print("New pqrt",np.sum(pqrt))
+#    print("New pqrt_at",np.sum(pqrt_at))
+#    print("Diff pqrt",np.sum(pqrt2-pqrt))
+#    print("Diff pqrt_at",np.sum(pqrt_at2-pqrt_at))
+#    print("Abs Diff pqrt",np.sum(np.abs(pqrt2)-np.abs(pqrt)))
+#    print("Abs Diff pqrt_at",np.sum(np.abs(pqrt_at2)-np.abs(pqrt_at)))
 
     print("List of qp-orbital energies (a.u.) and occ numbers used")
     print()
@@ -400,10 +665,10 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p)
 
     print(" ....Computing wmn")
-    wmn,wmn_at = build_wmn(pqrt,pqrt_at,XpY,nab,p)
+    wmn,wmn_at = build_wmn(pqrt,pqrt_at,XpY,nab,p.nalpha,p.nbf)
 
     print(" ....Computing gw_gm")
-    EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p)
+    EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p.nbeta,p.nalpha,p.nbf)
 
     EcGoWo *= 2
     EcGoWoSOS = EcGoWo + EcGMSOS
@@ -417,6 +682,8 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     iEcRPA, iEcSOSEX = rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,p.nbeta,p.nalpha,p.nbf)
 
     iEcRPASOS = iEcRPA+iEcSOSEX
+
+    EcCCSD = ccsd_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
 
@@ -437,6 +704,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print(" Ec(SOSEX@GM)         = {: f}".format(EcGMSOS))
     print(" Ec(GW@GM+SOSEX@GM)   = {: f}".format(EcGoWoSOS))
     print(" Ec(MP2)              = {: f}".format(EcMP2))
+    print(" Ec(CCSD)             = {: f}".format(EcCCSD))
     print("")
     print(" E(RPA-FURCHE)       = {: f}".format(ESD + EcRPA))
     print(" E(RPA)              = {: f}".format(ESD + iEcRPA))
@@ -445,14 +713,16 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print(" E(SOSEX@GM)         = {: f}".format(ESD + EcGMSOS))
     print(" E(GW@GM+SOSEX@GM)   = {: f}".format(ESD + EcGoWoSOS))
     print(" E(MP2)              = {: f}".format(ESD + EcMP2))
+    print(" E(CCSD)             = {: f}".format(ESD + EcCCSD))
     print("")
-    print(" E(NOF-c-RPA-FURCHE)       = {: f}".format(EPNOF + EcRPA))
-    print(" E(NOF-c-RPA)              = {: f}".format(EPNOF + iEcRPA))
-    print(" E(NOF-c-RPA+AC+SOSEX)     = {: f}".format(EPNOF + iEcRPASOS))
-    print(" E(NOF-c-GW@GM)            = {: f}".format(EPNOF + EcGoWo))
-    print(" E(NOF-c-SOSEX@GM)         = {: f}".format(EPNOF + EcGMSOS))
-    print(" E(NOF-c-GW@GM+SOSEX@GM)   = {: f}".format(EPNOF + EcGoWoSOS))
-    print(" E(NOF-c-MP2)              = {: f}".format(EPNOF + EcMP2))
+    print(" E(NOF-c-RPA-FURCHE)       = {: f}".format(ESDc + EcRPA))
+    print(" E(NOF-c-RPA)              = {: f}".format(ESDc + iEcRPA))
+    print(" E(NOF-c-RPA+AC+SOSEX)     = {: f}".format(ESDc + iEcRPASOS))
+    print(" E(NOF-c-GW@GM)            = {: f}".format(ESDc + EcGoWo))
+    print(" E(NOF-c-SOSEX@GM)         = {: f}".format(ESDc + EcGMSOS))
+    print(" E(NOF-c-GW@GM+SOSEX@GM)   = {: f}".format(ESDc + EcGoWoSOS))
+    print(" E(NOF-c-MP2)              = {: f}".format(ESDc + EcMP2))
+    print(" E(NOF-c-CCSD)             = {: f}".format(ESDc + EcCCSD))
 
     print("")
 
