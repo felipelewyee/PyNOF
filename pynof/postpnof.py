@@ -15,6 +15,45 @@ from scipy.linalg import cholesky
 from scipy.integrate import quad
 from scipy.special import roots_legendre
 
+def build_XmY_XpY(L,tempm,bigomega,nab):
+
+    XmY = np.matmul(L,tempm)
+
+    XpY = sp.linalg.solve(np.transpose(L),tempm)
+
+    for i in range(nab):
+        XmY[:,i] /= np.sqrt(bigomega[i]) 
+        XpY[:,i] *= np.sqrt(bigomega[i]) 
+
+    return XmY, XpY
+
+@njit
+def build_AmB_ApB(eig,pqrt_at,nalpha,nbf,nab):
+
+    AmB = np.zeros((nab,nab))
+    ApB = np.zeros((nab,nab))
+
+    EcRPA = 0
+
+    k = 0
+    for i in range(nalpha):
+        for a in range(nalpha,nbf):
+            l = 0
+            for j in range(nalpha):
+                for b in range(nalpha,nbf):
+                    ApB[k,l] = 4*pqrt_at[i,a,j,b]
+                    AmB[k,l] = 0.0
+                    if(i==j and a==b):
+                        AmB[k,l] = eig[a] - eig[i]
+                        ApB[k,l] = ApB[k,l] + AmB[k,l]
+                    if(k==l):
+                        EcRPA = EcRPA - 0.25*(ApB[k,k] + AmB[k,k])
+                    l += 1
+            k += 1
+
+    return EcRPA, AmB, ApB
+
+
 @njit
 def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
     #CCSD
@@ -28,8 +67,8 @@ def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
         for q in range(nbf):
             for r in range(nbf):
                 for s in range(nbf):
-                    if(np.abs(pqrt_at[pp,s,q,r])>1e-7):
-                        ERItmp[pp,r,q,s] = pqrt_at[pp,s,q,r]
+                    if(np.abs(pqrt_at[pp,q,s,r])>1e-7):
+                        ERItmp[s,q,pp,r] = pqrt_at[pp,q,s,r]
     pqrt_at = np.copy(ERItmp)
 
     ERItmp = np.zeros((nbf,nbf,nbf,nbf))
@@ -39,14 +78,12 @@ def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
             for r in range(nbf):
                 for s in range(nbf):
                     if(np.abs(pqrt_at[pp,s,q,r])>1e-7):
-                        ERItmp[pp,r,q,s] = pqrt[pp,s,q,r]
+                        ERItmp[s,q,pp,r] = pqrt[pp,q,s,r]
     pqrt = np.copy(ERItmp)
 
     nocc = max(nbeta,nalpha)
     nocc2 = 2*nocc
     nbf2 = 2*nbf
-    nco2 = nbeta*2
-    na2 = nalpha*2
     nvir2 = nbf2-nocc2
 
     FockM = np.zeros((nbf2,nbf2))
@@ -84,14 +121,14 @@ def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
         td = tdnew.copy()
 
         ccsd_en_nof = 0
-        nsocc = na2
-        ndocc = nco2
+        nsocc = 2*nalpha
+        ndocc = 2*nbeta
         for aidx,a in enumerate(range(nsocc,nbf2)):
             for bidx,b in enumerate(range(nsocc,nbf2)):
                 for i in range(ndocc):
                     if(b==nsocc):
                         ccsd_en_nof += FockM[i,a] * ts[i,aidx]
-                    for j in range(nsocc):
+                    for j in range(ndocc):
                         ccsd_en_nof += 0.25*spin_int(i,j,a,b,pqrt)*td[i,j,aidx,bidx] + 0.5*spin_int(i,j,a,b,pqrt)*ts[i,aidx]*ts[j,bidx]
                     for j in range(ndocc,nsocc):
                         ccsd_en_nof += 0.5*(0.25*spin_int(i,j,a,b,pqrt)*td[i,j,aidx,bidx] + 0.5*spin_int(i,j,a,b,pqrt)*ts[i,aidx]*ts[j,bidx])
@@ -250,9 +287,9 @@ def slbasis(i):
 def spin_int(p,q,r,s,ERImol):
     value1, value2 = 0, 0
     if(p%2==r%2 and q%2==s%2):
-        value1 = ERImol[slbasis(p),slbasis(r),slbasis(q),slbasis(s)]
+        value1 = ERImol[slbasis(s),slbasis(p),slbasis(r),slbasis(q)]
     if(p%2==s%2 and q%2==r%2):
-        value2 = ERImol[slbasis(p),slbasis(s),slbasis(q),slbasis(r)]
+        value2 = ERImol[slbasis(r),slbasis(p),slbasis(s),slbasis(q)]
     return value1 - value2
 
 @njit
@@ -295,22 +332,23 @@ def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbet
         for b in range(nalpha,nbf):
             for i in range(nbeta):
                 for j in range(nbeta):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -pqrt[i,b,j,a]*integral
-                    iEcSOSEX += pqrt[i,a,j,b]*integral
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    #print(pqrt_at[i,a,j,b])
+                    iEcRPA += -pqrt[i,a,j,b]*integral
+                    iEcSOSEX += pqrt[i,b,j,a]*integral
                 for j in range(nbeta,nalpha):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
-                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -0.5*pqrt[i,a,j,b]*integral
+                    iEcSOSEX += 0.5*pqrt[i,b,j,a]*integral
             for i in range(nbeta,nalpha):
                 for j in range(nbeta):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -0.5*pqrt[i,b,j,a]*integral
-                    iEcSOSEX += 0.5*pqrt[i,a,j,b]*integral
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -0.5*pqrt[i,a,j,b]*integral
+                    iEcSOSEX += 0.5*pqrt[i,b,j,a]*integral
                 for j in range(nbeta,nalpha):
-                    integral = integrated_omega(i,a,j,b,pqrt_at[i,b,j,a],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    iEcRPA += -0.25*pqrt[i,b,j,a]*integral
-                    iEcSOSEX += 0.25*pqrt[i,a,j,b]*integral
+                    integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
+                    iEcRPA += -0.25*pqrt[i,a,j,b]*integral
+                    iEcSOSEX += 0.25*pqrt[i,b,j,a]*integral
 
     iEcRPA = iEcRPA/np.pi
     iEcSOSEX = 0.5*iEcSOSEX/np.pi
@@ -327,8 +365,8 @@ def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,nbeta,nalpha,nbf):
                 for j in range(nbeta):
                     l = j*(nbf-nalpha) + (b-nalpha)
                     for s in range(nab):
-                        EcGoWo += wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                        EcGMSOS -= wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                        EcGoWo += wmn_at[i,a,s]*pqrt[i,a,j,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                        EcGMSOS -= wmn_at[i,a,s]*pqrt[i,b,j,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
     if(nalpha != nbeta):
         for a in range(nalpha,nbf):
             for b in range(nalpha,nbf):
@@ -336,20 +374,20 @@ def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,nbeta,nalpha,nbf):
                     for j in range(nbeta,nalpha):
                         l = j*(nbf-nalpha) + (b-nalpha)
                         for s in range(nab):
-                            EcGoWo += 0.5*wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                            EcGMSOS -= 0.5*wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGoWo += 0.5*wmn_at[i,a,s]*pqrt[i,a,j,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGMSOS -= 0.5*wmn_at[i,a,s]*pqrt[i,b,j,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
                 for i in range(nbeta,nalpha):
                     for j in range(nbeta,nalpha):
                         l = j*(nbf-nalpha) + (b-nalpha)
                         for s in range(nab):
-                            EcGoWo += 0.5*wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                            EcGMSOS -= 0.5*wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGoWo += 0.5*wmn_at[i,a,s]*pqrt[i,a,j,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                            EcGMSOS -= 0.5*wmn_at[i,a,s]*pqrt[i,b,j,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
                     for j in range(nbeta,nalpha):
                         if(i!=j):
                             l = j*(nbf-nalpha) + (b-nalpha)
                             for s in range(nab):
-                                EcGoWo += 0.25*wmn_at[i,a,s]*pqrt[j,a,i,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
-                                EcGMSOS -= 0.25*wmn_at[i,a,s]*pqrt[j,b,i,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                                EcGoWo += 0.25*wmn_at[i,a,s]*pqrt[i,a,j,b]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
+                                EcGMSOS -= 0.25*wmn_at[i,a,s]*pqrt[i,b,j,a]*XpY[l,s]*np.sqrt(2)/(eig[i]-eig[a]-bigomega[s]+1e-10)
 
     return EcGoWo, EcGMSOS 
 
@@ -358,19 +396,17 @@ def build_wmn(pqrt,pqrt_at,XpY,nab,nalpha,nbf):
     wmn = np.zeros((nbf,nbf,nab))
     wmn_at = np.zeros((nbf,nbf,nab))
     for k in range(nab):
-        for i in range(nbf):
-            for j in range(nbf):
-                a = 0
-                b = nalpha
-                for l in range(nab):
-                    wmn[i,j,k] += pqrt[a,j,i,b]*XpY[l,k]
-                    wmn_at[i,j,k] += pqrt_at[a,j,i,b]*XpY[l,k]
-                    b += 1
-                    if(b==nbf):
-                        b = nalpha
-                        a += 1
-                wmn[i,j,k] *= np.sqrt(2)
-                wmn_at[i,j,k] *= np.sqrt(2)
+        for p in range(nbf):
+            for q in range(nbf):
+                l = 0
+                for i in range(nalpha):
+                    for a in range(nalpha,nbf):
+                        wmn[p,q,k] += pqrt[p,q,i,a]*XpY[l,k]
+                        wmn_at[p,q,k] += pqrt_at[p,q,i,a]*XpY[l,k]
+                        l += 1
+
+    wmn *= np.sqrt(2)
+    wmn_at *= np.sqrt(2)
 
     return wmn,wmn_at
 
@@ -399,7 +435,7 @@ def td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p):
     print("N. excitation   a.u.         eV            nm      osc. strenght")
     for i in range(nab):
         if(oscstr[i] > 10**-6):
-            print("{:^ 10d} {: 11.5f} {: 11.5f} {: 11.5f} {: 11.5f} ".format(i,bigomega[i],bigomega[i]*27.211399,1239.84193/(bigomega[i]*27.211399),oscstr[i]))
+            print("{:^ 10d} {: 11.5f} {: 11.5f} {: 11.4f} {: 11.6f} ".format(i,bigomega[i],bigomega[i]*27.211399,1239.84193/(bigomega[i]*27.211399),oscstr[i]))
     print("")
     
     print("Static Polarizability:")
@@ -548,6 +584,20 @@ def ECorrNonDyn(n,C,H,I,b_mnl,p):
 
     return ECndHF,ECndl
 
+def compare(original,new,byelement=False):
+
+    if(byelement):
+        original_lin = original.flatten()
+        new_lin = new.flatten()
+
+        for ol,nl in zip(original_lin,new_lin):
+            if(np.abs(ol-nl)>1e-5):
+                print(ol,nl,ol-nl)
+
+    print("Original pqrt",np.sum(original))
+    print("New pqrt",np.sum(new))
+    print("Diff pqrt",np.sum(new-original))
+    print("Abs Diff pqrt",np.sum(np.abs(new-original)))
 
 def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
@@ -575,19 +625,9 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print(" ....Transforming ERIs mnsl->pqrt")
     pqrt = pynof.compute_pqrt(C,I,b_mnl,p)
 
-
-#    print("Original pqrt",np.sum(pqrt))
-#    pqrt2 = pqrt.copy()
-
-#    print("New pqrt",np.sum(pqrt))
-#    print("Diff pqrt",np.sum(pqrt2-pqrt))
-#    print("Abs Diff pqrt",np.sum(np.abs(pqrt2)-np.abs(pqrt)))
-
-
     Cintra = 1 - (1 - abs(1-2*occ))**2
     Cinter = abs(1-2*occ)**2
     Cinter[:p.nalpha] = 1.0
-
 
     print(" ....Attenuating F_MO")
     F_MO_at = F_MO_attenuated(F_MO,Cintra,Cinter,p.no1,p.nalpha,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
@@ -603,19 +643,6 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     pqrt_at = np.einsum("pqrt,pm,qn,rs,tl->mnsl",pqrt_at,C_can,C_can,C_can,C_can,optimize=True)
     print("")
 
-
-#    print("Original pqrt",np.sum(pqrt))
-#    pqrt2 = pqrt.copy()
-#    print("Original pqrt_at",np.sum(pqrt_at))
-#    pqrt_at2 = pqrt_at.copy()
-#
-#    print("New pqrt",np.sum(pqrt))
-#    print("New pqrt_at",np.sum(pqrt_at))
-#    print("Diff pqrt",np.sum(pqrt2-pqrt))
-#    print("Diff pqrt_at",np.sum(pqrt_at2-pqrt_at))
-#    print("Abs Diff pqrt",np.sum(np.abs(pqrt2)-np.abs(pqrt)))
-#    print("Abs Diff pqrt_at",np.sum(np.abs(pqrt_at2)-np.abs(pqrt_at)))
-
     print("List of qp-orbital energies (a.u.) and occ numbers used")
     print()
     mu = (eig[p.nalpha] + eig[p.nalpha-1])/2
@@ -625,26 +652,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print("Chemical potential used for qp-orbital energies: {}".format(mu))
     print("")
 
-    AmB = np.zeros((nab,nab))
-    ApB = np.zeros((nab,nab))
-
-    EcRPA = 0
-    
-    k = 0
-    for i in range(p.nalpha):
-        for a in range(p.nalpha,p.nbf):
-            l = 0
-            for j in range(p.nalpha):
-                for b in range(p.nalpha,p.nbf):
-                    ApB[k,l] = 4*pqrt_at[i,a,j,b]
-                    AmB[k,l] = 0.0
-                    if(i==j and a==b):
-                        AmB[k,l] = eig[a] - eig[i]
-                        ApB[k,l] = ApB[k,l] + AmB[k,l]
-                    if(k==l):
-                        EcRPA = EcRPA - 0.25*(ApB[k,k] + AmB[k,k])
-                    l += 1
-            k += 1
+    EcRPA, AmB, ApB = build_AmB_ApB(eig,pqrt_at,p.nalpha,p.nbf,nab)
 
     L = sp.linalg.cholesky(ApB, lower=True)
 
@@ -653,13 +661,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
     bigomega = np.sqrt(bigomega2)
 
-    XmY = np.matmul(L,tempm)
-
-    XpY = sp.linalg.solve(np.transpose(L),tempm)
-
-    for i in range(nab):
-        XmY[:,i] /= np.sqrt(bigomega[i]) 
-        XpY[:,i] *= np.sqrt(bigomega[i]) 
+    XmY, XpY = build_XmY_XpY(L,tempm,bigomega,nab)
 
     print(" ....Computing Polarizabilities")
     EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p)
