@@ -685,6 +685,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
     iEcRPASOS = iEcRPA+iEcSOSEX
 
+    print(" ....Computing ccsd")
     EcCCSD = ccsd_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
