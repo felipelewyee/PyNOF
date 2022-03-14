@@ -17,39 +17,39 @@ from scipy.special import roots_legendre
 
 def build_XmY_XpY(L,tempm,bigomega,nab):
 
-    XmY = np.matmul(L,tempm)
+    #XmY = np.matmul(L,tempm)
+    XmY = np.dot(L,tempm)
 
-    XpY = sp.linalg.solve(np.transpose(L),tempm)
+    XpY = np.linalg.solve(np.transpose(L),tempm)
 
-    for i in range(nab):
-        XmY[:,i] /= np.sqrt(bigomega[i]) 
-        XpY[:,i] *= np.sqrt(bigomega[i]) 
+    XmY = np.einsum("mi,i->mi",XmY,1/np.sqrt(bigomega),optimize=True)
+    XpY = np.einsum("mi,i->mi",XpY,np.sqrt(bigomega),optimize=True)
 
     return XmY, XpY
 
-@njit
+@njit(parallel=True)
+def get_AmB(eig,nalpha,nbf):
+    nvir = nbf-nalpha
+    AmB = np.zeros((nalpha,nvir,nalpha,nvir))
+    for i in prange(nalpha):
+        for aidx,a in enumerate(range(nalpha,nbf)):
+            AmB[i,aidx,i,aidx] = eig[a] - eig[i]
+
+    return AmB
+
 def build_AmB_ApB(eig,pqrt_at,nalpha,nbf,nab):
 
-    AmB = np.zeros((nab,nab))
-    ApB = np.zeros((nab,nab))
+    nvir = nbf-nalpha
 
-    EcRPA = 0
+    ApB = 4*pqrt_at[0:nalpha,nalpha:nbf,0:nalpha,nalpha:nbf]
+    AmB = get_AmB(eig,nalpha,nbf)
 
-    k = 0
-    for i in range(nalpha):
-        for a in range(nalpha,nbf):
-            l = 0
-            for j in range(nalpha):
-                for b in range(nalpha,nbf):
-                    ApB[k,l] = 4*pqrt_at[i,a,j,b]
-                    AmB[k,l] = 0.0
-                    if(i==j and a==b):
-                        AmB[k,l] = eig[a] - eig[i]
-                        ApB[k,l] = ApB[k,l] + AmB[k,l]
-                    if(k==l):
-                        EcRPA = EcRPA - 0.25*(ApB[k,k] + AmB[k,k])
-                    l += 1
-            k += 1
+    ApB = ApB + AmB
+
+    EcRPA = -0.25*( np.einsum("iaia->",ApB,optimize=True) + np.einsum("iaia->",AmB,optimize=True) )
+
+    ApB = ApB.reshape(nab,nab)
+    AmB = AmB.reshape(nab,nab)
 
     return EcRPA, AmB, ApB
 
@@ -62,24 +62,6 @@ def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
     for pp in range(nbf):
         FockM_in[pp,pp] = eig[pp]
     ERItmp = np.zeros((nbf,nbf,nbf,nbf))
-
-    for pp in range(nbf):
-        for q in range(nbf):
-            for r in range(nbf):
-                for s in range(nbf):
-                    if(np.abs(pqrt_at[pp,q,s,r])>1e-7):
-                        ERItmp[s,q,pp,r] = pqrt_at[pp,q,s,r]
-    pqrt_at = np.copy(ERItmp)
-
-    ERItmp = np.zeros((nbf,nbf,nbf,nbf))
-
-    for pp in range(nbf):
-        for q in range(nbf):
-            for r in range(nbf):
-                for s in range(nbf):
-                    if(np.abs(pqrt_at[pp,s,q,r])>1e-7):
-                        ERItmp[s,q,pp,r] = pqrt[pp,q,s,r]
-    pqrt = np.copy(ERItmp)
 
     nocc = max(nbeta,nalpha)
     nocc2 = 2*nocc
@@ -108,6 +90,7 @@ def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
         Fmi,Wmnij,Fae,Wabef,Fme,Wmbej = ccsd_update_interm(ts,td,FockM,pqrt_at,nocc2,nvir2,nbf2)
 
         tsnew,tdnew = ccsd_update_t1_t2(ts,td,Fmi,Wmnij,Fae,Wabef,Fme,Wmbej,FockM,pqrt_at,nocc2,nvir2,nbf2)
+
         for i in range(nocc2):
             for j in range(nocc2):
                 for aidx,a in enumerate(range(nocc2,nbf2)):
@@ -315,7 +298,7 @@ def integrated_omega(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,weights,freqs,cfreqs
 
     return integral
 
-@njit
+@njit(parallel=True)
 def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbeta,nalpha,nbf):
 
     iEcRPA=0
@@ -328,24 +311,24 @@ def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbet
     freqs = freqs/(1-freqs)
     cfreqs = freqs*1j
 
-    for a in range(nalpha,nbf):
-        for b in range(nalpha,nbf):
-            for i in range(nbeta):
-                for j in range(nbeta):
+    for a in prange(nalpha,nbf):
+        for b in prange(nalpha,nbf):
+            for i in prange(nbeta):
+                for j in prange(nbeta):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
                     #print(pqrt_at[i,a,j,b])
                     iEcRPA += -pqrt[i,a,j,b]*integral
                     iEcSOSEX += pqrt[i,b,j,a]*integral
-                for j in range(nbeta,nalpha):
+                for j in prange(nbeta,nalpha):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
                     iEcRPA += -0.5*pqrt[i,a,j,b]*integral
                     iEcSOSEX += 0.5*pqrt[i,b,j,a]*integral
-            for i in range(nbeta,nalpha):
-                for j in range(nbeta):
+            for i in prange(nbeta,nalpha):
+                for j in prange(nbeta):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
                     iEcRPA += -0.5*pqrt[i,a,j,b]*integral
                     iEcSOSEX += 0.5*pqrt[i,b,j,a]*integral
-                for j in range(nbeta,nalpha):
+                for j in prange(nbeta,nalpha):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
                     iEcRPA += -0.25*pqrt[i,a,j,b]*integral
                     iEcSOSEX += 0.25*pqrt[i,b,j,a]*integral
@@ -449,6 +432,7 @@ def td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p):
 
     return EcRPA
 
+
 def build_F_MO(C,H,I,b_mnl,p):
     D = pynof.computeD_HF(C,p)
     if(p.MSpin==0):
@@ -472,81 +456,82 @@ def build_F_MO(C,H,I,b_mnl,p):
 
     F_MO = np.matmul(np.matmul(np.transpose(C),F),C)
 
-    eig = np.einsum("ii->i",F_MO) #JFHLY: Print info
+    #eig = np.einsum("ii->i",F_MO) #JFHLY: Print info
 
     return EHFL,F_MO
 
-@njit
+@njit(parallel=True)
 def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
     subspaces = np.zeros((nbf))
-    for i in range(no1):
+    for i in prange(no1):
         subspaces[i] = i
-    for i in range(ndoc):
+    for i in prange(ndoc):
         subspaces[no1+i] = no1+i
         ll = no1 + ndns + ncwo*(ndoc-i-1)
         ul = no1 + ndns + ncwo*(ndoc-i)
         subspaces[ll:ul] = no1+i
-    for i in range(nsoc):
+    for i in prange(nsoc):
         subspaces[no1+ndoc+i] = no1+ndoc+i
     subspaces[nbf5:] = -1
 
     pqrt_at = np.zeros((nbf,nbf,nbf,nbf))
-    for pp in range(nbf):
-        for q in range(nbf):
-            for r in range(nbf):
-                for t in range(nbf):
-                    if(subspaces[pp]==subspaces[q] and subspaces[pp]==subspaces[r] and subspaces[pp]==subspaces[t] and subspaces[pp]!=-1):
-                        pqrt_at[pp,q,r,t] = pqrt[pp,q,r,t] * Cintra[pp]*Cintra[q]*Cintra[r]*Cintra[t]
+    for p in prange(nbf):
+        for q in prange(nbf):
+            for r in prange(nbf):
+                for t in prange(nbf):
+                    if(subspaces[p]==subspaces[q] and subspaces[p]==subspaces[r] and subspaces[p]==subspaces[t] and subspaces[p]!=-1):
+                        pqrt_at[p,q,r,t] = pqrt[p,q,r,t] * Cintra[p]*Cintra[q]*Cintra[r]*Cintra[t]
                     else:
-                        pqrt_at[pp,q,r,t] = pqrt[pp,q,r,t] * Cinter[pp]*Cinter[q]*Cinter[r]*Cinter[t]
+                        pqrt_at[p,q,r,t] = pqrt[p,q,r,t] * Cinter[p]*Cinter[q]*Cinter[r]*Cinter[t]
 
     return pqrt_at
 
-@njit
+@njit(parallel=True)
 def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 
     F_MO_at = np.zeros((nbf,nbf))
 
     subspaces = np.zeros((nbf))
-    for i in range(no1):
+    for i in prange(no1):
         subspaces[i] = i
-    for i in range(ndoc):
+    for i in prange(ndoc):
         subspaces[no1+i] = no1+i
         ll = no1 + ndns + ncwo*(ndoc-i-1)
         ul = no1 + ndns + ncwo*(ndoc-i)
         subspaces[ll:ul] = no1+i
-    for i in range(nsoc):
+    for i in prange(nsoc):
         subspaces[no1+ndoc+i] = no1+ndoc+i
     subspaces[nbf5:] = -1
 
-    for pp in range(nbf):
-        for q in range(nbf):
-            if(pp != q):
-                if(subspaces[pp]==subspaces[q]):
-                    F_MO_at[pp,q] = F_MO[pp,q]*Cintra[pp]*Cintra[q]
+    for p in prange(nbf):
+        for q in prange(nbf):
+            if(p != q):
+                if(subspaces[p]==subspaces[q]):
+                    F_MO_at[p,q] = F_MO[p,q]*Cintra[p]*Cintra[q]
                 else:
-                    F_MO_at[pp,q] = F_MO[pp,q]*Cinter[pp]*Cinter[q]
+                    F_MO_at[p,q] = F_MO[p,q]*Cinter[p]*Cinter[q]
             else:
-                F_MO_at[pp,q] = F_MO[pp,q]
+                F_MO_at[p,q] = F_MO[p,q]
     F_MO_at[:nalpha,nalpha:nbf] = 0.0
     F_MO_at[nalpha:nbf,:nalpha] = 0.0
  
     return F_MO_at
 
-def mp2_eq(eig,pqrt,pqrt_at,p):
+@njit(parallel=True)
+def mp2_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
 
     EcMP2 = 0
-    for a in range(p.nalpha,p.nbf):
-        for b in range(p.nalpha,p.nbf):
-            for i in range(p.nbeta):
-                for j in range(p.nbeta):
+    for a in prange(nalpha,nbf):
+        for b in prange(nalpha,nbf):
+            for i in prange(nbeta):
+                for j in prange(nbeta):
                     EcMP2 += pqrt[i,a,j,b]*(2*pqrt_at[i,a,j,b]-pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
-                for j in range(p.nbeta,p.nalpha):
+                for j in prange(nbeta,nalpha):
                     EcMP2 += pqrt[i,a,j,b]*(pqrt_at[i,a,j,b]-0.5*pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
-            for i in range(p.nbeta,p.nalpha):
-                for j in range(p.nbeta):
+            for i in prange(nbeta,nalpha):
+                for j in prange(nbeta):
                     EcMP2 += pqrt[i,a,j,b]*(pqrt_at[i,a,j,b]-0.5*pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
-                for j in range(p.nbeta,p.nalpha):
+                for j in prange(nbeta,nalpha):
                     EcMP2 += 0.5*pqrt[i,a,j,b]*(pqrt_at[i,a,j,b]-0.5*pqrt_at[i,b,j,a])/(eig[i]+eig[j]-eig[a]-eig[b]+1e-10)
 
     return EcMP2
@@ -676,7 +661,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     EcGoWoSOS = EcGoWo + EcGMSOS
 
     print(" ....Computing mp2")
-    EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p)
+    EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
 
     order = 40
     freqs, weights, sumw = roots_legendre(order, mu=True)
@@ -686,6 +671,8 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     iEcRPASOS = iEcRPA+iEcSOSEX
 
     print(" ....Computing ccsd")
+    pqrt_at = np.einsum("pqsr->sqpr",pqrt_at,optimize=True)
+    pqrt = np.einsum("pqsr->sqpr",pqrt,optimize=True)
     EcCCSD = ccsd_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
