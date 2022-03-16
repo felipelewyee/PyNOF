@@ -317,7 +317,6 @@ def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbet
             for i in prange(nbeta):
                 for j in prange(nbeta):
                     integral = integrated_omega(i,a,j,b,pqrt_at[i,a,j,b],wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order)
-                    #print(pqrt_at[i,a,j,b])
                     iEcRPA += -pqrt[i,a,j,b]*integral
                     iEcSOSEX += pqrt[i,b,j,a]*integral
                 for j in prange(nbeta,nalpha):
@@ -343,6 +342,7 @@ def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbet
 def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,nbeta,nalpha,nbf):
     EcGoWo = 0
     EcGMSOS = 0
+
     for a in range(nalpha,nbf):
         for b in range(nalpha,nbf):
             for i in range(nbeta):
@@ -384,25 +384,16 @@ def build_wmn(pqrt,pqrt_at,XpY,nab,nalpha,nbf):
 
     return wmn,wmn_at
 
-def td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p):
+def td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,nalpha,nbf):
 
-    Dipole_MO = Dipole
-    for i in range(3):
-        Dipole_MO[i] = np.einsum("mi,mn,nj->ij",C,Dipole[i],C,optimize=True)
+    Dipole_MO = np.einsum("mi,qmn,nj->qij",C,Dipole,C,optimize=True)
 
-    oscstr = np.zeros((nab))
-    tempm = np.zeros((3,nab))
-    for k in range(nab):
-        EcRPA = EcRPA + 0.5*np.abs(bigomega[k])
-        dipsum = np.zeros((3))
-        l=0
-        for i in range(p.nalpha):
-            for a in range(p.nalpha,p.nbf):
-                for xyz in range(3):
-                    dipsum[xyz] += np.sqrt(2)*Dipole_MO[xyz,i,a]*XpY[l,k]
-                l += 1
-        tempm[:,k] = dipsum[:]
-        oscstr[k] = 2.0*(dipsum[0]**2 + dipsum[1]**2 + dipsum[2]**2)*bigomega[k]/3
+    nvir = nbf-nalpha
+    XpY = XpY.reshape(nalpha,nvir,nab)
+
+    tempm = np.sqrt(2)*np.einsum("qia,iak->qk",Dipole_MO[:,:nalpha,nalpha:nbf],XpY,optimize=True)
+    oscstr = 2/3*np.einsum("qk,qk,k->k",tempm,tempm,bigomega,optimize=True)
+    EcRPA += 0.5*np.sum(np.abs(bigomega))
 
     print("TD-H (RPA) CASIDA eq. solved")
     print("N. excitation   a.u.         eV            nm      osc. strenght")
@@ -453,14 +444,14 @@ def build_F_MO(C,H,I,b_mnl,p):
 @njit(parallel=True)
 def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
     subspaces = np.zeros((nbf))
-    for i in prange(no1):
+    for i in range(no1):
         subspaces[i] = i
-    for i in prange(ndoc):
+    for i in range(ndoc):
         subspaces[no1+i] = no1+i
         ll = no1 + ndns + ncwo*(ndoc-i-1)
         ul = no1 + ndns + ncwo*(ndoc-i)
         subspaces[ll:ul] = no1+i
-    for i in prange(nsoc):
+    for i in range(nsoc):
         subspaces[no1+ndoc+i] = no1+ndoc+i
     subspaces[nbf5:] = -1
 
@@ -482,14 +473,14 @@ def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
     F_MO_at = np.zeros((nbf,nbf))
 
     subspaces = np.zeros((nbf))
-    for i in prange(no1):
+    for i in range(no1):
         subspaces[i] = i
-    for i in prange(ndoc):
+    for i in range(ndoc):
         subspaces[no1+i] = no1+i
         ll = no1 + ndns + ncwo*(ndoc-i-1)
         ul = no1 + ndns + ncwo*(ndoc-i)
         subspaces[ll:ul] = no1+i
-    for i in prange(nsoc):
+    for i in range(nsoc):
         subspaces[no1+ndoc+i] = no1+ndoc+i
     subspaces[nbf5:] = -1
 
@@ -642,7 +633,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print("Chemical potential used for qp-orbital energies: {}".format(mu))
     print("")
 
-    # Supp. Info. Eq. 4 and 5
+    # Supp. Info. Eq. (4) and (5)
     EcRPA, AmB, ApB = build_AmB_ApB(eig,pqrt_at,p.nalpha,p.nbf,nab)
 
     L = sp.linalg.cholesky(ApB, lower=True)
@@ -654,21 +645,26 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
     XmY, XpY = build_XmY_XpY(L,tempm,bigomega,nab)
 
+    # Eq (8) second term
     print(" ....Computing Polarizabilities")
-    EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p)
+    EcRPA = td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p.nalpha,p.nbf)
 
+    # Supp. Info. Eq. (6)
     print(" ....Computing wmn")
     wmn,wmn_at = build_wmn(pqrt,pqrt_at,XpY,nab,p.nalpha,p.nbf)
 
+    # Eq. (27) and (29)
     print(" ....Computing gw_gm")
     EcGoWo, EcGMSOS = gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,p.nbeta,p.nalpha,p.nbf)
 
     EcGoWo *= 2
     EcGoWoSOS = EcGoWo + EcGMSOS
 
+    # Eq. (22)
     print(" ....Computing mp2")
     EcMP2 = mp2_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
 
+    # Eq. (24) and (28)
     order = 40
     freqs, weights, sumw = roots_legendre(order, mu=True)
     print(" ....Computing rpa_sosex")
@@ -676,6 +672,7 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
     iEcRPASOS = iEcRPA+iEcSOSEX
 
+    # Eq. (26)
     print(" ....Computing ccsd")
     pqrt_at = np.einsum("pqsr->sqpr",pqrt_at,optimize=True)
     pqrt = np.einsum("pqsr->sqpr",pqrt,optimize=True)
