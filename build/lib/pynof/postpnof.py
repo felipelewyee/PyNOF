@@ -374,25 +374,14 @@ def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,nbeta,nalpha,nbf):
 
     return EcGoWo, EcGMSOS 
 
-@njit
 def build_wmn(pqrt,pqrt_at,XpY,nab,nalpha,nbf):
-    wmn = np.zeros((nbf,nbf,nab))
-    wmn_at = np.zeros((nbf,nbf,nab))
-    for k in range(nab):
-        for p in range(nbf):
-            for q in range(nbf):
-                l = 0
-                for i in range(nalpha):
-                    for a in range(nalpha,nbf):
-                        wmn[p,q,k] += pqrt[p,q,i,a]*XpY[l,k]
-                        wmn_at[p,q,k] += pqrt_at[p,q,i,a]*XpY[l,k]
-                        l += 1
 
-    wmn *= np.sqrt(2)
-    wmn_at *= np.sqrt(2)
+    nvir = nbf - nalpha
+    XpY = XpY.reshape(nalpha,nvir,nab)
+    wmn = np.einsum("pqia,iak->pqk",pqrt[:,:,:nalpha,nalpha:],XpY,optimize=True)
+    wmn_at = np.einsum("pqia,iak->pqk",pqrt_at[:,:,:nalpha,nalpha:],XpY,optimize=True)
 
     return wmn,wmn_at
-
 
 def td_polarizability(EcRPA,C,Dipole,bigomega,XpY,nab,p):
 
@@ -586,6 +575,16 @@ def compare(original,new,byelement=False):
 
 def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
 
+    #####################################################
+    #
+    # Reference Article
+    # Coupling Natural Orbital Functional Theory
+    # and Many-Bodyi Perturbation Theory by Using 
+    # Nondynamically Correlated Canonical Orbitals
+    # https://doi.org/10.1021/acs.jctc.1c00858
+    #
+    #####################################################
+
     t1 = time()
 
     print(" MBPT")
@@ -610,13 +609,16 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     print(" ....Transforming ERIs mnsl->pqrt")
     pqrt = pynof.compute_pqrt(C,I,b_mnl,p)
 
+    # Eq. (17) and (18)
     Cintra = 1 - (1 - abs(1-2*occ))**2
     Cinter = abs(1-2*occ)**2
     Cinter[:p.nalpha] = 1.0
 
+    # Eq. (19)
     print(" ....Attenuating F_MO")
     F_MO_at = F_MO_attenuated(F_MO,Cintra,Cinter,p.no1,p.nalpha,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
 
+    # Eq. ((20))
     print(" ....Attenuating pqrt")
     pqrt_at = ERIS_attenuated(pqrt,Cintra,Cinter,p.no1,p.ndoc,p.nsoc,p.ndns,p.ncwo,p.nbf5,p.nbf)
 
@@ -666,14 +668,14 @@ def mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_elec,p):
     order = 40
     freqs, weights, sumw = roots_legendre(order, mu=True)
     print(" ....Computing rpa_sosex")
-    iEcRPA, iEcSOSEX = rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,p.nbeta,p.nalpha,p.nbf)
+    iEcRPA, iEcSOSEX = 0,0#rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,p.nbeta,p.nalpha,p.nbf)
 
     iEcRPASOS = iEcRPA+iEcSOSEX
 
     print(" ....Computing ccsd")
     pqrt_at = np.einsum("pqsr->sqpr",pqrt_at,optimize=True)
     pqrt = np.einsum("pqsr->sqpr",pqrt,optimize=True)
-    EcCCSD = ccsd_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
+    EcCCSD = 0#ccsd_eq(eig,pqrt,pqrt_at,p.nbeta,p.nalpha,p.nbf)
 
     ECndHF,ECndl = ECorrNonDyn(n,C,H,I,b_mnl,p)
 
