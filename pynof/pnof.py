@@ -2,33 +2,36 @@ import numpy as np
 from numba import prange,njit,jit
 
 #CJCKD5
-def CJCKD5(n,p):    
-    
+@njit(parallel=True)
+def CJCKD5(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+
     # Interpair Electron correlation #
+    cj12 = 2*np.outer(n,n)
+    ck12 = np.outer(n,n)
 
-    cj12 = 2*np.einsum('i,j->ij',n,n)
-    ck12 = np.einsum('i,j->ij',n,n)    
-    
-    # Interpair Electron Correlation
-    
-    for l in range(p.ndoc):            
-        ldx = p.no1 + l
+    # Intrapair Electron Correlation
+
+    if(MSpin==0 and nsoc>1):
+        ck12[nbeta:nalpha,nbeta:nalpha] = 2*np.outer(n[nbeta:nalpha],n[nbeta:nalpha])
+
+    for l in prange(ndoc):
+        ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
-        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
+        ll = no1 + ndns + ncwo*(ndoc - l - 1)
+        ul = no1 + ndns + ncwo*(ndoc - l)
 
-        cj12[ldx,ll:ul] = 0    
-        cj12[ll:ul,ldx] = 0    
-    
-        cj12[ll:ul,ll:ul] = 0    
-        
+        cj12[ldx,ll:ul] = 0
+        cj12[ll:ul,ldx] = 0
+
+        cj12[ll:ul,ll:ul] = 0
+
         ck12[ldx,ll:ul] = np.sqrt(n[ldx]*n[ll:ul])
         ck12[ll:ul,ldx] = np.sqrt(n[ldx]*n[ll:ul])
 
-        ck12[ll:ul,ll:ul] = -np.outer(np.sqrt(n[ll:ul]),np.sqrt(n[ll:ul]))
+        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n[ll:ul],n[ll:ul]))
 
-    return cj12,ck12        
-        
+    return cj12,ck12
+
 def der_CJCKD5(n,gamma,dn_dgamma,p):
 
     # Interpair Electron correlation #
@@ -62,6 +65,7 @@ def der_CJCKD5(n,gamma,dn_dgamma,p):
             Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.einsum('i,i,j->ij',1/np.sqrt(b),dn_dgamma[ll:ul,k],np.sqrt(n[ll:ul]))
                         
     return Dcj12r,Dck12r
+
 
 #CJCKD7
 @njit(parallel=True)
