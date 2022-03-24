@@ -32,7 +32,7 @@ def CJCKD5(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     return cj12,ck12
 
-def der_CJCKD5(n,gamma,dn_dgamma,p):
+def der_CJCKD5(n,dn_dgamma,p):
 
     # Interpair Electron correlation #
 
@@ -45,13 +45,13 @@ def der_CJCKD5(n,gamma,dn_dgamma,p):
         ldx = p.no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = p.no1 + p.ndns + ncwo*(p.ndoc-l-1)
-        ul = p.no1 + p.ndns + ncwo*(p.ndoc-l)
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
+        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
 
-        Dcj12r[ldx,ll:ul,:nv] = 0
-        Dcj12r[ll:ul,ldx,:nv] = 0
+        Dcj12r[ldx,ll:ul,:p.nv] = 0
+        Dcj12r[ll:ul,ldx,:p.nv] = 0
 
-        Dcj12r[ll:ul,ll:ul,:nv] = 0   
+        Dcj12r[ll:ul,ll:ul,:p.nv] = 0   
         
         a = n[ldx] 
         a = max(a,10**-15)
@@ -217,7 +217,7 @@ def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin,lamb):
 
 def PNOFi_selector(n,p):
     if(p.ipnof==5):
-        cj12,ck12 = CJCKD5(n,p)
+        cj12,ck12 = CJCKD5(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==7):
         cj12,ck12 = CJCKD7(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==8):
