@@ -73,9 +73,9 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
 
     if (not convgdelag and p.ndoc>0):
         if(p.gradient=="analytical"):
-            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.optimizer)
+            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
         elif(p.gradient=="numerical"):
-            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.optimizer)
+            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.occupation_optimizer)
         gamma = res.x
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
@@ -148,22 +148,14 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
     return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
-
 def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
     y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
 
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p))
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg)
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh2,method="trust-exact")
-    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg_num,hess=pynof.calcorbh_num,method="trust-exact")
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="2-points",method="trust-ncg")
-
-#    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-#    r = 0.1
-#    maxr = 2.0
-#    y,r = pynof.optimize_trust(y,r,maxr,pynof.calcorbe,pynof.calcorbg_num,pynof.calcorbh_num,gamma,C,H,I,b_mnl,p)  
-#    stop
+    if("trust" in p.orbital_optimizer):
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg_num,hess=pynof.calcorbh_num,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
+    else:
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg_num,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
 
     E = res.fun
     y = res.x
@@ -179,12 +171,10 @@ def comb(gamma,C,H,I,b_mnl,p):
     E = pynof.calccombe(x,C,H,I,b_mnl,p)
     print("{:3d} {:14.8f}".format(0,E))
 
-    #res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p))
-    res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,hess=pynof.calccombh_num,method="trust-exact")
-
-    #r = 0.04
-    #maxr = 2.0
-    #y,r = optimize_trust(x,r,maxr,pynof.calccombe,pynof.calccombg,pynof.calccombh,C,H,I,b_mnl,p)
+    if("trust" in p.orbital_optimizer):
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,hess=pynof.calccombh_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
+    else:
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
 
     E = res.fun
     x = res.x

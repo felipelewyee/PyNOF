@@ -92,7 +92,9 @@ class param():
         self.scaling = True
         self.nv = self.ncwo*self.ndoc
         self.gradient = "analytical"
-        self.optimizer = "L-BFGS-B"
+        self.occupation_optimizer = "L-BFGS-B"
+        self.orbital_optimizer = "L-BFGS-B"
+        self.combined_optimizer = "L-BFGS-B"
         self.gpu = False
         self.RI = False
         self.jit= False

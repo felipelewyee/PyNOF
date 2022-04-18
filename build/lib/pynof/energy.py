@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
+def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,check_hessian=False):
  
     t1 = time()
 
@@ -54,13 +54,14 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
     iloop = 0
     itlim = 0
     E_old = 9999#EHF
+    E = 9999
     E_diff = 9999
     sumdiff_old = 0
 
     if(p.method=="ID"):
         if(printmode):
             print("")
-            print("PNOF{} Calculation".format(p.ipnof))
+            print("PNOF{} Calculation (ID Optimization)".format(p.ipnof))
             print("==================")
             print("")
             print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
@@ -77,17 +78,66 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             if(convgdelag):
                 break
             #print(t2-t1,t3-t2)
-    
-        np.save(p.title+"_C.npy",C)
-        np.save(p.title+"_gamma.npy",gamma)
         np.save(p.title+"_fmiug0.npy",fmiug0)
-
+    
     if(p.method=="Rotations"):
-        E,C = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
-        conv = False
-        gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,conv,C,H,I,b_mnl,p)
+        if(printmode):
+            print("")
+            print("PNOF{} Calculation (Rotations Optimization)".format(p.ipnof))
+            print("==================")
+            print("")
+            print('{:^7} {:^7} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff"))
+        convorb = False
+        for i_ext in range(p.maxit):
+            E,C,nit,success = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+            E_diff = E-E_old
+            print("{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {}".format(i_ext,nit,E,E+E_nuc,E_diff,success)) 
+
+            gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convorb,C,H,I,b_mnl,p)
+            E_old = E
+            if(np.abs(E_diff)<p.threshe):
+                E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+                print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                break
+
+    if(p.method=="Combined"):
+        if(printmode):
+            print("")
+            print("PNOF{} Calculation (Combined Optimization)".format(p.ipnof))
+            print("==================")
+            print("")
+            print('{:^4} {:^14} {:^14}'.format("Nit","Eelec","Etot"))
+        E,C,gamma,n,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
+        #E,C,gamma,n,nit,success = pynof.comb2(gamma,C,H,I,b_mnl,p)
+        E_old = E
+        print("{:3d} {:14.8f} {:14.8f} {}".format(nit,E,E+E_nuc,success)) 
+        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+        print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+
+    if(check_hessian):
+        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+        hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        neg_eig_orig = eigval[eigval<0]
+        if(len(neg_eig_orig)>0):
+            print("\n {} Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
+        else:
+            print("No Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
+
+        x = np.zeros((int(p.nbf*(p.nbf-1)/2))+p.nv)
+        x[(int(p.nbf*(p.nbf-1)/2)):] = gamma
+        hess = pynof.calccombh_num(x,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        neg_eig_orig = eigval[eigval<0]
+        if(len(neg_eig_orig)>0):
+            print("\n {} Negative Eigenvalues in the Global Hessian".format(len(neg_eig_orig)))
+        else:
+            print("No Negative Eigenvalues in the Global Hessian".format(len(neg_eig_orig)))
 
 
+
+    np.save(p.title+"_C.npy",C)
+    np.save(p.title+"_gamma.npy",gamma)
 
     if(printmode):
         print("")

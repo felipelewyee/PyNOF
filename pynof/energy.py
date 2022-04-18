@@ -95,7 +95,9 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
             gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convorb,C,H,I,b_mnl,p)
             E_old = E
-            if(np.abs(E_diff)<1e-5):
+            if(np.abs(E_diff)<p.threshe):
+                E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+                print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
                 break
 
     if(p.method=="Combined"):
@@ -109,6 +111,8 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         #E,C,gamma,n,nit,success = pynof.comb2(gamma,C,H,I,b_mnl,p)
         E_old = E
         print("{:3d} {:14.8f} {:14.8f} {}".format(nit,E,E+E_nuc,success)) 
+        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+        print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
 
     if(check_hessian):
         y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
@@ -116,9 +120,21 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         eigval, eigvec = eigh(hess)
         neg_eig_orig = eigval[eigval<0]
         if(len(neg_eig_orig)>0):
-            print("{} Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
+            print("\n {} Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
         else:
             print("No Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
+
+        x = np.zeros((int(p.nbf*(p.nbf-1)/2))+p.nv)
+        x[(int(p.nbf*(p.nbf-1)/2)):] = gamma
+        hess = pynof.calccombh_num(x,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        neg_eig_orig = eigval[eigval<0]
+        if(len(neg_eig_orig)>0):
+            print("\n {} Negative Eigenvalues in the Global Hessian".format(len(neg_eig_orig)))
+        else:
+            print("No Negative Eigenvalues in the Global Hessian".format(len(neg_eig_orig)))
+
+
 
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)

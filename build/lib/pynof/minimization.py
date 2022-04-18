@@ -73,9 +73,9 @@ def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
 
     if (not convgdelag and p.ndoc>0):
         if(p.gradient=="analytical"):
-            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.optimizer)
+            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
         elif(p.gradient=="numerical"):
-            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.optimizer)
+            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.occupation_optimizer)
         gamma = res.x
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
@@ -148,24 +148,104 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
     return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
-
-def orbopt_trust(gamma,C,H,I,b_mnl,p):
+def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
     y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
 
-    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p))
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg)
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh2,method="trust-exact")
-#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="2-points",method="trust-ncg")
-    print(res.fun)
-    print(res.success)
-    print(res.message)
-    print(res.nit)
+    if("trust" in p.orbital_optimizer):
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg_num,hess=pynof.calcorbh_num,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
+    else:
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg_num,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
+
+    E = res.fun
     y = res.x
     C = pynof.rotate_orbital(y,C,p)
 
-    return res.fun,C
+    return E,C,res.nit,res.success
 
+def comb(gamma,C,H,I,b_mnl,p):
 
+    nvar = int(p.nbf*(p.nbf-1)/2)
+    x = np.zeros((nvar+p.nv))
+    x[nvar:] = gamma
+    E = pynof.calccombe(x,C,H,I,b_mnl,p)
+    print("{:3d} {:14.8f}".format(0,E))
 
+    if("trust" in p.orbital_optimizer):
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,hess=pynof.calccombh_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
+    else:
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
+
+    E = res.fun
+    x = res.x
+    y = x[:int(p.nbf*(p.nbf-1)/2)]
+    gamma = x[int(p.nbf*(p.nbf-1)/2):]
+    C = pynof.rotate_orbital(y,C,p)
+
+    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+
+    return E,C,gamma,n,res.nit,res.success
+
+def comb2(gamma,C,H,I,b_mnl,p):
+
+    nvar = int(p.nbf5*(p.nbf5-1)/2)
+    x = np.zeros((nvar+p.nv))
+    x[nvar:] = gamma
+    E = pynof.calccombe(x,C,H,I,b_mnl,p)
+    print("E inicial:",E)
+
+    for i in range(3):
+
+        r_phi = 0.3
+        r_gamma = 0.10
+        maxr = 2.0
+
+        p_phi = np.zeros((nvar))
+        p_gamma = np.zeros((p.nv))
+        for i in range(100):
+
+            # ========================== Compute Hess and grad ==========================
+
+            x = np.zeros((nvar+p.nv))
+            x[nvar:] = gamma
+            J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+
+            grad = pynof.calccombg_num(x,C,H,I,b_mnl,p)
+            Hess = pynof.calccombh_num(x,C,H,I,b_mnl,p)
+
+            Hess_phiphi = Hess[:nvar,:nvar]
+            Hess_gammagamma = Hess[nvar:,nvar:]
+            Hess_phigamma = Hess[:nvar,nvar:]
+            Hess_gammaphi = Hess[nvar:,:nvar]
+            grad_phi = grad[:nvar]
+            grad_gamma = grad[nvar:]
+            Hess_gammagamma = Hess[nvar:,nvar:]
+            grad_gamma = grad[nvar:]
+
+            # ========================== Compute Hess and grad ==========================
+
+            # ========================== Gamma Step ==========================
+            print("  == Gamma Step ==")
+            grad_modif = grad_gamma+np.einsum("ij,j->i",Hess_gammaphi,p_phi)
+            J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+            p_gamma,r_gamma = pynof.optimize_trust2(gamma,r_gamma,maxr,pynof.calce,grad_modif,Hess_gammagamma,J_MO,K_MO,H_core,p)
+    
+            gamma = gamma + p_gamma
+            x = np.zeros((nvar+p.nv))
+            x[nvar:] = gamma
+            # ========================== Phi Step ==========================
+            print("  == Phi Step ==")
+
+            y = np.zeros((nvar))
+            grad_modif = grad_phi + np.einsum("ij,j->i",Hess_phigamma,p_gamma)
+            p_phi,r_phi = pynof.optimize_trust2(y,r_phi,maxr,pynof.calcorbe,grad_modif,Hess_phiphi,gamma,C,H,I,b_mnl,p)
+
+            y = y + p_phi
+            C = pynof.rotate_orbital(y,C,p)
+            x = np.zeros((nvar+p.nv))
+            x[nvar:] = gamma
+
+            p_gamma = np.zeros((p.nv))
+
+    return E,C
 

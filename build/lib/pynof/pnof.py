@@ -1,4 +1,6 @@
+import pynof
 import numpy as np
+import numdifftools as nd
 from numba import prange,njit,jit
 
 #CJCKD5
@@ -422,4 +424,50 @@ def calcg(gamma,J_MO,K_MO,H_core,p):
         grad -= np.einsum('jk,ij->k',dn_dgamma[p.nalpha:p.nbf5,:p.nv],K_MO[p.nbeta:p.nalpha,p.nalpha:p.nbf5],optimize=True)
 
     return grad
+
+def calcorbe(y,gamma,C,H,I,b_mnl,p):
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+
+    J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
+    E = calce(gamma,J_MO,K_MO,H_core,p)
+
+    return E
+
+def calcorbg_num(y,gamma,C,H,I,b_mnl,p):
+
+    grad = nd.Gradient(calcorbe)(y,gamma,C,H,I,b_mnl,p)
+
+    return grad
+
+def calcorbh_num(y,gamma,C,H,I,b_mnl,p):
+
+    hess = nd.Hessian(calcorbe)(y,gamma,C,H,I,b_mnl,p)
+
+    return hess
+
+
+def calccombe(x,C,H,I,b_mnl,p):
+
+    y = x[:int(p.nbf*(p.nbf-1)/2)]
+    gamma = x[int(p.nbf*(p.nbf-1)/2):]
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+
+    J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
+    E = calce(gamma,J_MO,K_MO,H_core,p)
+
+    return E
+
+def calccombg_num(x,C,H,I,b_mnl,p):
+
+    grad = nd.Gradient(calccombe)(x,C,H,I,b_mnl,p)
+
+    return grad
+
+def calccombh_num(x,C,H,I,b_mnl,p):
+
+    hess = nd.Hessian(calccombe)(x,C,H,I,b_mnl,p)
+
+    return hess
 
