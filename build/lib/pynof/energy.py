@@ -57,30 +57,38 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
     E_diff = 9999
     sumdiff_old = 0
 
-    if(printmode):
-        print("")
-        print("PNOF{} Calculation".format(p.ipnof))
-        print("==================")
-        print("")
-        print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
-    for i_ext in range(p.maxit):
-        #t1 = time()
-        #orboptr
-        convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
-        #t2 = time()
+    if(p.method=="ID"):
+        if(printmode):
+            print("")
+            print("PNOF{} Calculation".format(p.ipnof))
+            print("==================")
+            print("")
+            print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
+        for i_ext in range(p.maxit):
+            #t1 = time()
+            #orboptr
+            convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
+            #t2 = time()
+    
+            #occopt
+            gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
+            #t3 = time()
+    
+            if(convgdelag):
+                break
+            #print(t2-t1,t3-t2)
+    
+        np.save(p.title+"_C.npy",C)
+        np.save(p.title+"_gamma.npy",gamma)
+        np.save(p.title+"_fmiug0.npy",fmiug0)
 
-        #occopt
-        gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
-        #t3 = time()
+    if(p.method=="Rotations"):
+        E,C = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+        conv = False
+        gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,conv,C,H,I,b_mnl,p)
 
-        if(convgdelag):
-            break
-        #print(t2-t1,t3-t2)
 
-    np.save(p.title+"_C.npy",C)
-    np.save(p.title+"_gamma.npy",gamma)
-    np.save(p.title+"_fmiug0.npy",fmiug0)
- 
+
     if(printmode):
         print("")
         print("RESULTS OF THE OCCUPATION OPTIMIZATION")

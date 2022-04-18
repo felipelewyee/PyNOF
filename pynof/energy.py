@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
+def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,check_hessian=False):
  
     t1 = time()
 
@@ -54,33 +54,75 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
     iloop = 0
     itlim = 0
     E_old = 9999#EHF
+    E = 9999
     E_diff = 9999
     sumdiff_old = 0
 
-    if(printmode):
-        print("")
-        print("PNOF{} Calculation".format(p.ipnof))
-        print("==================")
-        print("")
-        print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
-    for i_ext in range(p.maxit):
-        #t1 = time()
-        #orboptr
-        convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
-        #t2 = time()
+    if(p.method=="ID"):
+        if(printmode):
+            print("")
+            print("PNOF{} Calculation (ID Optimization)".format(p.ipnof))
+            print("==================")
+            print("")
+            print('{:^7} {:^7} {:^14} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
+        for i_ext in range(p.maxit):
+            #t1 = time()
+            #orboptr
+            convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
+            #t2 = time()
+    
+            #occopt
+            gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
+            #t3 = time()
+    
+            if(convgdelag):
+                break
+            #print(t2-t1,t3-t2)
+        np.save(p.title+"_fmiug0.npy",fmiug0)
+    
+    if(p.method=="Rotations"):
+        if(printmode):
+            print("")
+            print("PNOF{} Calculation (Rotations Optimization)".format(p.ipnof))
+            print("==================")
+            print("")
+            print('{:^7} {:^7} {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff"))
+        convorb = False
+        for i_ext in range(p.maxit):
+            E,C,nit,success = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+            E_diff = E-E_old
+            print("{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {}".format(i_ext,nit,E,E+E_nuc,E_diff,success)) 
 
-        #occopt
-        gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
-        #t3 = time()
+            gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convorb,C,H,I,b_mnl,p)
+            E_old = E
+            if(np.abs(E_diff)<1e-5):
+                break
 
-        if(convgdelag):
-            break
-        #print(t2-t1,t3-t2)
+    if(p.method=="Combined"):
+        if(printmode):
+            print("")
+            print("PNOF{} Calculation (Combined Optimization)".format(p.ipnof))
+            print("==================")
+            print("")
+            print('{:^4} {:^14} {:^14}'.format("Nit","Eelec","Etot"))
+        E,C,gamma,n,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
+        #E,C,gamma,n,nit,success = pynof.comb2(gamma,C,H,I,b_mnl,p)
+        E_old = E
+        print("{:3d} {:14.8f} {:14.8f} {}".format(nit,E,E+E_nuc,success)) 
+
+    if(check_hessian):
+        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+        hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        neg_eig_orig = eigval[eigval<0]
+        if(len(neg_eig_orig)>0):
+            print("{} Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
+        else:
+            print("No Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
 
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)
-    np.save(p.title+"_fmiug0.npy",fmiug0)
- 
+
     if(printmode):
         print("")
         print("RESULTS OF THE OCCUPATION OPTIMIZATION")

@@ -148,3 +148,24 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
     return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
 
+
+def orbopt_trust(gamma,C,H,I,b_mnl,p):
+
+    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+
+    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p))
+#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg)
+#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh2,method="trust-exact")
+#    res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="2-points",method="trust-ncg")
+    print(res.fun)
+    print(res.success)
+    print(res.message)
+    print(res.nit)
+    y = res.x
+    C = pynof.rotate_orbital(y,C,p)
+
+    return res.fun,C
+
+
+
+
