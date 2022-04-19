@@ -406,7 +406,7 @@ def optimize_trust(y0,r,maxr,func,grad,hess,*args):
 
             print(" {: 3d}     {:3.1e}    {: 3d}      {:3.1e}   {:3.1e}   {:8.3f}    {:8.3f}   {: 3.1e}   {: 3.1e}   {: 6.2f}   {:3.1e}  {} {: 4.1e}".format(i,r_orig,len(neg_eig_orig),pnorm_orig,np.linalg.norm(p),f_old,f_new,diff,pred,ratio,r, status,np.linalg.norm(g)))
 
-    return y,r
+    return y,r,f_new,i,True
 
 def optimize_trust2(y0,r,maxr,func,g,H,*args):
 

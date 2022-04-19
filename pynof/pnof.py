@@ -2,6 +2,7 @@ import pynof
 import numpy as np
 import numdifftools as nd
 from numba import prange,njit,jit
+import numdifftools.nd_statsmodels as nds
 
 #CJCKD5
 @njit(parallel=True)
@@ -436,16 +437,15 @@ def calcorbe(y,gamma,C,H,I,b_mnl,p):
 
 def calcorbg_num(y,gamma,C,H,I,b_mnl,p):
 
-    grad = nd.Gradient(calcorbe)(y,gamma,C,H,I,b_mnl,p)
+    grad = nds.Gradient(calcorbe)(y,gamma,C,H,I,b_mnl,p)
 
     return grad
 
 def calcorbh_num(y,gamma,C,H,I,b_mnl,p):
 
-    hess = nd.Hessian(calcorbe)(y,gamma,C,H,I,b_mnl,p)
+    hess = nds.Hessian(calcorbe)(y,gamma,C,H,I,b_mnl,p)
 
     return hess
-
 
 def calccombe(x,C,H,I,b_mnl,p):
 
@@ -461,13 +461,13 @@ def calccombe(x,C,H,I,b_mnl,p):
 
 def calccombg_num(x,C,H,I,b_mnl,p):
 
-    grad = nd.Gradient(calccombe)(x,C,H,I,b_mnl,p)
+    grad = nds.Gradient(calccombe)(x,C,H,I,b_mnl,p)
 
     return grad
 
 def calccombh_num(x,C,H,I,b_mnl,p):
 
-    hess = nd.Hessian(calccombe)(x,C,H,I,b_mnl,p)
+    hess = nds.Hessian(calccombe)(x,C,H,I,b_mnl,p)
 
     return hess
 

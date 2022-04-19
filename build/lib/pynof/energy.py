@@ -49,7 +49,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
 
     elag = np.zeros((p.nbf,p.nbf)) #temporal
-    gamma,n,cj12,ck12 = pynof.occoptr(gamma,True,False,C,H,I,b_mnl,p)
+    gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,C,H,I,b_mnl,p)
 
     iloop = 0
     itlim = 0
@@ -72,7 +72,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             #t2 = time()
     
             #occopt
-            gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convgdelag,C,H,I,b_mnl,p)
+            gamma,n,cj12,ck12 = pynof.occoptr(gamma,convgdelag,C,H,I,b_mnl,p)
             #t3 = time()
     
             if(convgdelag):
@@ -90,10 +90,21 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         convorb = False
         for i_ext in range(p.maxit):
             E,C,nit,success = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+            p.orbital_optimizer = "L-BFGS-B" 
             E_diff = E-E_old
             print("{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {}".format(i_ext,nit,E,E+E_nuc,E_diff,success)) 
 
-            gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,convorb,C,H,I,b_mnl,p)
+            if(check_hessian):
+                y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+                hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
+                eigval, eigvec = eigh(hess)
+                neg_eig_orig = eigval[eigval<-1e-5]
+                if(len(neg_eig_orig)>0):
+                    print("\n {} Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
+                else:
+                    print("No Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
+
+            gamma,n,cj12,ck12 = pynof.occoptr(gamma,convorb,C,H,I,b_mnl,p)
             E_old = E
             if(np.abs(E_diff)<p.threshe):
                 E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
@@ -108,33 +119,11 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             print("")
             print('{:^4} {:^14} {:^14}'.format("Nit","Eelec","Etot"))
         E,C,gamma,n,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
-        #E,C,gamma,n,nit,success = pynof.comb2(gamma,C,H,I,b_mnl,p)
         E_old = E
         print("{:3d} {:14.8f} {:14.8f} {}".format(nit,E,E+E_nuc,success)) 
+        gamma,n,cj12,ck12 = pynof.occoptr(gamma,True,C,H,I,b_mnl,p)
         E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
         print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
-
-    if(check_hessian):
-        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-        hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
-        eigval, eigvec = eigh(hess)
-        neg_eig_orig = eigval[eigval<0]
-        if(len(neg_eig_orig)>0):
-            print("\n {} Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
-        else:
-            print("No Negative Eigenvalues in the Orbital Hessian".format(len(neg_eig_orig)))
-
-        x = np.zeros((int(p.nbf*(p.nbf-1)/2))+p.nv)
-        x[(int(p.nbf*(p.nbf-1)/2)):] = gamma
-        hess = pynof.calccombh_num(x,C,H,I,b_mnl,p)
-        eigval, eigvec = eigh(hess)
-        neg_eig_orig = eigval[eigval<0]
-        if(len(neg_eig_orig)>0):
-            print("\n {} Negative Eigenvalues in the Global Hessian".format(len(neg_eig_orig)))
-        else:
-            print("No Negative Eigenvalues in the Global Hessian".format(len(neg_eig_orig)))
-
-
 
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)
@@ -197,6 +186,16 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
     t2 = time()
     print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
+
+    if(check_hessian):
+        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+        hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        neg_eig_orig = eigval[eigval<-1e-5]
+        if(len(neg_eig_orig)>0):
+            print("\n {} Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
+        else:
+            print("No Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
 
     if(nofmp2):
         pynof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)

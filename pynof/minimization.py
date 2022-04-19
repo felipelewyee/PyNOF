@@ -67,7 +67,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     return E,C,fmiug0
 
-def occoptr(gamma,firstcall,convgdelag,C,H,I,b_mnl,p):
+def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
 
@@ -160,8 +160,10 @@ def orbopt_rotations(gamma,C,H,I,b_mnl,p):
     E = res.fun
     y = res.x
     C = pynof.rotate_orbital(y,C,p)
+    nit = res.nit
+    success = res.success
 
-    return E,C,res.nit,res.success
+    return E,C,nit,success
 
 def comb(gamma,C,H,I,b_mnl,p):
 
@@ -171,7 +173,7 @@ def comb(gamma,C,H,I,b_mnl,p):
     E = pynof.calccombe(x,C,H,I,b_mnl,p)
     print("{:3d} {:14.8f}".format(0,E))
 
-    if("trust" in p.orbital_optimizer):
+    if("trust" in p.combined_optimizer):
         res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,hess=pynof.calccombh_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
     else:
         res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
