@@ -572,4 +572,10 @@ def pqrt_Full_GPU(C,I,p):
 
     return pqrt.get()
 
+def JKH_MO_tmp(C,H,I,b_mnl,p):
+
+    H_mat = np.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
+    I_MO = np.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
+
+    return H_mat,I_MO
 

@@ -90,19 +90,9 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         convorb = False
         for i_ext in range(p.maxit):
             E,C,nit,success = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
-            p.orbital_optimizer = "L-BFGS-B" 
+            #p.orbital_optimizer = "L-BFGS-B" 
             E_diff = E-E_old
             print("{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {}".format(i_ext,nit,E,E+E_nuc,E_diff,success)) 
-
-            if(check_hessian):
-                y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-                hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
-                eigval, eigvec = eigh(hess)
-                neg_eig_orig = eigval[eigval<-1e-5]
-                if(len(neg_eig_orig)>0):
-                    print("\n {} Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
-                else:
-                    print("No Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
 
             gamma,n,cj12,ck12 = pynof.occoptr(gamma,convorb,C,H,I,b_mnl,p)
             E_old = E
@@ -189,7 +179,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
     if(check_hessian):
         y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-        hess = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
+        hess = pynof.calcorbh(y,gamma,C,H,I,b_mnl,p)
         eigval, eigvec = eigh(hess)
         neg_eig_orig = eigval[eigval<-1e-5]
         if(len(neg_eig_orig)>0):
@@ -221,7 +211,6 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         return E_t,C,gamma,fmiug0,grad.flatten()
     else:
         return E_t,C,gamma,fmiug0
-
 
 
 def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,RI_last=False,gpu_last=False,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):

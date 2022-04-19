@@ -365,6 +365,32 @@ def calce(gamma,J_MO,K_MO,H_core,p):
 
     return E
 
+def calce2(gamma,J_MO,K_MO,H_core,p):
+
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = PNOFi_selector(n,p)
+
+    E = 0
+
+    if(p.MSpin==0):
+
+        # 2H + J
+#        E = E + np.einsum('i,i',n[:p.nbeta],2*H_core[:p.nbeta],optimize=True) # [0,Nbeta]
+#        E = E + np.einsum('i,i',n[p.nbeta:p.nalpha],2*H_core[p.nbeta:p.nalpha],optimize=True)               # (Nbeta,Nalpha]
+#        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],2*H_core[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
+        E = E + np.einsum('i,i',n[:p.nbeta],np.diagonal(J_MO)[:p.nbeta],optimize=True) # [0,Nbeta]
+        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],np.diagonal(J_MO)[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
+
+        #C^J JMO
+#        np.fill_diagonal(cj12,0) # Remove diag.
+#        E = E + np.einsum('ij,ji->',cj12,J_MO,optimize=True) # sum_ij
+
+        #C^K KMO
+#        np.fill_diagonal(ck12,0) # Remove diag.
+#        E = E - np.einsum('ij,ji->',ck12,K_MO,optimize=True) # sum_ij
+
+    return E
+
 def calcg(gamma,J_MO,K_MO,H_core,p):
 
     grad = np.zeros((p.nv))
@@ -435,6 +461,178 @@ def calcorbe(y,gamma,C,H,I,b_mnl,p):
 
     return E
 
+def calcorbe2(y,gamma,C,H,I,b_mnl,p):
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+
+    J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
+    E = calce2(gamma,J_MO,K_MO,H_core,p)
+
+    return E
+
+def calcorbg(y,gamma,C,H,I,b_mnl,p):
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+
+    grad = np.zeros((p.nbf,p.nbf))
+
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = PNOFi_selector(n,p)
+    #Dcj12r,Dck12r = der_PNOFi_selector(n,dn_dgamma,p)
+
+    Hmat,I_MO = pynof.JKH_MO_tmp(Cnew,H,I,b_mnl,p)
+
+    nn = np.zeros((p.nbf))
+    cj12n = np.zeros((p.nbf,p.nbf))
+    ck12n = np.zeros((p.nbf,p.nbf))
+    nn[:p.nbf5] = n
+    cj12n[:p.nbf5,:p.nbf5] = cj12
+    ck12n[:p.nbf5,:p.nbf5] = ck12
+
+    if(p.MSpin==0):
+
+        # 2ndH/dy_ab
+        grad +=  2*np.einsum('b,ab->ab',2*nn,Hmat,optimize=True)
+        grad += -2*np.einsum('a,ab->ab',2*nn,Hmat,optimize=True)
+
+        # dJ_pp/dy_ab
+        grad[:,:p.nbeta] +=  4*np.einsum('b,abbb->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+        grad[:,p.nalpha:p.nbf5] +=  4*np.einsum('b,abbb->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+        grad[:p.nbeta,:] += -4*np.einsum('a,baaa->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+        grad[p.nalpha:p.nbf5,:] += -4*np.einsum('a,baaa->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+
+        # C^J_pq dJ_pq/dy_ab 
+        np.fill_diagonal(cj12n,0) # Remove diag.
+        grad +=  4*np.einsum('bq,abqq->ab',cj12n,I_MO,optimize=True)
+        grad += -4*np.einsum('aq,abqq->ab',cj12n,I_MO,optimize=True)
+
+        # -C^K_pq dK_pq/dy_ab 
+        np.fill_diagonal(ck12n,0) # Remove diag.
+        grad += -4*np.einsum('bq,aqbq->ab',ck12n,I_MO,optimize=True)
+        grad +=  4*np.einsum('aq,aqbq->ab',ck12n,I_MO,optimize=True)
+
+        grads = []
+        for i in range(p.nbf):
+            for j in range(i+1,p.nbf):
+                grads.append(grad[i,j])
+        return np.array(grads)
+
+    return grad
+
+def calcorbh(y,gamma,C,H,I,b_mnl,p):
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+
+    d2E_dycddyab = np.zeros((p.nbf,p.nbf,p.nbf,p.nbf))
+
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = PNOFi_selector(n,p)
+
+    Hmat,I_MO = pynof.JKH_MO_tmp(Cnew,H,I,b_mnl,p)
+
+    nn = np.zeros((p.nbf))
+    cj12n = np.zeros((p.nbf,p.nbf))
+    ck12n = np.zeros((p.nbf,p.nbf))
+    nn[:p.nbf5] = n
+    cj12n[:p.nbf5,:p.nbf5] = cj12
+    ck12n[:p.nbf5,:p.nbf5] = ck12
+
+    if(p.MSpin==0):
+
+        np.fill_diagonal(cj12,0) # Remove diag.
+        np.fill_diagonal(cj12n,0) # Remove diag.
+        np.fill_diagonal(ck12,0) # Remove diag.
+        np.fill_diagonal(ck12n,0) # Remove diag.
+
+        d2E_dycddyab += 8*np.einsum("bd,abcd->cdab",cj12n,I_MO,optimize=True)
+        d2E_dycddyab -= 8*np.einsum("ad,abcd->cdab",cj12n,I_MO,optimize=True)
+        d2E_dycddyab += 4*np.einsum("bc,adbc->cdab",ck12n,I_MO,optimize=True)
+        d2E_dycddyab -= 4*np.einsum("ac,adbc->cdab",ck12n,I_MO,optimize=True)
+        d2E_dycddyab += 4*np.einsum("bc,acbd->cdab",ck12n,I_MO,optimize=True)
+        d2E_dycddyab -= 4*np.einsum("ac,acbd->cdab",ck12n,I_MO,optimize=True)
+        ###########
+        d2E_dycddyab -= 8*np.einsum("bc,abcd->cdab",cj12n,I_MO,optimize=True)
+        d2E_dycddyab += 8*np.einsum("ac,abcd->cdab",cj12n,I_MO,optimize=True)
+        d2E_dycddyab -= 4*np.einsum("bd,acbd->cdab",ck12n,I_MO,optimize=True)
+        d2E_dycddyab += 4*np.einsum("ad,acbd->cdab",ck12n,I_MO,optimize=True)
+        d2E_dycddyab -= 4*np.einsum("bd,adbc->cdab",ck12n,I_MO,optimize=True)
+        d2E_dycddyab += 4*np.einsum("ad,adbc->cdab",ck12n,I_MO,optimize=True)
+
+        for i in range(p.nbf):
+            # d2(2sum_p n_p H_pp)/dycddyab
+            d2E_dycddyab[:,i,i,:] +=  np.einsum('b,cb->cb',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[:,i,i,:] +=  np.einsum('c,cb->cb',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[:,i,i,:] += -2*2*nn[i]*Hmat
+            # d2(sum_p n_p J_pp)/dycddyab
+            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('b,cbbb->cb',nn,I_MO,optimize=True)
+            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('c,bccc->cb',nn,I_MO,optimize=True)
+            d2E_dycddyab[:,i,i,:] += -4*nn[i]*I_MO[:,:,i,i]
+            d2E_dycddyab[:,i,i,:] += -8*nn[i]*I_MO[:,i,:,i]
+            # d2(sum_pq C^J_pq J_pq)/dycddyab
+            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('bq,cbqq->cb',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('cq,cbqq->cb',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,i,:] += -4*np.einsum('q,cbqq->cb',cj12n[i,:],I_MO,optimize=True)
+            # d2(sum_pq C^K_pq K_pq)/dycddyab
+            d2E_dycddyab[:,i,i,:] += -2*np.einsum('bq,cqbq->cb',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,i,:] += -2*np.einsum('cq,cqbq->cb',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,i,:] +=  4*np.einsum('q,cqbq->cb',ck12n[i,:],I_MO,optimize=True)
+
+            d2E_dycddyab[i,:,:,i] +=  np.einsum('a,ad->da',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[i,:,:,i] +=  np.einsum('d,ad->da',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[i,:,:,i] += -2*2*nn[i]*Hmat
+            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('a,daaa->da',nn,I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('d,addd->da',nn,I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] += -4*nn[i]*I_MO[:,:,i,i]
+            d2E_dycddyab[i,:,:,i] += -8*nn[i]*I_MO[:,i,:,i]
+            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('aq,adqq->da',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('dq,adqq->da',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] += -4*np.einsum('q,adqq->da',cj12n[i,:],I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] += -2*np.einsum('aq,aqdq->da',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] += -2*np.einsum('dq,aqdq->da',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,:,i] +=  4*np.einsum('q,aqdq->da',ck12n[i,:],I_MO,optimize=True)
+
+            d2E_dycddyab[:,i,:,i] -=  np.einsum('a,ca->ca',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[:,i,:,i] -=  np.einsum('c,ca->ca',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[:,i,:,i] -= -2*2*nn[i]*Hmat
+            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('a,caaa->ca',nn,I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('c,accc->ca',nn,I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -= -4*nn[i]*I_MO[:,:,i,i]
+            d2E_dycddyab[:,i,:,i] -= -8*nn[i]*I_MO[:,i,:,i]
+            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('aq,caqq->ca',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('cq,caqq->ca',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -= -4*np.einsum('q,caqq->ca',cj12n[i,:],I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -= -2*np.einsum('aq,cqaq->ca',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -= -2*np.einsum('cq,cqaq->ca',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[:,i,:,i] -=  4*np.einsum('q,cqaq->ca',ck12n[i,:],I_MO,optimize=True)
+
+            d2E_dycddyab[i,:,i,:] -=  np.einsum('b,db->db',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[i,:,i,:] -=  np.einsum('d,db->db',2*nn,Hmat,optimize=True)
+            d2E_dycddyab[i,:,i,:] -= -2*2*nn[i]*Hmat
+            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('b,dbbb->db',nn,I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('d,bddd->db',nn,I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -= -4*nn[i]*I_MO[:,:,i,i]
+            d2E_dycddyab[i,:,i,:] -= -8*nn[i]*I_MO[:,i,:,i]
+            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('bq,dbqq->db',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('dq,dbqq->db',cj12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -= -4*np.einsum('q,dbqq->db',cj12n[i,:],I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -= -2*np.einsum('bq,dqbq->db',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -= -2*np.einsum('dq,dqbq->db',ck12n,I_MO,optimize=True)
+            d2E_dycddyab[i,:,i,:] -=  4*np.einsum('q,dqbq->db',ck12n[i,:],I_MO,optimize=True)
+        print("14")
+
+    var = int(p.nbf*(p.nbf-1)/2)
+    hesss = np.zeros((var,var))
+    jj = 0
+    for k in range(p.nbf):
+        for l in range(k+1,p.nbf):
+            ii = 0
+            for i in range(p.nbf):
+                for j in range(i+1,p.nbf):
+                    hesss[jj,ii] = d2E_dycddyab[k,l,i,j]
+                    ii += 1
+            jj += 1
+    return np.array(hesss)
+
 def calcorbg_num(y,gamma,C,H,I,b_mnl,p):
 
     grad = nds.Gradient(calcorbe)(y,gamma,C,H,I,b_mnl,p)
@@ -446,6 +644,13 @@ def calcorbh_num(y,gamma,C,H,I,b_mnl,p):
     hess = nds.Hessian(calcorbe)(y,gamma,C,H,I,b_mnl,p)
 
     return hess
+
+def calcorbh_num2(y,gamma,C,H,I,b_mnl,p):
+
+    hess = nds.Hessian(calcorbe2)(y,gamma,C,H,I,b_mnl,p)
+
+    return hess
+
 
 def calccombe(x,C,H,I,b_mnl,p):
 
