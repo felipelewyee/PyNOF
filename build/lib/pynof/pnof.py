@@ -3,6 +3,8 @@ import numpy as np
 import numdifftools as nd
 from numba import prange,njit,jit
 import numdifftools.nd_statsmodels as nds
+from time import time as time
+import cupy as cp
 
 #CJCKD5
 @njit(parallel=True)
@@ -471,14 +473,12 @@ def calcorbe2(y,gamma,C,H,I,b_mnl,p):
     return E
 
 def calcorbg(y,gamma,C,H,I,b_mnl,p):
+    #print("start grad")
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
-    grad = np.zeros((p.nbf,p.nbf))
-
     n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = PNOFi_selector(n,p)
-    #Dcj12r,Dck12r = der_PNOFi_selector(n,dn_dgamma,p)
 
     Hmat,I_MO = pynof.JKH_MO_tmp(Cnew,H,I,b_mnl,p)
 
@@ -489,149 +489,236 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
     cj12n[:p.nbf5,:p.nbf5] = cj12
     ck12n[:p.nbf5,:p.nbf5] = ck12
 
-    if(p.MSpin==0):
+    if p.gpu:
+        grad = cp.zeros((p.nbf,p.nbf))
+        nn = cp.array(nn)
+        cj12n = cp.array(cj12n)
+        ck12n = cp.array(ck12n)
+        I_MO = cp.array(I_MO)
+        if(p.MSpin==0):
+            # 2ndH/dy_ab
+            grad +=  2*cp.einsum('b,ab->ab',2*nn,Hmat,optimize=True)
+            grad += -2*cp.einsum('a,ab->ab',2*nn,Hmat,optimize=True)
+    
+            # dJ_pp/dy_ab
+            grad[:,:p.nbeta] +=  4*cp.einsum('b,abbb->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+            grad[:,p.nalpha:p.nbf5] +=  4*cp.einsum('b,abbb->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+            grad[:p.nbeta,:] += -4*cp.einsum('a,baaa->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+            grad[p.nalpha:p.nbf5,:] += -4*cp.einsum('a,baaa->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+    
+            # C^J_pq dJ_pq/dy_ab 
+            np.fill_diagonal(cj12n,0) # Remove diag.
+            grad +=  4*cp.einsum('bq,abqq->ab',cj12n,I_MO,optimize=True)
+            grad += -4*cp.einsum('aq,abqq->ab',cj12n,I_MO,optimize=True)
+    
+            # -C^K_pq dK_pq/dy_ab 
+            np.fill_diagonal(ck12n,0) # Remove diag.
+            grad += -4*cp.einsum('bq,aqbq->ab',ck12n,I_MO,optimize=True)
+            grad +=  4*cp.einsum('aq,aqbq->ab',ck12n,I_MO,optimize=True)
+    
+            triu_idx = np.triu_indices(p.nbf,k=1)
+            grad = grad[triu_idx]
+            grad = grad.get()
 
-        # 2ndH/dy_ab
-        grad +=  2*np.einsum('b,ab->ab',2*nn,Hmat,optimize=True)
-        grad += -2*np.einsum('a,ab->ab',2*nn,Hmat,optimize=True)
+    else:
+        grad = np.zeros((p.nbf,p.nbf))
+        if(p.MSpin==0):
+            # 2ndH/dy_ab
+            grad +=  2*np.einsum('b,ab->ab',2*nn,Hmat,optimize=True)
+            grad += -2*np.einsum('a,ab->ab',2*nn,Hmat,optimize=True)
 
-        # dJ_pp/dy_ab
-        grad[:,:p.nbeta] +=  4*np.einsum('b,abbb->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
-        grad[:,p.nalpha:p.nbf5] +=  4*np.einsum('b,abbb->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
-        grad[:p.nbeta,:] += -4*np.einsum('a,baaa->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
-        grad[p.nalpha:p.nbf5,:] += -4*np.einsum('a,baaa->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+            # dJ_pp/dy_ab
+            grad[:,:p.nbeta] +=  4*np.einsum('b,abbb->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+            grad[:,p.nalpha:p.nbf5] +=  4*np.einsum('b,abbb->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+            grad[:p.nbeta,:] += -4*np.einsum('a,baaa->ab',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+            grad[p.nalpha:p.nbf5,:] += -4*np.einsum('a,baaa->ab',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
 
-        # C^J_pq dJ_pq/dy_ab 
-        np.fill_diagonal(cj12n,0) # Remove diag.
-        grad +=  4*np.einsum('bq,abqq->ab',cj12n,I_MO,optimize=True)
-        grad += -4*np.einsum('aq,abqq->ab',cj12n,I_MO,optimize=True)
+            # C^J_pq dJ_pq/dy_ab 
+            np.fill_diagonal(cj12n,0) # Remove diag.
+            grad +=  4*np.einsum('bq,abqq->ab',cj12n,I_MO,optimize=True)
+            grad += -4*np.einsum('aq,abqq->ab',cj12n,I_MO,optimize=True)
 
-        # -C^K_pq dK_pq/dy_ab 
-        np.fill_diagonal(ck12n,0) # Remove diag.
-        grad += -4*np.einsum('bq,aqbq->ab',ck12n,I_MO,optimize=True)
-        grad +=  4*np.einsum('aq,aqbq->ab',ck12n,I_MO,optimize=True)
+            # -C^K_pq dK_pq/dy_ab 
+            np.fill_diagonal(ck12n,0) # Remove diag.
+            grad += -4*np.einsum('bq,aqbq->ab',ck12n,I_MO,optimize=True)
+            grad +=  4*np.einsum('aq,aqbq->ab',ck12n,I_MO,optimize=True)
 
-        grads = []
-        for i in range(p.nbf):
-            for j in range(i+1,p.nbf):
-                grads.append(grad[i,j])
-        return np.array(grads)
+            triu_idx = np.triu_indices(p.nbf,k=1)
+            grad = grad[triu_idx]
 
+    #print("end grad")
     return grad
 
 def calcorbh(y,gamma,C,H,I,b_mnl,p):
 
+    print("start hess")
+
+    t1 = time()
     Cnew = pynof.rotate_orbital(y,C,p)
+    t2 = time()
+    #print("12: {:3.1e}".format(t2-t1))
 
-    d2E_dycddyab = np.zeros((p.nbf,p.nbf,p.nbf,p.nbf))
-
+    t3 = time()
+    #print("23: {:3.1e}".format(t3-t2))
     n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = PNOFi_selector(n,p)
 
+    t4 = time()
+    #print("34: {:3.1e}".format(t4-t3))
     Hmat,I_MO = pynof.JKH_MO_tmp(Cnew,H,I,b_mnl,p)
 
+    t5 = time()
+    #print("45: {:3.1e}".format(t5-t4))
     nn = np.zeros((p.nbf))
     cj12n = np.zeros((p.nbf,p.nbf))
     ck12n = np.zeros((p.nbf,p.nbf))
     nn[:p.nbf5] = n
     cj12n[:p.nbf5,:p.nbf5] = cj12
     ck12n[:p.nbf5,:p.nbf5] = ck12
+    t6 = time()
+    #print("56: {:3.1e}".format(t6-t5))
 
-    if(p.MSpin==0):
-
-        np.fill_diagonal(cj12,0) # Remove diag.
-        np.fill_diagonal(cj12n,0) # Remove diag.
-        np.fill_diagonal(ck12,0) # Remove diag.
-        np.fill_diagonal(ck12n,0) # Remove diag.
-
-        d2E_dycddyab += 8*np.einsum("bd,abcd->cdab",cj12n,I_MO,optimize=True)
-        d2E_dycddyab -= 8*np.einsum("ad,abcd->cdab",cj12n,I_MO,optimize=True)
-        d2E_dycddyab += 4*np.einsum("bc,adbc->cdab",ck12n,I_MO,optimize=True)
-        d2E_dycddyab -= 4*np.einsum("ac,adbc->cdab",ck12n,I_MO,optimize=True)
-        d2E_dycddyab += 4*np.einsum("bc,acbd->cdab",ck12n,I_MO,optimize=True)
-        d2E_dycddyab -= 4*np.einsum("ac,acbd->cdab",ck12n,I_MO,optimize=True)
-        ###########
-        d2E_dycddyab -= 8*np.einsum("bc,abcd->cdab",cj12n,I_MO,optimize=True)
-        d2E_dycddyab += 8*np.einsum("ac,abcd->cdab",cj12n,I_MO,optimize=True)
-        d2E_dycddyab -= 4*np.einsum("bd,acbd->cdab",ck12n,I_MO,optimize=True)
-        d2E_dycddyab += 4*np.einsum("ad,acbd->cdab",ck12n,I_MO,optimize=True)
-        d2E_dycddyab -= 4*np.einsum("bd,adbc->cdab",ck12n,I_MO,optimize=True)
-        d2E_dycddyab += 4*np.einsum("ad,adbc->cdab",ck12n,I_MO,optimize=True)
-
-        for i in range(p.nbf):
-            # d2(2sum_p n_p H_pp)/dycddyab
-            d2E_dycddyab[:,i,i,:] +=  np.einsum('b,cb->cb',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[:,i,i,:] +=  np.einsum('c,cb->cb',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[:,i,i,:] += -2*2*nn[i]*Hmat
-            # d2(sum_p n_p J_pp)/dycddyab
-            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('b,cbbb->cb',nn,I_MO,optimize=True)
-            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('c,bccc->cb',nn,I_MO,optimize=True)
-            d2E_dycddyab[:,i,i,:] += -4*nn[i]*I_MO[:,:,i,i]
-            d2E_dycddyab[:,i,i,:] += -8*nn[i]*I_MO[:,i,:,i]
-            # d2(sum_pq C^J_pq J_pq)/dycddyab
-            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('bq,cbqq->cb',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,i,:] +=  2*np.einsum('cq,cbqq->cb',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,i,:] += -4*np.einsum('q,cbqq->cb',cj12n[i,:],I_MO,optimize=True)
-            # d2(sum_pq C^K_pq K_pq)/dycddyab
-            d2E_dycddyab[:,i,i,:] += -2*np.einsum('bq,cqbq->cb',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,i,:] += -2*np.einsum('cq,cqbq->cb',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,i,:] +=  4*np.einsum('q,cqbq->cb',ck12n[i,:],I_MO,optimize=True)
-
-            d2E_dycddyab[i,:,:,i] +=  np.einsum('a,ad->da',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[i,:,:,i] +=  np.einsum('d,ad->da',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[i,:,:,i] += -2*2*nn[i]*Hmat
-            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('a,daaa->da',nn,I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('d,addd->da',nn,I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] += -4*nn[i]*I_MO[:,:,i,i]
-            d2E_dycddyab[i,:,:,i] += -8*nn[i]*I_MO[:,i,:,i]
-            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('aq,adqq->da',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] +=  2*np.einsum('dq,adqq->da',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] += -4*np.einsum('q,adqq->da',cj12n[i,:],I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] += -2*np.einsum('aq,aqdq->da',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] += -2*np.einsum('dq,aqdq->da',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,:,i] +=  4*np.einsum('q,aqdq->da',ck12n[i,:],I_MO,optimize=True)
-
-            d2E_dycddyab[:,i,:,i] -=  np.einsum('a,ca->ca',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[:,i,:,i] -=  np.einsum('c,ca->ca',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[:,i,:,i] -= -2*2*nn[i]*Hmat
-            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('a,caaa->ca',nn,I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('c,accc->ca',nn,I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -= -4*nn[i]*I_MO[:,:,i,i]
-            d2E_dycddyab[:,i,:,i] -= -8*nn[i]*I_MO[:,i,:,i]
-            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('aq,caqq->ca',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -=  2*np.einsum('cq,caqq->ca',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -= -4*np.einsum('q,caqq->ca',cj12n[i,:],I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -= -2*np.einsum('aq,cqaq->ca',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -= -2*np.einsum('cq,cqaq->ca',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[:,i,:,i] -=  4*np.einsum('q,cqaq->ca',ck12n[i,:],I_MO,optimize=True)
-
-            d2E_dycddyab[i,:,i,:] -=  np.einsum('b,db->db',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[i,:,i,:] -=  np.einsum('d,db->db',2*nn,Hmat,optimize=True)
-            d2E_dycddyab[i,:,i,:] -= -2*2*nn[i]*Hmat
-            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('b,dbbb->db',nn,I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('d,bddd->db',nn,I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -= -4*nn[i]*I_MO[:,:,i,i]
-            d2E_dycddyab[i,:,i,:] -= -8*nn[i]*I_MO[:,i,:,i]
-            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('bq,dbqq->db',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -=  2*np.einsum('dq,dbqq->db',cj12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -= -4*np.einsum('q,dbqq->db',cj12n[i,:],I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -= -2*np.einsum('bq,dqbq->db',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -= -2*np.einsum('dq,dqbq->db',ck12n,I_MO,optimize=True)
-            d2E_dycddyab[i,:,i,:] -=  4*np.einsum('q,dqbq->db',ck12n[i,:],I_MO,optimize=True)
-        print("14")
-
-    var = int(p.nbf*(p.nbf-1)/2)
-    hesss = np.zeros((var,var))
-    jj = 0
-    for k in range(p.nbf):
-        for l in range(k+1,p.nbf):
-            ii = 0
+    if p.gpu:
+        Hmat = cp.array(Hmat)
+        nn = cp.array(nn)
+        cj12n = cp.array(cj12n)
+        ck12n = cp.array(ck12n)
+        I_MO = cp.array(I_MO)
+        d2E_dycddyab = cp.zeros((p.nbf,p.nbf,p.nbf,p.nbf))
+        if(p.MSpin==0):
+    
+            t7 = time()
+            #print("67: {:3.1e}".format(t7-t6))
+            np.fill_diagonal(cj12,0) # Remove diag.
+            np.fill_diagonal(cj12n,0) # Remove diag.
+            np.fill_diagonal(ck12,0) # Remove diag.
+            np.fill_diagonal(ck12n,0) # Remove diag.
+    
+            t8 = time()
+            #print("78: {:3.1e}".format(t8-t7))
+            d2E_dycddyab[:,:p.nbf5,:,:p.nbf5] += 8*cp.einsum("bd,cdab->cdab",cj12,I_MO[:,:p.nbf5,:,:p.nbf5],optimize=True)
+            d2E_dycddyab -= 8*cp.einsum("ad,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*cp.einsum("bc,adbc->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*cp.einsum("ac,adbc->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*cp.einsum("bc,acbd->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*cp.einsum("ac,acbd->cdab",ck12n,I_MO,optimize=True)
+            t9 = time()
+            #print("89: {:3.1e}".format(t9-t8))
+            ###########
+            d2E_dycddyab -= 8*cp.einsum("bc,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab += 8*cp.einsum("ac,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*cp.einsum("bd,acbd->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*cp.einsum("ad,acbd->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*cp.einsum("bd,adbc->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*cp.einsum("ad,adbc->cdab",ck12n,I_MO,optimize=True)
+            t10 = time()
+            #print("9 10: {:3.1e}".format(t10-t9))
+    
             for i in range(p.nbf):
-                for j in range(i+1,p.nbf):
-                    hesss[jj,ii] = d2E_dycddyab[k,l,i,j]
-                    ii += 1
-            jj += 1
-    return np.array(hesss)
+    
+                tmp = cp.zeros((p.nbf,p.nbf))
+    
+                # d2(2sum_p n_p H_pp)/dycddyab
+                tmp +=  cp.einsum('b,cb->cb',2*nn,Hmat,optimize=True)
+                tmp +=  cp.einsum('c,cb->cb',2*nn,Hmat,optimize=True)
+                tmp += -2*2*nn[i]*Hmat
+    
+                # d2(sum_p n_p J_pp)/dycddyab
+                tmp[:,:p.nbeta] +=  2*cp.einsum('b,cbbb->cb',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+                tmp[:,p.nalpha:p.nbf5] +=  2*cp.einsum('b,cbbb->cb',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+                tmp[:p.nbeta,:] +=  2*cp.einsum('c,bccc->cb',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+                tmp[p.nalpha:p.nbf5,:] +=  2*cp.einsum('c,bccc->cb',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+                if(i < p.nbeta or i >= p.nalpha):
+                    tmp += -4*nn[i]*I_MO[:,:,i,i]
+                    tmp += -8*nn[i]*I_MO[:,i,:,i]
+    
+                # d2(sum_pq C^J_pq J_pq)/dycddyab
+                tmp +=  2*cp.einsum('bq,cbqq->cb',cj12n,I_MO,optimize=True)
+                tmp +=  2*cp.einsum('cq,cbqq->cb',cj12n,I_MO,optimize=True)
+                tmp += -4*cp.einsum('q,cbqq->cb',cj12n[i,:],I_MO,optimize=True)
+    
+                # -d2(sum_pq C^K_pq K_pq)/dycddyab
+                tmp += -2*cp.einsum('bq,cqbq->cb',ck12n,I_MO,optimize=True)
+                tmp += -2*cp.einsum('cq,cqbq->cb',ck12n,I_MO,optimize=True)
+                tmp +=  4*cp.einsum('q,cqbq->cb',ck12n[i,:],I_MO,optimize=True)
+    
+                d2E_dycddyab[:,i,i,:] +=  tmp
+                d2E_dycddyab[i,:,:,i] +=  tmp
+                d2E_dycddyab[:,i,:,i] -=  tmp
+                d2E_dycddyab[i,:,i,:] -=  tmp
+        d2E_dycddyab = d2E_dycddyab.get()
+    else:
+        d2E_dycddyab = np.zeros((p.nbf,p.nbf,p.nbf,p.nbf))
+        if(p.MSpin==0):
+
+            t7 = time()
+            #print("67: {:3.1e}".format(t7-t6))
+            np.fill_diagonal(cj12,0) # Remove diag.
+            np.fill_diagonal(cj12n,0) # Remove diag.
+            np.fill_diagonal(ck12,0) # Remove diag.
+            np.fill_diagonal(ck12n,0) # Remove diag.
+
+            t8 = time()
+            #print("78: {:3.1e}".format(t8-t7))
+            d2E_dycddyab += 8*np.einsum("bd,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab -= 8*np.einsum("ad,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*np.einsum("bc,adbc->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*np.einsum("ac,adbc->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*np.einsum("bc,acbd->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*np.einsum("ac,acbd->cdab",ck12n,I_MO,optimize=True)
+            t9 = time()
+            #print("89: {:3.1e}".format(t9-t8))
+            ###########
+            d2E_dycddyab -= 8*np.einsum("bc,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab += 8*np.einsum("ac,cdab->cdab",cj12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*np.einsum("bd,acbd->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*np.einsum("ad,acbd->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab -= 4*np.einsum("bd,adbc->cdab",ck12n,I_MO,optimize=True)
+            d2E_dycddyab += 4*np.einsum("ad,adbc->cdab",ck12n,I_MO,optimize=True)
+            t10 = time()
+            #print("9 10: {:3.1e}".format(t10-t9))
+
+            for i in range(p.nbf):
+
+                tmp = np.zeros((p.nbf,p.nbf))
+
+                # d2(2sum_p n_p H_pp)/dycddyab
+                tmp +=  np.einsum('b,cb->cb',2*nn,Hmat,optimize=True)
+                tmp +=  np.einsum('c,cb->cb',2*nn,Hmat,optimize=True)
+                tmp += -2*2*nn[i]*Hmat
+
+                # d2(sum_p n_p J_pp)/dycddyab
+                tmp[:,:p.nbeta] +=  2*np.einsum('b,cbbb->cb',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+                tmp[:,p.nalpha:p.nbf5] +=  2*np.einsum('b,cbbb->cb',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+                tmp[:p.nbeta,:] +=  2*np.einsum('c,bccc->cb',nn[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
+                tmp[p.nalpha:p.nbf5,:] +=  2*np.einsum('c,bccc->cb',nn[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+                if(i < p.nbeta or i >= p.nalpha):
+                    tmp += -4*nn[i]*I_MO[:,:,i,i]
+                    tmp += -8*nn[i]*I_MO[:,i,:,i]
+
+                # d2(sum_pq C^J_pq J_pq)/dycddyab
+                tmp +=  2*np.einsum('bq,cbqq->cb',cj12n,I_MO,optimize=True)
+                tmp +=  2*np.einsum('cq,cbqq->cb',cj12n,I_MO,optimize=True)
+                tmp += -4*np.einsum('q,cbqq->cb',cj12n[i,:],I_MO,optimize=True)
+
+                # -d2(sum_pq C^K_pq K_pq)/dycddyab
+                tmp += -2*np.einsum('bq,cqbq->cb',ck12n,I_MO,optimize=True)
+                tmp += -2*np.einsum('cq,cqbq->cb',ck12n,I_MO,optimize=True)
+                tmp +=  4*np.einsum('q,cqbq->cb',ck12n[i,:],I_MO,optimize=True)
+
+                d2E_dycddyab[:,i,i,:] +=  tmp
+                d2E_dycddyab[i,:,:,i] +=  tmp
+                d2E_dycddyab[:,i,:,i] -=  tmp
+                d2E_dycddyab[i,:,i,:] -=  tmp
+
+    t11 = time()
+    #print("10 11: {:3.1e}".format(t11-t10))
+    hess = pynof.extract_tiu_tensor(d2E_dycddyab,1)
+    t12 = time()
+    #print("12 11: {:3.1e}".format(t12-t11))
+
+    print("end hess {:3.1e}".format(t12 - t1))
+    return hess
 
 def calcorbg_num(y,gamma,C,H,I,b_mnl,p):
 

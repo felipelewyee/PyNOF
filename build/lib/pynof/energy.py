@@ -8,7 +8,6 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
     t1 = time()
 
     wfn = p.wfn
-
     S,T,V,H,I,b_mnl,Dipole = pynof.compute_integrals(wfn,mol,p)
 
     if(printmode):
@@ -184,6 +183,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         neg_eig_orig = eigval[eigval<-1e-5]
         if(len(neg_eig_orig)>0):
             print("\n {} Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
+            print(neg_eig_orig)
         else:
             print("No Eigenvalues < -1e-5 in the Orbital Hessian".format(len(neg_eig_orig)))
 

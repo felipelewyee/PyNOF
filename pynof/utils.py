@@ -225,6 +225,7 @@ def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
 
     sumdiff,maxdiff = computeLagrangeConvergency(elag)
 
+    #p.gpu = False
     return E,elag,sumdiff,maxdiff
 
 def fmiug_scaling(fmiug0,elag,i_ext,nzeros,nbf,noptorb):
@@ -480,3 +481,41 @@ def optimize_trust2(y0,r,maxr,func,g,H,*args):
 
     return p,r
 
+@njit
+def extract_tiu_tensor(t,k):
+    dim = len(t)
+    var = int(dim*(dim-1)/2)
+    t_extracted = np.zeros((var,var))
+    i = 0
+    for p in range(dim):
+        for q in range(p+k,dim):
+            j = 0
+            for r in range(dim):
+                for s in range(r+k,dim):
+                    t_extracted[i,j] = t[p,q,r,s]
+                    j += 1
+            i += 1
+
+    return t_extracted
+
+def check_grads(gamma,C,H,I,b_mnl,p):
+    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+
+    print("======Gradient Check======")
+    print("Grad Analytical")
+    grad_a = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
+    print("Grad Numerical")
+    grad_n = pynof.calcorbg_num(y,gamma,C,H,I,b_mnl,p)
+
+    print("Max Diff {:3.1e}".format(np.max(np.abs(grad_a-grad_n))))
+
+def check_hessian(gamma,C,H,I,b_mnl,p):
+    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+
+    print("======Hessian Check======")
+    print("Hess Analytical")
+    hess_a = pynof.calcorbh(y,gamma,C,H,I,b_mnl,p)
+    print("Hess Numerical")
+    hess_n = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
+
+    print("Max Diff {:3.1e}".format(np.max(np.abs(hess_a-hess_n))))

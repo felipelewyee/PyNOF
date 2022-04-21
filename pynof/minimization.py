@@ -150,23 +150,13 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
 def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
+    #pynof.check_grads(gamma,C,H,I,b_mnl,p)
+    #pynof.check_hessian(gamma,C,H,I,b_mnl,p)
+
     y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
 
-#    print("Grad Analytical")
-#    print(pynof.calcorbg(y,gamma,C,H,I,b_mnl,p))
-#    print("Grad Numerical")
-#    print(pynof.calcorbg_num(y,gamma,C,H,I,b_mnl,p))
-
-#    print("Hess Analytical")
-#    print(pynof.calcorbh(y,gamma,C,H,I,b_mnl,p))
-#    print("Hess Numerical")
-#    print(pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p))
-
-    if("trust" in p.orbital_optimizer):
-        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh,method="trust-exact",options={"maxiter":p.maxitid})
-        #res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg_num,hess=pynof.calcorbh_num,method="trust-exact",options={"maxiter":p.maxitid})
-        #res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="3-points",method=p.orbital_optimizer,options={"maxiter":p.maxitid})
-        #res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh_num,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
+    if("trust" in p.orbital_optimizer or "Newton-CG" in p.orbital_optimizer):
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
     else:
         res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
 

@@ -116,7 +116,6 @@ def computeJKj(C,I,b_mnl,p):
 
 
 def JKj_Full(C,I,p):
-
     #denmatj
     D = np.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5], optimize=True)
     #hstarj
@@ -145,7 +144,8 @@ def JKj_Full_GPU(C,I,p):
     #hstarj
     J = cp.tensordot(D, I, axes=([1,2],[2,3]))
     #hstark
-    K = cp.tensordot(D, I, axes=([1,2],[1,3]))
+    K = np.einsum("inl,mnsl->ims",D,I,optimize=True)
+    #K = cp.tensordot(D, I, axes=([1,2],[1,3]))
     
     return J.get(),K.get()
 
@@ -289,6 +289,7 @@ def JKH_MO_Full_GPU(C,H,I,p):
 
     C = cp.array(C)
     H = cp.array(H)
+    I = cp.array(I) #Remove
     #denmatj
     D = cp.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
     #QJMATm
@@ -572,4 +573,32 @@ def pqrt_Full_GPU(C,I,p):
 
     return pqrt.get()
 
+def JKH_MO_tmp(C,H,I,b_mnl,p):
 
+    if(p.gpu):
+        if(p.RI):
+            pass
+        else:
+            H_MO, I_MO = Integrals_MO_GPU(C,H,I,p)
+    else:
+        if(p.RI):
+            pass
+            #J_MO,K_MO,H_core = JKH_MO_RI(C,H,b_mnl,p)
+        else:
+            H_MO, I_MO = Integrals_MO_CPU(C,H,I,p)
+
+    return H_MO,I_MO
+
+def Integrals_MO_CPU(C,H,I,p):
+
+    H_mat = np.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
+    I_MO = np.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
+
+    return H_mat,I_MO
+
+def Integrals_MO_GPU(C,H,I,p):
+
+    H_mat = cp.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
+    I_MO = cp.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
+
+    return H_mat,I_MO
