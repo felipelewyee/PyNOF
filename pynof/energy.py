@@ -90,11 +90,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 if perturb:
                     if(E - Estored > 0):
                         print("Solution does not improve anymore, restoring old solution and stopping")
-                        E = Estored
-                        C = Cstored
-                        gamma = gammastored
-                        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-                        print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                        E,C,gamma = Estored,Cstored,gammastored
                         break
                     else:
                         y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
@@ -140,11 +136,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 if perturb:
                     if(E - Estored > 0):
                         print("Solution does not improve anymore, restoring old solution and stopping")
-                        E = Estored
-                        C = Cstored
-                        gamma = gammastored
-                        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-                        print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                        E,C,gamma = Estored,Cstored,gammastored
                         break
                     else:
                         print("Increasing Gradient")
@@ -181,11 +173,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 if perturb:
                     if(E - Estored > 0):
                         print("Solution does not improve anymore, restoring old solution and stopping")
-                        E = Estored
-                        C = Cstored
-                        gamma = gammastored
-                        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-                        print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                        E,C,gamma = Estored,Cstored,gammastored
                         break
                     else:
                         print("Increasing Gradient")
@@ -194,10 +182,10 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 else:
                     break
             E_old = E
-        n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
-        cj12,ck12 = pynof.PNOFi_selector(n,p)
-        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-        print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = pynof.PNOFi_selector(n,p)
+    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+    print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
 
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)
