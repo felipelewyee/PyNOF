@@ -289,7 +289,6 @@ def JKH_MO_Full_GPU(C,H,I,p):
 
     C = cp.array(C)
     H = cp.array(H)
-    I = cp.array(I) #Remove
     #denmatj
     D = cp.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
     #QJMATm

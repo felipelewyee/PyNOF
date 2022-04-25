@@ -97,6 +97,10 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                         print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
                         break
                     else:
+                        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+                        grad_orb = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
+                        J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+                        grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
                         print("Increasing Gradient")
                         Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
                         C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
