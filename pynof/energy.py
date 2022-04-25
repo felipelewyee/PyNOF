@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,check_hessian=False):
+def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,check_hessian=False,perturb=False):
  
     t1 = time()
 
@@ -87,28 +87,24 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
 
-                if(E - Estored > 0):
-                    print("Solution does not improve anymore, restoring old solution and stopping")
-                    E = Estored
-                    C = Cstored
-                    gamma = gammastored
-                    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-                    print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
-                    break
+                if perturb:
+                    if(E - Estored > 0):
+                        print("Solution does not improve anymore, restoring old solution and stopping")
+                        E = Estored
+                        C = Cstored
+                        gamma = gammastored
+                        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+                        print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                        break
+                    else:
+                        print("Increasing Gradient")
+                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                        C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
-                    print("Adding Noise to Solution")
-                    Estored = E
-                    Cstored = C.copy()
-                    gammastored = gamma.copy()
-                    y = pynof.noise(1.0,int(p.nbf*(p.nbf-1)/2))
-                    C = pynof.rotate_orbital(y,C,p)
-                    gamma += pynof.noise(0.1,p.nv)
+                    break
             #print(t2-t1,t3-t2)
         np.save(p.title+"_fmiug0.npy",fmiug0)
     
-    Estored = 0
-    Cstored = 0
-    gammastored = 0
     if(p.method=="Rotations"):
         if(printmode):
             print("")
@@ -127,37 +123,32 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             E_old = E
 
             y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-            grad_orb = np.linalg.norm(pynof.calcorbg(y,gamma,C,H,I,b_mnl,p))
+            grad_orb = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
             J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
-            grad_occ = np.linalg.norm(pynof.calcg(gamma,J_MO,K_MO,H_core,p))
-            print("{:6d} {:6d} {:6d}    {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,grad_orb,grad_occ,success_orb,success_occ))
+            grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
+            print("{:6d} {:6d} {:6d}    {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
 
             if(np.abs(E_diff)<p.threshe and success_orb and success_occ):
                 #pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
-
-                if(E - Estored > 0):
-                    print("Solution does not improve anymore, restoring old solution and stopping")
-                    E = Estored
-                    C = Cstored
-                    gamma = gammastored
-                    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-                    print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
-                    break
+                if perturb:
+                    if(E - Estored > 0):
+                        print("Solution does not improve anymore, restoring old solution and stopping")
+                        E = Estored
+                        C = Cstored
+                        gamma = gammastored
+                        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+                        print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                        break
+                    else:
+                        print("Increasing Gradient")
+                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                        C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
-                    print("Adding Noise to Solution")
-                    Estored = E
-                    Cstored = C.copy()
-                    gammastored = gamma.copy()
-                    y = pynof.noise(1.0,int(p.nbf*(p.nbf-1)/2))
-                    C = pynof.rotate_orbital(y,C,p)
-                    gamma += pynof.noise(0.1,p.nv)
+                    break
 
-    Estored = 0
-    Cstored = 0
-    gammastored = 0
     if(p.method=="Combined"):
         if(printmode):
             print("")
@@ -171,7 +162,10 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
             x = np.zeros((int(p.nbf*(p.nbf-1)/2)+p.nv))
             x[int(p.nbf*(p.nbf-1)/2):] = gamma
-            grad_norm = np.linalg.norm(pynof.calccombg(x,C,H,I,b_mnl,p))
+            grad = pynof.calccombg(x,C,H,I,b_mnl,p)
+            grad_norm = np.linalg.norm(grad)
+            grad_orb = grad[:int(p.nbf*(p.nbf-1)/2)]
+            grad_occ = grad[int(p.nbf*(p.nbf-1)/2):]
 
             print("{:3d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(nit,E,E+E_nuc,E_diff,grad_norm,success))
 
@@ -180,23 +174,21 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
-
-                if(E - Estored > 0):
-                    print("Solution does not improve anymore, restoring old solution and stopping")
-                    E = Estored
-                    C = Cstored
-                    gamma = gammastored
-                    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
-                    print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
-                    break
+                if perturb:
+                    if(E - Estored > 0):
+                        print("Solution does not improve anymore, restoring old solution and stopping")
+                        E = Estored
+                        C = Cstored
+                        gamma = gammastored
+                        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+                        print("Lagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
+                        break
+                    else:
+                        print("Increasing Gradient")
+                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                        C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
-                    print("Adding Noise to Solution")
-                    Estored = E
-                    Cstored = C.copy()
-                    gammastored = gamma.copy()
-                    y = pynof.noise(0.5,int(p.nbf*(p.nbf-1)/2))
-                    C = pynof.rotate_orbital(y,C,p)
-                    gamma += pynof.noise(0.1,p.nv)
+                    break
             E_old = E
         n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
         cj12,ck12 = pynof.PNOFi_selector(n,p)

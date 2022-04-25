@@ -545,3 +545,20 @@ def noise(radius,dim):
 
     return epsilon_vec
 
+@njit
+def perturb_gradient(grad,tol):
+    dim = grad.shape[0]
+    for i in range(dim):
+        if(np.abs(grad[i])<tol):
+            grad[i] = np.sign(grad[i])*tol
+
+    return grad
+
+def perturb_solution(C,gamma,grad_orb,grad_occ,p):
+    grad_orb = pynof.perturb_gradient(grad_orb,p.tol_gorb)
+    y = -grad_orb
+    C = pynof.rotate_orbital(y,C,p)
+    grad_occ = pynof.perturb_gradient(grad_occ,p.tol_gocc)
+    gamma += -grad_occ
+
+    return C,gamma
