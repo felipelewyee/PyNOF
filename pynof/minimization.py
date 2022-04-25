@@ -71,7 +71,7 @@ def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
 
-    if (not convgdelag and p.ndoc>0):
+    if (p.ndoc>0):
         if(p.gradient=="analytical"):
             res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
         elif(p.gradient=="numerical"):
@@ -80,7 +80,7 @@ def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
 
-    return gamma,n,cj12,ck12
+    return res.fun,res.nit,res.success,gamma,n,cj12,ck12
 
 def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
 
@@ -173,18 +173,20 @@ def comb(gamma,C,H,I,b_mnl,p):
     nvar = int(p.nbf*(p.nbf-1)/2)
     x = np.zeros((nvar+p.nv))
     x[nvar:] = gamma
-    E = pynof.calccombe(x,C,H,I,b_mnl,p)
-    print("{:3d} {:14.8f}".format(0,E))
+    #E = pynof.calccombe(x,C,H,I,b_mnl,p)
+    #print("{:3d} {:14.8f}".format(0,E))
 
     if("trust" in p.combined_optimizer):
-        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,hess=pynof.calccombh_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg,hess="3-point",method=p.combined_optimizer,options={"maxiter":p.maxitid})
     else:
-        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg_num,method=p.combined_optimizer,options={"maxiter":p.maxitid})
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg,method=p.combined_optimizer,options={"maxiter":p.maxitid})
 
     E = res.fun
     x = res.x
     y = x[:int(p.nbf*(p.nbf-1)/2)]
+    #print(y)
     gamma = x[int(p.nbf*(p.nbf-1)/2):]
+    #print(gamma)
     C = pynof.rotate_orbital(y,C,p)
 
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)

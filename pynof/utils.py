@@ -519,3 +519,29 @@ def check_hessian(gamma,C,H,I,b_mnl,p):
     hess_n = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
 
     print("Max Diff {:3.1e}".format(np.max(np.abs(hess_a-hess_n))))
+
+def check_hessian_eigvals(tol,gamma,C,H,I,b_mnl,p,printeig=False):
+        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+        hess = pynof.calcorbh(y,gamma,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        while(tol >= -0.1):
+            neg_eig_orig = eigval[eigval<tol]
+            if(len(neg_eig_orig)>0):
+                print("{} Eigenvalues < {:3.1e} in the Orbital Hessian".format(len(neg_eig_orig),tol))
+                if(printeig):
+                    print(neg_eig_orig)
+            else:
+                print("No Eigenvalues < {:3.1e} in the Orbital Hessian".format(tol))
+            tol = tol*10
+
+def noise(radius,dim):
+
+    Y = np.random.normal(size=dim)
+    Y /= np.linalg.norm(Y)
+
+    U = np.random.uniform()
+
+    epsilon_vec = radius * Y * U**(1/dim)
+
+    return epsilon_vec
+
