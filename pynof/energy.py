@@ -71,23 +71,23 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         for i_ext in range(p.maxit):
             #t1 = time()
             #orboptr
-            convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
+            convgdelag,E,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
             #t2 = time()
     
             #occopt
-            E,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convgdelag,C,H,I,b_mnl,p)
+            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convgdelag,C,H,I,b_mnl,p)
             #t3 = time()
     
-            if(convgdelag or i_ext-last_iter>10):
+            if(convgdelag):
                 #pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
 
                 if perturb:
-                    if(E_old - Estored > -1e-4):
+                    if(E - Estored > -1e-4):
                         print("Solution does not improve anymore")
-                        if(Estored<E_old):
+                        if(Estored<E):
                             E,C,gamma = Estored,Cstored,gammastored
                         break
                     else:
@@ -97,7 +97,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                         grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
                         print("Increasing Gradient")
                         last_iter = i_ext
-                        Estored,Cstored,gammastored = E_old,C.copy(),gamma.copy()
+                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
                         C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
                     break
@@ -240,13 +240,13 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         
         if(hfidr):
             print("       HF Total Energy = {:15.7f}".format(E_nuc + EHF))
-        print("Final NOF Total Energy = {:15.7f}".format(E_nuc + E_old))
+        print("Final NOF Total Energy = {:15.7f}".format(E_nuc + E))
         if(hfidr):
-            print("    Correlation Energy = {:15.7f}".format(E_old-EHF))
+            print("    Correlation Energy = {:15.7f}".format(E-EHF))
         print("")
         print("")
 
-    E_t = E_nuc + E_old
+    E_t = E_nuc + E
 
     pynof.fchk(p.title,wfn,mol,"Energy",E_t,elag,n,C,p)
 
@@ -260,7 +260,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         pynof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)
 
     if(mbpt):
-        pynof.mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E_old,p)
+        pynof.mbpt(n,C,H,I,b_mnl,Dipole,E_nuc,E,p)
 
     if(ekt):
         pynof.ext_koopmans(p,elag,n)
