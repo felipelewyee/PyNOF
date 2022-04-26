@@ -85,7 +85,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
 
                 if perturb:
-                    if(E - Estored > -1e-4):
+                    if(E_old - Estored > -1e-4):
                         print("Solution does not improve anymore")
                         if(Estored<E):
                             E,C,gamma = Estored,Cstored,gammastored
@@ -97,7 +97,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                         grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
                         print("Increasing Gradient")
                         last_iter = i_ext
-                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                        Estored,Cstored,gammastored = E_old,C.copy(),gamma.copy()
                         C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
                     break
