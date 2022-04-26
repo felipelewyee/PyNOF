@@ -87,7 +87,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 if perturb:
                     if(E_old - Estored > -1e-4):
                         print("Solution does not improve anymore")
-                        if(Estored<E):
+                        if(Estored<E_old):
                             E,C,gamma = Estored,Cstored,gammastored
                         break
                     else:
