@@ -95,7 +95,7 @@ class param():
         self.occupation_optimizer = "L-BFGS-B"
         self.orbital_optimizer = "L-BFGS-B"
         self.combined_optimizer = "L-BFGS-B"
-        self.tol_gorb = 1e-4
+        self.tol_gorb = 1e-3
         self.tol_gocc = 1e-2
         self.gpu = False
         self.RI = False
