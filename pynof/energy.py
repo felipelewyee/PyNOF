@@ -166,7 +166,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
             print("{:3d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(nit,E,E+E_nuc,E_diff,grad_norm,success))
 
-            if(np.abs(E_diff)<p.threshe and (success or i_ext-last_it>10)):
+            if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
                 #pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
                 #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
