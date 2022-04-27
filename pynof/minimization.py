@@ -177,9 +177,9 @@ def comb(gamma,C,H,I,b_mnl,p):
 
     E = res.fun
     x = res.x
-    y = x[:nvar]
+    y = x[:p.nvar]
     #print(y)
-    gamma = x[nvar:]
+    gamma = x[p.nvar:]
     #print(gamma)
     C = pynof.rotate_orbital(y,C,p)
 

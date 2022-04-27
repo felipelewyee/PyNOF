@@ -8624,3 +8624,19 @@ Libint2ERI::Libint2ERI              :      0.117u      0.017s      0.077w      2
 Libint2ERI::Libint2ERI              :      0.117u      0.017s      0.077w      2 calls
 
 **************************************************************************************
+
+Host: B450-AORUS-PRO-WIFI
+
+Timers On : Wed Apr 27 18:11:21 2022
+Timers Off: Wed Apr 27 18:11:34 2022
+
+Wall Time:       12.30 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.011w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.011w      2 calls
+
+**************************************************************************************
