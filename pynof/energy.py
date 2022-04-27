@@ -141,6 +141,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
         for i_ext in range(p.maxit):
             E,C,gamma,n,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
             E_diff = E-E_old
+            E_old = E
 
             x = np.zeros((p.nvar+p.nv))
             x[p.nvar:] = gamma
