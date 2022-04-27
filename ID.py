@@ -22,4 +22,4 @@ p.gpu = True
 
 print("====================   ID  ===========================")
 p.method = "ID"
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,check_hessian=True)
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,check_hessian=True,perturb=True)

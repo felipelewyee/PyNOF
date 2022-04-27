@@ -532,9 +532,20 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
                 grad[:,:p.nbf5] += -4*cp.einsum('bq,aqbq->ab',ck12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
                 grad[:p.nbf5,:] +=  4*cp.einsum('aq,aqbq->ab',ck12,I_MO[:p.nbf5,:p.nbf5,:,:p.nbf5],optimize=True)
         
-        triu_idx = np.triu_indices(p.nbf,k=1)
-        grad = grad[triu_idx]
+#        triu_idx = np.triu_indices(p.nbf,k=1)
+#        grad = grad[triu_idx]
         grad = grad.get()
+
+
+        grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
+
+        n = 0
+        for i in range(p.nbf5):
+            for j in range(i+1,p.nbf):
+                grads[n] = grad[i,j]
+                n += 1
+        grad = grads
+
     
     else:
         grad = np.zeros((p.nbf,p.nbf))
@@ -727,8 +738,9 @@ def calcorbh_num2(y,gamma,C,H,I,b_mnl,p):
 
 def calccombe(x,C,H,I,b_mnl,p):
 
-    y = x[:int(p.nbf*(p.nbf-1)/2)]
-    gamma = x[int(p.nbf*(p.nbf-1)/2):]
+    nvar = int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)
+    y = x[:nvar]
+    gamma = x[nvar:]
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
@@ -739,17 +751,18 @@ def calccombe(x,C,H,I,b_mnl,p):
 
 def calccombg(x,C,H,I,b_mnl,p):
 
-    y = x[:int(p.nbf*(p.nbf-1)/2)]
-    gamma = x[int(p.nbf*(p.nbf-1)/2):]
+    nvar = int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)
+    y = x[:nvar]
+    gamma = x[nvar:]
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
 
-    grad = np.zeros(int(p.nbf*(p.nbf-1)/2) + p.nv)
+    grad = np.zeros(nvar + p.nv)
 
-    grad[:int(p.nbf*(p.nbf-1)/2)] = calcorbg(y,gamma,Cnew,H,I,b_mnl,p)
-    grad[int(p.nbf*(p.nbf-1)/2):] = calcg(gamma,J_MO,K_MO,H_core,p)
+    grad[:nvar] = calcorbg(y,gamma,Cnew,H,I,b_mnl,p)
+    grad[nvar:] = calcg(gamma,J_MO,K_MO,H_core,p)
 
     return grad
 

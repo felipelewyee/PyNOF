@@ -48,11 +48,8 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
                 gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
 
     elag = np.zeros((p.nbf,p.nbf)) #temporal
-    if(p.method=="ID"):
-        E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,C,H,I,b_mnl,p)
-    else:
-        n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
-        cj12,ck12 = pynof.PNOFi_selector(n,p)
+
+    E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,C,H,I,b_mnl,p)
 
     iloop = 0
     itlim = 0
@@ -79,28 +76,22 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             #t3 = time()
     
             if(convgdelag):
-                #pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
 
-                if perturb:
-                    if(E - Estored > -1e-4):
-                        print("Solution does not improve anymore")
-                        if(Estored<E):
-                            E,C,gamma = Estored,Cstored,gammastored
-                        break
-                    else:
-                        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-                        grad_orb = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
-                        J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
-                        grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
-                        print("Increasing Gradient")
-                        last_iter = i_ext
-                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
-                        C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
+                if perturb and E - Estored < -1e-4:
+                    y = np.zeros((p.nvar))
+                    grad_orb = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
+                    J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+                    grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
+                    print("Increasing Gradient")
+                    last_iter = i_ext
+                    Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                    C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
+                    print("Solution does not improve anymore")
+                    if(Estored<E):
+                        E,C,gamma = Estored,Cstored,gammastored
                     break
+
             #print(t2-t1,t3-t2)
         np.save(p.title+"_fmiug0.npy",fmiug0)
     
@@ -113,6 +104,7 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             print('{:^7} {:^7}  {:^7}  {:^14} {:^14} {:^14}   {:^6}   {:^6} {:^6} {:^6}'.format("Nitext","Nit_orb","Nit_occ","Eelec","Etot","Ediff","Grad_orb","Grad_occ","Conv Orb","Conv Occ"))
         convorb = False
         for i_ext in range(p.maxit):
+
             E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
 
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convorb,C,H,I,b_mnl,p)
@@ -121,29 +113,22 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             E_diff = E-E_old
             E_old = E
 
-            y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+            y = np.zeros((p.nvar))
             grad_orb = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
             J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
             grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
             print("{:6d} {:6d} {:6d}   {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
 
             if(np.abs(E_diff)<p.threshe and ((success_orb and success_occ) or i_ext-last_iter>10)):
-                #pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
-                if perturb:
-                    if(E - Estored > -1e-4):
-                        print("Solution does not improve anymore")
-                        if(Estored<E):
-                            E,C,gamma = Estored,Cstored,gammastored
-                        break
-                    else:
-                        print("Increasing Gradient")
-                        last_iter = i_ext
-                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
-                        C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
+                if perturb and E - Estored < -1e-4:
+                    print("Increasing Gradient")
+                    last_iter = i_ext
+                    Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                    C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
+                    print("Solution does not improve anymore")
+                    if(Estored<E):
+                        E,C,gamma = Estored,Cstored,gammastored
                     break
 
     if(p.method=="Combined"):
@@ -152,39 +137,31 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             print("PNOF{} Calculation (Combined Optimization)".format(p.ipnof))
             print("==================")
             print("")
-            print('{:^4} {:^14} {:^14} {:^14} {:^6} {:^10}'.format("Nit","Eelec","Etot","Ediff","grad","Int. Conv."))
+            print('{:^4} {:^8} {:^14} {:^14} {:^14} {:^6} {:^10}'.format("Nit","Nit_int","Eelec","Etot","Ediff","grad","Int. Conv."))
         for i_ext in range(p.maxit):
             E,C,gamma,n,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
             E_diff = E-E_old
 
-            x = np.zeros((int(p.nbf*(p.nbf-1)/2)+p.nv))
-            x[int(p.nbf*(p.nbf-1)/2):] = gamma
+            x = np.zeros((p.nvar+p.nv))
+            x[p.nvar:] = gamma
             grad = pynof.calccombg(x,C,H,I,b_mnl,p)
             grad_norm = np.linalg.norm(grad)
-            grad_orb = grad[:int(p.nbf*(p.nbf-1)/2)]
-            grad_occ = grad[int(p.nbf*(p.nbf-1)/2):]
+            grad_orb, grad_occ = grad[:p.nvar], grad[p.nvar:]
 
-            print("{:3d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(nit,E,E+E_nuc,E_diff,grad_norm,success))
+            print("{:4d} {:8d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(i_ext,nit,E,E+E_nuc,E_diff,grad_norm,success))
 
+            #if(grad_norm < 1e-2 and (success or i_ext-last_iter>10)):
             if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
-                #pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-4,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-3,gamma,C,H,I,b_mnl,p)
-                #pynof.check_hessian_eigvals(-1e-2,gamma,C,H,I,b_mnl,p)
-                if perturb:
-                    if(E - Estored > -1e-4):
-                        print("Solution does not improve anymore")
-                        if(Estored<E):
-                            E,C,gamma = Estored,Cstored,gammastored
-                        break
-                    else:
-                        print("Increasing Gradient")
-                        last_iter = i_ext
-                        Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
-                        C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
+                if perturb and E - Estored < -1e-4:
+                    print("Increasing Gradient")
+                    last_iter = i_ext
+                    Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                    C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
                 else:
+                    print("Solution does not improve anymore")
+                    if(Estored<E):
+                        E,C,gamma = Estored,Cstored,gammastored
                     break
-            E_old = E
 
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = pynof.PNOFi_selector(n,p)

@@ -149,18 +149,16 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
 def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
-    #pynof.check_grads(gamma,C,H,I,b_mnl,p)
-    #pynof.check_hessian(gamma,C,H,I,b_mnl,p)
-
-    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+    y = np.zeros((p.nvar))
 
     if("trust" in p.orbital_optimizer or "Newton-CG" in p.orbital_optimizer):
-        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess=pynof.calcorbh,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="2-point",method=p.orbital_optimizer,options={"maxiter":p.maxloop})
     else:
-        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,method=p.orbital_optimizer,options={"maxiter":p.maxitid})
+        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,method=p.orbital_optimizer,options={"maxiter":p.maxloop})
 
     E = res.fun
     y = res.x
+
     C = pynof.rotate_orbital(y,C,p)
     nit = res.nit
     success = res.success
@@ -169,22 +167,19 @@ def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
 def comb(gamma,C,H,I,b_mnl,p):
 
-    nvar = int(p.nbf*(p.nbf-1)/2)
-    x = np.zeros((nvar+p.nv))
-    x[nvar:] = gamma
-    #E = pynof.calccombe(x,C,H,I,b_mnl,p)
-    #print("{:3d} {:14.8f}".format(0,E))
+    x = np.zeros((p.nvar+p.nv))
+    x[p.nvar:] = gamma
 
     if("trust" in p.combined_optimizer):
-        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg,hess="3-point",method=p.combined_optimizer,options={"maxiter":p.maxitid})
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg,hess="2-point",method=p.combined_optimizer,options={"maxiter":p.maxloop})
     else:
-        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg,method=p.combined_optimizer,options={"maxiter":p.maxitid})
+        res = minimize(pynof.calccombe, x, args=(C,H,I,b_mnl,p),jac=pynof.calccombg,method=p.combined_optimizer,options={"maxiter":p.maxloop})
 
     E = res.fun
     x = res.x
-    y = x[:int(p.nbf*(p.nbf-1)/2)]
+    y = x[:nvar]
     #print(y)
-    gamma = x[int(p.nbf*(p.nbf-1)/2):]
+    gamma = x[nvar:]
     #print(gamma)
     C = pynof.rotate_orbital(y,C,p)
 

@@ -327,10 +327,13 @@ def orthonormalize(C,S):
 def rotate_orbital(y,C,p):
 
     ynew = np.zeros((p.nbf,p.nbf))
-    triu_idx = np.triu_indices(p.nbf,k=1)
 
-    ynew[triu_idx] = y
-    ynew += - np.transpose(np.triu(ynew,k=1))
+    n = 0
+    for i in range(p.nbf5):
+        for j in range(i+1,p.nbf):
+            ynew[i,j] =  y[n]
+            ynew[j,i] = -y[n]
+            n += 1
 
     U = expm(ynew)
     Cnew = np.einsum("mr,rp->mp",C,U,optimize=True)

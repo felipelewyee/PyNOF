@@ -137,4 +137,5 @@ class param():
         self.nac = self.ndoc * (1 + ncwo)
         self.nbf5 = self.no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
         self.no0 = self.nbf - self.nbf5
+        self.nvar = int(self.nbf*(self.nbf-1)/2) - int(self.no0*(self.no0-1)/2)
         self.nv = self.ncwo*self.ndoc
