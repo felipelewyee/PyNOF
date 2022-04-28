@@ -119,7 +119,8 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
             grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
             print("{:6d} {:6d} {:6d}   {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
 
-            if(np.abs(E_diff)<p.threshe and ((success_orb and success_occ) or i_ext-last_iter>10)):
+            if(np.linalg.norm(grad_orb) < 1e-3 and np.linalg.norm(grad_occ)< 1e-3 and ((success_orb and success_occ) or i_ext-last_iter>10)):
+            #if(np.abs(E_diff)<p.threshe and ((success_orb and success_occ) or i_ext-last_iter>10)):
                 if perturb and E - Estored < -1e-4:
                     print("Increasing Gradient")
                     last_iter = i_ext
@@ -151,8 +152,8 @@ def compute_energy(mol,p=None,gradient="analytical",C=None,gamma=None,fmiug0=Non
 
             print("{:4d} {:8d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(i_ext,nit,E,E+E_nuc,E_diff,grad_norm,success))
 
-            #if(grad_norm < 1e-2 and (success or i_ext-last_iter>10)):
-            if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
+            if(grad_norm < 5e-3 and (success or i_ext-last_iter>10)):
+            #if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
                 if perturb and E - Estored < -1e-4:
                     print("Increasing Gradient")
                     last_iter = i_ext

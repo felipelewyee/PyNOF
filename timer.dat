@@ -8640,3 +8640,115 @@ Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.011w      2
 Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.011w      2 calls
 
 **************************************************************************************
+
+Host: B450-AORUS-PRO-WIFI
+
+Timers On : Wed Apr 27 18:14:57 2022
+Timers Off: Wed Apr 27 18:15:42 2022
+
+Wall Time:       44.83 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.017u      0.017s      0.012w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.017u      0.017s      0.012w      2 calls
+
+**************************************************************************************
+
+Host: B450-AORUS-PRO-WIFI
+
+Timers On : Wed Apr 27 18:17:33 2022
+Timers Off: Wed Apr 27 18:18:48 2022
+
+Wall Time:       75.35 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.012w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.012w      2 calls
+
+**************************************************************************************
+
+Host: B450-AORUS-PRO-WIFI
+
+Timers On : Wed Apr 27 18:19:38 2022
+Timers Off: Wed Apr 27 18:25:45 2022
+
+Wall Time:      366.87 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.117u      0.000s      0.078w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.117u      0.000s      0.078w      2 calls
+
+**************************************************************************************
+
+Host: HP-Pavilion-Gaming-Laptop-15-ec1xxx
+
+Timers On : Wed Apr 27 20:22:30 2022
+Timers Off: Wed Apr 27 20:25:04 2022
+
+Wall Time:      154.01 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.250u      0.017s      0.157w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.250u      0.017s      0.157w      2 calls
+
+**************************************************************************************
+
+Host: HP-Pavilion-Gaming-Laptop-15-ec1xxx
+
+Timers On : Wed Apr 27 20:25:25 2022
+Timers Off: Wed Apr 27 20:28:04 2022
+
+Wall Time:      158.40 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.250u      0.017s      0.165w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.250u      0.017s      0.165w      2 calls
+
+**************************************************************************************
+
+Host: HP-Pavilion-Gaming-Laptop-15-ec1xxx
+
+Timers On : Wed Apr 27 20:39:41 2022
+Timers Off: Wed Apr 27 20:41:00 2022
+
+Wall Time:       79.07 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.014w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.014w      2 calls
+
+**************************************************************************************
+
+Host: HP-Pavilion-Gaming-Laptop-15-ec1xxx
+
+Timers On : Wed Apr 27 21:12:44 2022
+Timers Off: Wed Apr 27 21:13:19 2022
+
+Wall Time:       34.94 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.014w      2 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.017u      0.000s      0.014w      2 calls
+
+**************************************************************************************
