@@ -534,19 +534,7 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
         
 #        triu_idx = np.triu_indices(p.nbf,k=1)
 #        grad = grad[triu_idx]
-        grad = grad.get()
-
-
-        grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
-
-        n = 0
-        for i in range(p.nbf5):
-            for j in range(i+1,p.nbf):
-                grads[n] = grad[i,j]
-                n += 1
-        grad = grads
-
-    
+        grad = grad.get()    
     else:
         grad = np.zeros((p.nbf,p.nbf))
         if p.RI:
@@ -592,8 +580,16 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
                 grad[:,:p.nbf5] += -4*np.einsum('bq,aqbq->ab',ck12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
                 grad[:p.nbf5,:] +=  4*np.einsum('aq,aqbq->ab',ck12,I_MO[:p.nbf5,:p.nbf5,:,:p.nbf5],optimize=True)
 
-        triu_idx = np.triu_indices(p.nbf,k=1)
-        grad = grad[triu_idx]
+#        triu_idx = np.triu_indices(p.nbf,k=1)
+#        grad = grad[triu_idx]
+
+        grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
+        n = 0
+        for i in range(p.nbf5):
+            for j in range(i+1,p.nbf):
+                grads[n] = grad[i,j]
+                n += 1
+        grad = grads
 
     return grad
 

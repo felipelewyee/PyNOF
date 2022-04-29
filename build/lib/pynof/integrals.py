@@ -289,7 +289,6 @@ def JKH_MO_Full_GPU(C,H,I,p):
 
     C = cp.array(C)
     H = cp.array(H)
-    I = cp.array(I) #Remove
     #denmatj
     D = cp.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
     #QJMATm
@@ -577,28 +576,46 @@ def JKH_MO_tmp(C,H,I,b_mnl,p):
 
     if(p.gpu):
         if(p.RI):
+            H_MO, b_MO = Integrals_MO_RI_GPU(C,H,b_mnl,p)
             pass
         else:
-            H_MO, I_MO = Integrals_MO_GPU(C,H,I,p)
+            H_MO, I_MO = Integrals_MO_Full_GPU(C,H,I,p)
     else:
         if(p.RI):
-            pass
-            #J_MO,K_MO,H_core = JKH_MO_RI(C,H,b_mnl,p)
+            H_MO, b_MO = Integrals_MO_RI_CPU(C,H,b_mnl,p)
         else:
-            H_MO, I_MO = Integrals_MO_CPU(C,H,I,p)
+            H_MO, I_MO = Integrals_MO_Full_CPU(C,H,I,p)
 
-    return H_MO,I_MO
+    if(p.RI):
+        return H_MO,b_MO
+    else:
+        return H_MO,I_MO
 
-def Integrals_MO_CPU(C,H,I,p):
+def Integrals_MO_Full_CPU(C,H,I,p):
 
     H_mat = np.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
     I_MO = np.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
 
     return H_mat,I_MO
 
-def Integrals_MO_GPU(C,H,I,p):
+def Integrals_MO_Full_GPU(C,H,I,p):
 
     H_mat = cp.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
     I_MO = cp.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
 
     return H_mat,I_MO
+
+def Integrals_MO_RI_CPU(C,H,b_mnl,p):
+
+    H_mat = np.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
+    b_MO = np.einsum("mp,nq,mnl->pql",C,C,b_mnl,optimize=True)
+
+    return H_mat,b_MO
+
+def Integrals_MO_RI_GPU(C,H,b_mnl,p):
+
+    H_mat = cp.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
+    b_MO = cp.einsum("mp,nq,mnl->pql",C,C,b_mnl,optimize=True)
+
+    return H_mat,b_MO
+

@@ -91,10 +91,13 @@ class param():
         self.noptorb = noptorb   # Número de orbitales a optimizar Nbf5 <= Noptorb <= Nbf
         self.scaling = True
         self.nv = self.ncwo*self.ndoc
+        self.nvar = int(self.nbf*(self.nbf-1)/2) - int(self.no0*(self.no0-1)/2)
         self.gradient = "analytical"
-        self.occupation_optimizer = "L-BFGS-B"
-        self.orbital_optimizer = "L-BFGS-B"
-        self.combined_optimizer = "L-BFGS-B"
+        self.occupation_optimizer = "CG"
+        self.orbital_optimizer = "CG"
+        self.combined_optimizer = "CG"
+        self.tol_gorb = 1e-3
+        self.tol_gocc = 1e-2
         self.gpu = False
         self.RI = False
         self.jit= False
@@ -135,4 +138,5 @@ class param():
         self.nac = self.ndoc * (1 + ncwo)
         self.nbf5 = self.no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
         self.no0 = self.nbf - self.nbf5
+        self.nvar = int(self.nbf*(self.nbf-1)/2) - int(self.no0*(self.no0-1)/2)
         self.nv = self.ncwo*self.ndoc

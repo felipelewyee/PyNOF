@@ -327,10 +327,13 @@ def orthonormalize(C,S):
 def rotate_orbital(y,C,p):
 
     ynew = np.zeros((p.nbf,p.nbf))
-    triu_idx = np.triu_indices(p.nbf,k=1)
 
-    ynew[triu_idx] = y
-    ynew += - np.transpose(np.triu(ynew,k=1))
+    n = 0
+    for i in range(p.nbf5):
+        for j in range(i+1,p.nbf):
+            ynew[i,j] =  y[n]
+            ynew[j,i] = -y[n]
+            n += 1
 
     U = expm(ynew)
     Cnew = np.einsum("mr,rp->mp",C,U,optimize=True)
@@ -519,3 +522,46 @@ def check_hessian(gamma,C,H,I,b_mnl,p):
     hess_n = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
 
     print("Max Diff {:3.1e}".format(np.max(np.abs(hess_a-hess_n))))
+
+def check_hessian_eigvals(tol,gamma,C,H,I,b_mnl,p,printeig=False):
+        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+        hess = pynof.calcorbh(y,gamma,C,H,I,b_mnl,p)
+        eigval, eigvec = eigh(hess)
+        while(tol >= -0.1):
+            neg_eig_orig = eigval[eigval<tol]
+            if(len(neg_eig_orig)>0):
+                print("{} Eigenvalues < {:3.1e} in the Orbital Hessian".format(len(neg_eig_orig),tol))
+                if(printeig):
+                    print(neg_eig_orig)
+            else:
+                print("No Eigenvalues < {:3.1e} in the Orbital Hessian".format(tol))
+            tol = tol*10
+
+def noise(radius,dim):
+
+    Y = np.random.normal(size=dim)
+    Y /= np.linalg.norm(Y)
+
+    U = np.random.uniform()
+
+    epsilon_vec = radius * Y * U**(1/dim)
+
+    return epsilon_vec
+
+@njit
+def perturb_gradient(grad,tol):
+    dim = grad.shape[0]
+    for i in range(dim):
+        if(np.abs(grad[i])<tol):
+            grad[i] = np.sign(grad[i])*tol
+
+    return grad
+
+def perturb_solution(C,gamma,grad_orb,grad_occ,p):
+    grad_orb = pynof.perturb_gradient(grad_orb,p.tol_gorb)
+    y = -grad_orb
+    C = pynof.rotate_orbital(y,C,p)
+    grad_occ = pynof.perturb_gradient(grad_occ,p.tol_gocc)
+    gamma += -grad_occ
+
+    return C,gamma

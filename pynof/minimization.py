@@ -178,9 +178,7 @@ def comb(gamma,C,H,I,b_mnl,p):
     E = res.fun
     x = res.x
     y = x[:p.nvar]
-    #print(y)
     gamma = x[p.nvar:]
-    #print(gamma)
     C = pynof.rotate_orbital(y,C,p)
 
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
