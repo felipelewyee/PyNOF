@@ -583,13 +583,13 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
 #        triu_idx = np.triu_indices(p.nbf,k=1)
 #        grad = grad[triu_idx]
 
-        grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
-        n = 0
-        for i in range(p.nbf5):
-            for j in range(i+1,p.nbf):
-                grads[n] = grad[i,j]
-                n += 1
-        grad = grads
+    grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
+    n = 0
+    for i in range(p.nbf5):
+        for j in range(i+1,p.nbf):
+            grads[n] = grad[i,j]
+            n += 1
+    grad = grads
 
     return grad
 
