@@ -71,16 +71,21 @@ def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
 
+    E = 0
+    nit = 0
+    success = True
+
     if (p.ndoc>0):
-        if(p.gradient=="analytical"):
-            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
-        elif(p.gradient=="numerical"):
-            res = minimize(pynof.calce, gamma[:p.nv], args=(J_MO,K_MO,H_core,p),  method=p.occupation_optimizer)
+        res = minimize(pynof.calce, gamma, args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
         gamma = res.x
+        E = res.fun
+        nit = res.nit
+        success = res.success
+
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
 
-    return res.fun,res.nit,res.success,gamma,n,cj12,ck12
+    return E,nit,success,gamma,n,cj12,ck12
 
 def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
 

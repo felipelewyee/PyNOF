@@ -1142,14 +1142,17 @@ def M_diagnostic(p,n):
     m_diagnostic = 0
 
     m_vals[p.no1:p.nbeta] = 2.0 - m_vals[p.no1:p.nbeta]
-    m_diagnostic += max(m_vals[p.no1:p.nbeta])
+
+    if(p.ndoc > 0):
+        m_diagnostic += max(m_vals[p.no1:p.nbeta])
 
     #if(p.nsoc!=0): #This is always zero
     #    m_vals[p.nbeta:p.nalpha] = 1.0 - m_vals[p.nbeta:p.nalpha]
     #    m_diagnostic += max(m_vals[p.nbeta:p.nalpha]) 
 
     m_vals[p.nalpha:p.nbf5] = m_vals[p.nalpha:p.nbf5] - 0.0
-    m_diagnostic += max(m_vals[p.nalpha:p.nbf5])
+    if(p.ndoc > 0):
+        m_diagnostic += max(m_vals[p.nalpha:p.nbf5])
 
     m_diagnostic = 0.5*m_diagnostic
 

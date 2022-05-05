@@ -92,7 +92,6 @@ class param():
         self.scaling = True
         self.nv = self.ncwo*self.ndoc
         self.nvar = int(self.nbf*(self.nbf-1)/2) - int(self.no0*(self.no0-1)/2)
-        self.gradient = "analytical"
         self.occupation_optimizer = "CG"
         self.orbital_optimizer = "CG"
         self.combined_optimizer = "CG"
