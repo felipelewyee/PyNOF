@@ -1,14 +1,12 @@
 import pynof
 import numpy as np
-import numdifftools as nd
-from numba import prange,njit,jit
+from numba import prange,njit
 import numdifftools.nd_statsmodels as nds
-from time import time as time
 import cupy as cp
 
 #CJCKD5
 @njit(parallel=True)
-def CJCKD5(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+def CJCKD5(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     # Interpair Electron correlation #
     cj12 = 2*np.outer(n,n)
@@ -220,11 +218,10 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
 #CJCKD8
 @njit(parallel=True)
-def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+def CJCKD8(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     h_cut = 0.02*np.sqrt(2.0)
     n_d = np.zeros((len(n)))
-    Rd = np.zeros((len(n)))
 
     for i in prange(ndoc):
         idx = no1 + i
@@ -286,14 +283,13 @@ def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     return cj12,ck12
 
-#@njit(parallel=True)
-def der_CJCKD8(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
+@njit(parallel=True)
+def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
 
     h_cut = 0.02*np.sqrt(2.0)
-    ROd = np.zeros((len(n)))
-    DROd = np.zeros((len(n),nv))
-    DRd = np.zeros((len(n),nv))
-    Rd = np.zeros((len(n)))
+    n_d = np.zeros((len(n)))
+    dn_d_dgamma = np.zeros((len(n),nv))
+    dn_d12_dgamma = np.zeros((len(n),nv))
 
     for i in range(ndoc):
         idx = no1 + i
@@ -303,21 +299,20 @@ def der_CJCKD8(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,ns
         h_idx = 1.0-n[idx]
         coc = h_idx/h_cut
         arg = -coc**2
-        F_idx = np.exp(arg) #                      ! Hd/Hole
-        ROd[idx] = n[idx] * F_idx
-        ROd[ll:ul] = n[ll:ul] * F_idx  #            ! ROd = RO*Hd/Hole
-        DROd[idx,:] = F_idx*dn_dgamma[idx,:] * (1-n[idx]*(- 2*coc/h_cut))
-        DROd[ll:ul,:] = F_idx*(dn_dgamma[ll:ul,:] - n[ll:ul]*(- 2*coc/h_cut)*dn_dgamma[idx,:])
+        F_idx = np.exp(arg)                # Hd/Hole
+        n_d[idx] = n[idx] * F_idx
+        n_d[ll:ul] = n[ll:ul] * F_idx      # n_d = RO*Hd/Hole
+        dn_d_dgamma[idx,:] = F_idx*dn_dgamma[idx,:] * (1-n[idx]*(- 2*coc/h_cut))
+        dn_d_dgamma[ll:ul,:] = F_idx*(dn_dgamma[ll:ul,:] - (- 2*coc/h_cut)*np.outer(n[ll:ul],dn_dgamma[idx,:]))
 
-    Rd = np.sqrt(ROd)
-    for i in range(nbf5):
-        #DRd[i,:] = 0.5*DROd[i,:]/Rd[i]
-        DRd[i, :] = 0.5 * DROd[i, :] / max(Rd[i], 1e-15)
-#####
+    n_d12 = np.sqrt(n_d)
+    for i in prange(nbf5):
+        dn_d12_dgamma[i, :] = 0.5 * dn_d_dgamma[i, :] / max(n_d12[i], 1e-15)
 
     fi = n*(1-n)
     fi[fi<=0] = 0
     fi = np.sqrt(fi)
+
 
     dfi_dgamma = np.zeros((nbf5,nv))
     for i in prange(no1,nbf5):
@@ -332,48 +327,27 @@ def der_CJCKD8(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,ns
     for k in prange(nv):
         Dcj12r[:,:,k] = 2*np.outer(dn_dgamma[:,k],n)
         Dck12r[:,:,k] = np.outer(dn_dgamma[:,k],n)
+
     #Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)
     #Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n)
 
-    for j in range(no1,nbeta):
-        for i in range(nalpha,nbf5):
-            for k in range(nv):
-                Dck12r[j,i,k] += dfi_dgamma[j,k]*fi[i]
-    for j in range(nalpha,nbf5):
-        for i in range(no1,nbeta):
-            for k in range(nv):
-                Dck12r[j,i,k] += dfi_dgamma[j,k]*fi[i]
-        for i in range(nalpha,nbf5):
-            for k in range(nv):
-                Dck12r[j,i,k] += dfi_dgamma[j,k]*fi[i]
+    for i in prange(nalpha,nbf5):
+        Dck12r[no1:nbeta,i,:] += dfi_dgamma[no1:nbeta,:]*fi[i]
+        Dck12r[i,no1:nbeta,:] += np.outer(fi[no1:nbeta],dfi_dgamma[i,:])
+        Dck12r[i,nalpha:nbf5,:] += np.outer(fi[nalpha:nbf5],dfi_dgamma[i,:])
 
     if(MSpin==0 and nsoc>0):
-        for j in range(no1,nbeta):
-            for i in range(nbeta,nalpha):
-                for k in range(nv):
-                    Dck12r[j,i,k] += 0.5*dfi_dgamma[j,k]*0.5
-        for j in range(nalpha,nbf5):
-            for i in range(nbeta,nalpha):
-                for k in range(nv):
-                    Dck12r[j,i,k] += dfi_dgamma[j,k]*0.5
+        for i in range(nbeta,nalpha):
+            Dck12r[no1:nbeta,i,:] += 0.5*dfi_dgamma[no1:nbeta,:]*0.5
+            Dck12r[nalpha:nbf5,i,:] += dfi_dgamma[nalpha:nbf5,:]*0.5
 
     if(MSpin==0 and nsoc>1):
-        for j in range(nbeta,nalpha):
-            for i in range(nbeta,nalpha):
-                for k in range(nv):
-                    Dck12r[j,i,k] = 0.0
+        Dck12r[nbeta:nalpha, nbeta:nalpha, :] = 0.0
 
-    for j in range(no1,nbeta):
-        for i in range(nalpha,nbf5):
-            for k in range(nv):
-                Dck12r[j,i,k] += DRd[j,k]*Rd[i]-DROd[j,k]*ROd[i]
-    for j in range(nalpha,nbf5):
-        for i in range(no1,nbeta):
-            for k in range(nv):
-                Dck12r[j,i,k] += DRd[j,k]*Rd[i]-DROd[j,k]*ROd[i]
-        for i in range(nalpha,nbf5):
-            for k in range(nv):
-                Dck12r[j,i,k] += -DRd[j,k]*Rd[i]-DROd[j,k]*ROd[i]
+    for i in prange(nalpha,nbf5):
+        Dck12r[no1:nbeta,i,:] += dn_d12_dgamma[no1:nbeta,:]*n_d12[i] - dn_d_dgamma[no1:nbeta,:]*n_d[i]
+        Dck12r[i,no1:nbeta,:] += np.outer(n_d12[no1:nbeta],dn_d12_dgamma[i,:]) - np.outer(n_d[no1:nbeta],dn_d_dgamma[i,:])
+        Dck12r[i,nalpha:nbf5,:] += -np.outer(n_d12[nalpha:nbf5],dn_d12_dgamma[i,:]) - np.outer(n_d[nalpha:nbf5],dn_d_dgamma[i,:])
 
     # Intrapair Electron Correlation
 
@@ -404,11 +378,11 @@ def der_CJCKD8(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,ns
 
 def PNOFi_selector(n,p):
     if(p.ipnof==5):
-        cj12,ck12 = CJCKD5(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
+        cj12,ck12 = CJCKD5(n,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==7):
         cj12,ck12 = CJCKD7(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==8):
-        cj12,ck12 = CJCKD8(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
+        cj12,ck12 = CJCKD8(n,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
 
     return cj12,ck12
 
@@ -418,7 +392,7 @@ def der_PNOFi_selector(n,dn_dgamma,p):
     if(p.ipnof==7):
         Dcj12r,Dck12r = der_CJCKD7(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo)
     if(p.ipnof==8):
-        Dcj12r,Dck12r = der_CJCKD8(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo,p.MSpin,p.nsoc)
+        Dcj12r,Dck12r = der_CJCKD8(n,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo,p.MSpin,p.nsoc)
         
     return Dcj12r,Dck12r
 
