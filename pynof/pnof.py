@@ -219,25 +219,24 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
 
 #CJCKD8
-#@njit(parallel=True)
+@njit(parallel=True)
 def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     h_cut = 0.02*np.sqrt(2.0)
     n_d = np.zeros((len(n)))
     Rd = np.zeros((len(n)))
 
-    h = 1.0 - n
-    coc = h / h_cut
-    arg = -coc ** 2
-    F = np.exp(arg)  # ! Hd/Hole
-
-    for i in range(ndoc):
+    for i in prange(ndoc):
         idx = no1 + i
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
         ll = no1 + ndns + ncwo*(ndoc - i - 1)
         ul = no1 + ndns + ncwo*(ndoc - i)
-        n_d[idx] = n[idx] * F[idx]
-        n_d[ll:ul] = n[ll:ul] * F[idx]  # ROd = RO*Hd/Hole
+        h = 1.0 - n[idx]
+        coc = h / h_cut
+        arg = -coc ** 2
+        F = np.exp(arg)  # ! Hd/Hole
+        n_d[idx] = n[idx] * F
+        n_d[ll:ul] = n[ll:ul] * F  # ROd = RO*Hd/Hole
 
     n_d12 = np.sqrt(n_d)
     fi = n*(1-n)
