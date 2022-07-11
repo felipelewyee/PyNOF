@@ -114,7 +114,7 @@ def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     return cj12,ck12        
        
 @njit(parallel=True)
-def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
+def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
     if(ista==0):
         fi = n*(1-n)
@@ -174,32 +174,102 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo):
     return Dcj12r,Dck12r
 
 #CJCKD8
-@njit(parallel=True)
-def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin,lamb):
+#@njit(parallel=True)
+#def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin,lamb):
+#
+#    nbf5 = len(n)
+#    delta = np.zeros((nbf5,nbf5))
+#    for i in range(nbf5):
+#        for j in range(nbf5):
+#            delta[i,j] = lamb*min(n[i]*n[j],(1-n[i])*(1-n[j]))
+#    pi = np.zeros((nbf5,nbf5))
+#    for i in range(nbf5):
+#        for j in range(nbf5):
+#            pi[i,j] = np.sqrt((n[i]*(1-n[j])+delta[i,j]) * (n[j]*(1-n[i])+delta[j,i]))
+#
+#    # Interpair Electron correlation #
+#
+#    #cj12 = 2*np.einsum('i,j->ij',n,n)
+#    #ck12 = np.einsum('i,j->ij',n,n) + np.einsum('i,j->ij',fi,fi)
+#    cj12 = 2*np.outer(n,n) - delta
+#    ck12 = np.outer(n,n) - delta + pi
+#
+#    # Intrapair Electron Correlation
+#
+#    if(MSpin==0 and nsoc>1):
+#        ck12[nbeta:nalpha,nbeta:nalpha] = 2*np.outer(n[nbeta:nalpha],n[nbeta:nalpha])
+#
+#    for l in range(ndoc):
+#        ldx = no1 + l
+#        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+#        ll = no1 + ndns + ncwo*(ndoc - l - 1)
+#        ul = no1 + ndns + ncwo*(ndoc - l)
+#
+#        cj12[ldx,ll:ul] = 0
+#        cj12[ll:ul,ldx] = 0
+#
+#        cj12[ll:ul,ll:ul] = 0
+#
+#        ck12[ldx,ll:ul] = np.sqrt(n[ldx]*n[ll:ul])
+#        ck12[ll:ul,ldx] = np.sqrt(n[ldx]*n[ll:ul])
+#
+#        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n[ll:ul],n[ll:ul]))
+#
+#    return cj12,ck12
 
-    nbf5 = len(n)
-    delta = np.zeros((nbf5,nbf5))
-    for i in range(nbf5):
-        for j in range(nbf5):
-            delta[i,j] = lamb*min(n[i]*n[j],(1-n[i])*(1-n[j]))
-    pi = np.zeros((nbf5,nbf5))
-    for i in range(nbf5):
-        for j in range(nbf5):
-            pi[i,j] = np.sqrt((n[i]*(1-n[j])+delta[i,j]) * (n[j]*(1-n[i])+delta[j,i]))
+
+#CJCKD8
+#@njit(parallel=True)
+def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+
+    h_cut = 0.02*np.sqrt(2.0)
+    n_d = np.zeros((len(n)))
+    Rd = np.zeros((len(n)))
+
+    h = 1.0 - n
+    coc = h / h_cut
+    arg = -coc ** 2
+    F = np.exp(arg)  # ! Hd/Hole
+
+    for i in range(ndoc):
+        idx = no1 + i
+        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+        ll = no1 + ndns + ncwo*(ndoc - i - 1)
+        ul = no1 + ndns + ncwo*(ndoc - i)
+        n_d[idx] = n[idx] * F[idx]
+        n_d[ll:ul] = n[ll:ul] * F[idx]  # ROd = RO*Hd/Hole
+
+    n_d12 = np.sqrt(n_d)
+    fi = n*(1-n)
+    fi[fi<=0] = 0
+    fi = np.sqrt(fi)
 
     # Interpair Electron correlation #
 
-    #cj12 = 2*np.einsum('i,j->ij',n,n)
-    #ck12 = np.einsum('i,j->ij',n,n) + np.einsum('i,j->ij',fi,fi)
-    cj12 = 2*np.outer(n,n) - delta
-    ck12 = np.outer(n,n) - delta + pi
+    cj12 = 2*np.outer(n,n)
+    ck12 = np.outer(n,n)
+
+    ck12[no1:nbeta,nalpha:] += np.outer(fi[no1:nbeta],fi[nalpha:])
+    ck12[nalpha:,no1:nbeta] += np.outer(fi[nalpha:],fi[no1:nbeta])
+    ck12[nalpha:,nalpha:] += np.outer(fi[nalpha:],fi[nalpha:])
 
     # Intrapair Electron Correlation
 
-    if(MSpin==0 and nsoc>1):
-        ck12[nbeta:nalpha,nbeta:nalpha] = 2*np.outer(n[nbeta:nalpha],n[nbeta:nalpha])
+    if(MSpin==0 and nsoc>0):
+        half = np.zeros((nsoc)) + 0.5
+        ck12[no1:nbeta,nbeta:nalpha] += 0.5*np.outer(fi[no1:nbeta],half)
+        ck12[nbeta:nalpha,no1:nbeta] += 0.5*np.outer(half,fi[no1:nbeta])
+        ck12[nbeta:nalpha,nalpha:] += np.outer(half,fi[nalpha:])
+        ck12[nalpha:,nbeta:nalpha] += np.outer(fi[nalpha:],half)
 
-    for l in range(ndoc):
+    if(MSpin==0 and nsoc>1): #then
+        ck12[nbeta:nalpha,nbeta:nalpha] = 0.5
+
+    ck12[no1:nbeta,nalpha:] += np.outer(n_d12[no1:nbeta],n_d12[nalpha:]) - np.outer(n_d[no1:nbeta],n_d[nalpha:])
+    ck12[nalpha:,no1:nbeta] += np.outer(n_d12[nalpha:],n_d12[no1:nbeta]) - np.outer(n_d[nalpha:],n_d[no1:nbeta])
+    ck12[nalpha:,nalpha:] += -np.outer(n_d12[nalpha:],n_d12[nalpha:]) - np.outer(n_d[nalpha:],n_d[nalpha:])
+
+    for l in prange(ndoc):
         ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
         ll = no1 + ndns + ncwo*(ndoc - l - 1)
@@ -217,6 +287,119 @@ def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin,lamb):
 
     return cj12,ck12
 
+#@njit(parallel=True)
+def der_CJCKD8(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
+
+    h_cut = 0.02*np.sqrt(2.0)
+    ROd = np.zeros((len(n)))
+    DROd = np.zeros((len(n),nv))
+    DRd = np.zeros((len(n),nv))
+    Rd = np.zeros((len(n)))
+
+    for i in range(ndoc):
+        idx = no1 + i
+        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+        ll = no1 + ndns + ncwo*(ndoc - i - 1)
+        ul = no1 + ndns + ncwo*(ndoc - i)
+        h_idx = 1.0-n[idx]
+        coc = h_idx/h_cut
+        arg = -coc**2
+        F_idx = np.exp(arg) #                      ! Hd/Hole
+        ROd[idx] = n[idx] * F_idx
+        ROd[ll:ul] = n[ll:ul] * F_idx  #            ! ROd = RO*Hd/Hole
+        DROd[idx,:] = F_idx*dn_dgamma[idx,:] * (1-n[idx]*(- 2*coc/h_cut))
+        DROd[ll:ul,:] = F_idx*(dn_dgamma[ll:ul,:] - n[ll:ul]*(- 2*coc/h_cut)*dn_dgamma[idx,:])
+
+    Rd = np.sqrt(ROd)
+    for i in range(nbf5):
+        #DRd[i,:] = 0.5*DROd[i,:]/Rd[i]
+        DRd[i, :] = 0.5 * DROd[i, :] / max(Rd[i], 1e-15)
+#####
+
+    fi = n*(1-n)
+    fi[fi<=0] = 0
+    fi = np.sqrt(fi)
+
+    dfi_dgamma = np.zeros((nbf5,nv))
+    for i in prange(no1,nbf5):
+        a = max(fi[i],10**-15)
+        for k in range(nv):
+            dfi_dgamma[i,k] = 1/(2*a)*(1-2*n[i])*dn_dgamma[i][k]
+
+    # Interpair Electron correlation #
+
+    Dcj12r = np.zeros((nbf5,nbf5,nv))
+    Dck12r = np.zeros((nbf5,nbf5,nv))
+    for k in prange(nv):
+        Dcj12r[:,:,k] = 2*np.outer(dn_dgamma[:,k],n)
+        Dck12r[:,:,k] = np.outer(dn_dgamma[:,k],n)
+    #Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)
+    #Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n)
+
+    for j in range(no1,nbeta):
+        for i in range(nalpha,nbf5):
+            for k in range(nv):
+                Dck12r[j,i,k] += dfi_dgamma[j,k]*fi[i]
+    for j in range(nalpha,nbf5):
+        for i in range(no1,nbeta):
+            for k in range(nv):
+                Dck12r[j,i,k] += dfi_dgamma[j,k]*fi[i]
+        for i in range(nalpha,nbf5):
+            for k in range(nv):
+                Dck12r[j,i,k] += dfi_dgamma[j,k]*fi[i]
+
+    if(MSpin==0 and nsoc>0):
+        for j in range(no1,nbeta):
+            for i in range(nbeta,nalpha):
+                for k in range(nv):
+                    Dck12r[j,i,k] += 0.5*dfi_dgamma[j,k]*0.5
+        for j in range(nalpha,nbf5):
+            for i in range(nbeta,nalpha):
+                for k in range(nv):
+                    Dck12r[j,i,k] += dfi_dgamma[j,k]*0.5
+
+    if(MSpin==0 and nsoc>1):
+        for j in range(nbeta,nalpha):
+            for i in range(nbeta,nalpha):
+                for k in range(nv):
+                    Dck12r[j,i,k] = 0.0
+
+    for j in range(no1,nbeta):
+        for i in range(nalpha,nbf5):
+            for k in range(nv):
+                Dck12r[j,i,k] += DRd[j,k]*Rd[i]-DROd[j,k]*ROd[i]
+    for j in range(nalpha,nbf5):
+        for i in range(no1,nbeta):
+            for k in range(nv):
+                Dck12r[j,i,k] += DRd[j,k]*Rd[i]-DROd[j,k]*ROd[i]
+        for i in range(nalpha,nbf5):
+            for k in range(nv):
+                Dck12r[j,i,k] += -DRd[j,k]*Rd[i]-DROd[j,k]*ROd[i]
+
+    # Intrapair Electron Correlation
+
+    for l in prange(ndoc):
+        ldx = no1 + l
+
+        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+        ll = no1 + ndns + ncwo*(ndoc - l - 1)
+        ul = no1 + ndns + ncwo*(ndoc - l)
+
+        Dcj12r[ldx,ll:ul,:nv] = 0
+        Dcj12r[ll:ul,ldx,:nv] = 0
+
+        Dcj12r[ll:ul,ll:ul,:nv] = 0
+
+        a = max(n[ldx],10**-15)
+        b = n[ll:ul]
+        b[b<10**-15] = 10**-15
+
+        for k in range(nv):
+            Dck12r[ldx,ll:ul,k] = 1/2 * 1/np.sqrt(a) * dn_dgamma[ldx,k] * np.sqrt(n[ll:ul])
+            Dck12r[ll:ul,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_dgamma[ll:ul,k] * np.sqrt(n[ldx])
+            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_dgamma[ll:ul,k],np.sqrt(n[ll:ul]))
+
+    return Dcj12r,Dck12r
 
 # Creamos un seleccionador de PNOF
 
@@ -226,15 +409,17 @@ def PNOFi_selector(n,p):
     if(p.ipnof==7):
         cj12,ck12 = CJCKD7(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==8):
-        cj12,ck12 = CJCKD8(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin,p.lamb)
-        
+        cj12,ck12 = CJCKD8(n,p.ista,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
+
     return cj12,ck12
 
 def der_PNOFi_selector(n,dn_dgamma,p):
     if(p.ipnof==5):
         Dcj12r,Dck12r = der_CJCKD5(n,dn_dgamma,p)
     if(p.ipnof==7):
-        Dcj12r,Dck12r = der_CJCKD7(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo)
+        Dcj12r,Dck12r = der_CJCKD7(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo)
+    if(p.ipnof==8):
+        Dcj12r,Dck12r = der_CJCKD8(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo,p.MSpin,p.nsoc)
         
     return Dcj12r,Dck12r
 

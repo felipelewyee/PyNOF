@@ -2,17 +2,12 @@ import pynof
 
 mol = pynof.molecule("""
 0 1
-  He    0.0000000    0.0000000    0.3540000
-  He    0.0000000    0.0000000   -0.3540000
+  O   -4.9355124    2.3281965    0.0249981
+  H   -3.9461861    2.3375266   -0.0168319
+  H   -5.2248774    2.5343643   -0.8993212
 """)
-#mol = pynof.molecule("""
-#0 1
-#O  0.0000   0.000   0.116
-#H  0.0000   0.749  -0.453
-#H  0.0000  -0.749  -0.453
-#""")
 
-p = pynof.param(mol,"6-31G")
+p = pynof.param(mol,"cc-pvdz")
 p.autozeros()
 
 p.threshl=10**-4
@@ -23,7 +18,8 @@ p.set_ncwo(1)
 p.RI = False
 
 p.title = "Reference"
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=False)
+p.ipnof=8
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
 #p.RI = False
 
 #E,C,gamma,fmiug0 = pynof.brute_force_energy(mol,p,20,hfidr=False)

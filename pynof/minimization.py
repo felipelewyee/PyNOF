@@ -75,8 +75,12 @@ def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
     nit = 0
     success = True
 
+    pynof.calce(gamma,J_MO,K_MO,H_core,p)
+
     if (p.ndoc>0):
-        res = minimize(pynof.calce, gamma, args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
+        #res = minimize(pynof.calce, gamma, args=(J_MO,K_MO,H_core,p), method="BFGS")
+        res = minimize(pynof.calce, gamma, args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method="CG")
+        #res = minimize(pynof.calce, gamma, args=(J_MO,K_MO,H_core,p), jac=pynof.calcg, method=p.occupation_optimizer)
         gamma = res.x
         E = res.fun
         nit = res.nit
