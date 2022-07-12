@@ -27,7 +27,7 @@ def build_XmY_XpY(L,tempm,bigomega,nab):
 
     return XmY, XpY
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def get_AmB(eig,nalpha,nbf):
     nvir = nbf-nalpha
     AmB = np.zeros((nalpha,nvir,nalpha,nvir))
@@ -285,7 +285,7 @@ def W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreq):
 
     return w_iajb
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def integrated_omega(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,weights,freqs,cfreqs,order):
 
     integral = 0
@@ -299,7 +299,7 @@ def integrated_omega(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,weights,freqs,cfreqs
 
     return integral
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbeta,nalpha,nbf):
 
     iEcRPA=0
@@ -441,7 +441,7 @@ def build_F_MO(C,H,I,b_mnl,p):
 
     return EHFL,F_MO
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
     subspaces = np.zeros((nbf))
     for i in range(no1):
@@ -467,7 +467,7 @@ def ERIS_attenuated(pqrt,Cintra,Cinter,no1,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 
     return pqrt_at
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
 
     F_MO_at = np.zeros((nbf,nbf))
@@ -498,7 +498,7 @@ def F_MO_attenuated(F_MO,Cintra,Cinter,no1,nalpha,ndoc,nsoc,ndns,ncwo,nbf5,nbf):
  
     return F_MO_at
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def mp2_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
 
     EcMP2 = 0
@@ -949,7 +949,7 @@ def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
 
     return A,(IROW,ICOL)
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def build_R(T,B,F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
     npair = np.zeros((nvir))
     for i in range(ndoc):
@@ -1023,7 +1023,7 @@ def build_R(T,B,F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
     R = B-Bp
     return R
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
     B = np.zeros((ndns**2*nvir**2))
     for i in prange(ndns):
@@ -1053,7 +1053,7 @@ def build_B(iajb,FI1,FI2,ndoc,ndns,nvir,ncwo):
                         B[ijkl] = - Cijkl*iajb[j,k,i,l]
     return B
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def Tijab_guess(iajb,eig,ndoc,ndns,nvir):
     Tijab = np.zeros(nvir**2*ndns**2)
     for ia in prange(nvir):

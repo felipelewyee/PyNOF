@@ -162,7 +162,7 @@ def JKj_RI_GPU(C,b_mnl,p):
 
     return J.get(),K.get()
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def JKj_Full_jit(C,I,nbf,nbf5):
 
     #denmatj
@@ -195,7 +195,7 @@ def JKj_Full_jit(C,I,nbf,nbf5):
 
     return J,K
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def JKj_RI_jit(C,b_mnl,nbf,nbf5,nbfaux):
 
     #denmatj
@@ -204,12 +204,12 @@ def JKj_RI_jit(C,b_mnl,nbf,nbf5,nbfaux):
         for n in prange(nbf):
             for l in prange(nbfaux):
                 for m in range(nbf):
-                    b_qnl[q][n][l] += C[m][q]*b_mnl[m][n][l] 
+                    b_qnl[q][n][l] += C[m][q]*b_mnl[m][n][l]
     b_qql = np.zeros((nbf5,nbfaux))
     for q in prange(nbf5):
         for l in prange(nbfaux):
             for n in range(nbf):
-                b_qql[q][l] += C[n][q]*b_qnl[q][n][l] 
+                b_qql[q][l] += C[n][q]*b_qnl[q][n][l]
 
     #hstarj
     J = np.zeros((nbf5,nbf,nbf))
@@ -217,7 +217,7 @@ def JKj_RI_jit(C,b_mnl,nbf,nbf5,nbfaux):
         for m in prange(nbf):
             for n in prange(nbf):
                 for l in range(nbfaux):
-                    J[q][m][n] += b_qql[q][l]*b_mnl[m][n][l] 
+                    J[q][m][n] += b_qql[q][l]*b_mnl[m][n][l]
 
     #hstark
     K = np.zeros((nbf5,nbf,nbf))
@@ -225,7 +225,7 @@ def JKj_RI_jit(C,b_mnl,nbf,nbf5,nbfaux):
         for m in prange(nbf):
             for n in prange(nbf):
                 for l in range(nbfaux):
-                    K[q][m][n] += b_qnl[q][m][l]*b_qnl[q][n][l] 
+                    K[q][m][n] += b_qnl[q][m][l]*b_qnl[q][n][l]
 
     return J,K
 
@@ -266,7 +266,7 @@ def JKH_MO_Full(C,H,I,p):
     K_MO = np.tensordot(K, D, axes=([1,2],[1,2]))
     #QHMATm
     H_core = np.tensordot(D, H, axes=([1,2],[0,1]))
-    
+
     return J_MO,K_MO,H_core
 
 def JKH_MO_RI(C,H,b_mnl,p):
@@ -282,7 +282,7 @@ def JKH_MO_RI(C,H,b_mnl,p):
     K_MO = np.einsum('pql,pql->pq', b_pql, b_pql, optimize=True)
     #QHMATm
     H_core = np.tensordot(D,H, axes=([1,2],[0,1]))
-    
+
     return J_MO,K_MO,H_core
 
 def JKH_MO_Full_GPU(C,H,I,p):
@@ -308,7 +308,7 @@ def JKH_MO_RI_GPU(C,H,b_mnl,p):
     H = cp.array(H)
     #denmatj
     D = cp.einsum('mi,ni->imn', C[:,0:p.nbf5], C[:,0:p.nbf5],optimize=True)
-    #b transform 
+    #b transform
     b_pnl = cp.tensordot(C[:,0:p.nbf5],b_mnl, axes=([0],[0]))
     b_pql = cp.einsum('nq,pnl->pql',C[:,0:p.nbf5],b_pnl, optimize=True)
     #QJMATm
@@ -320,7 +320,7 @@ def JKH_MO_RI_GPU(C,H,b_mnl,p):
 
     return J_MO.get(),K_MO.get(),H_core.get()
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def JKH_MO_Full_jit(C,H,I,nbf,nbf5):
 
     #denmatj
@@ -374,7 +374,7 @@ def JKH_MO_Full_jit(C,H,I,nbf,nbf5):
 
     return J_MO,K_MO,H_core
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
 
     #denmatj
@@ -471,7 +471,7 @@ def JK_HF_Full_GPU(D,I,p):
     #denmatj
     J = cp.einsum("ls,mnsl->mn",D,I,optimize=True)
     K = cp.einsum("nl,mnsl->ms",D,I,optimize=True)
-    
+
     return J.get(),K.get()
 
 def computeJKalpha_HF(C,I,b_mnl,p):
@@ -489,7 +489,7 @@ def computeJKalpha_HF(C,I,b_mnl,p):
 
     return D,J,K
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def JKalpha_HF_Full_jit(C,I,nbeta,nalpha,nbf,nbf5):
 
     #denmatj

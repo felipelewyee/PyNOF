@@ -5,7 +5,7 @@ import numdifftools.nd_statsmodels as nds
 import cupy as cp
 
 #CJCKD5
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def CJCKD5(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     # Interpair Electron correlation #
@@ -71,7 +71,7 @@ def der_CJCKD5(n,dn_dgamma,p):
 
 
 #CJCKD7
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     if(ista==0):
@@ -111,7 +111,7 @@ def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     return cj12,ck12        
        
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
     if(ista==0):
@@ -172,7 +172,7 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
     return Dcj12r,Dck12r
 
 #CJCKD8
-#@njit(parallel=True)
+#@njit(parallel=True, cache=True)
 #def CJCKD8(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin,lamb):
 #
 #    nbf5 = len(n)
@@ -217,7 +217,7 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
 
 #CJCKD8
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def CJCKD8(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     h_cut = 0.02*np.sqrt(2.0)
@@ -283,7 +283,7 @@ def CJCKD8(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     return cj12,ck12
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
 
     h_cut = 0.02*np.sqrt(2.0)
