@@ -264,7 +264,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,RI_last=False,gpu_last=False,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):
     t1 = time()
     
-    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C,gamma,fmiug0,hfidr)
+    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr)
     E_min = E
     C_min = C
     gamma_min = gamma
@@ -272,7 +272,7 @@ def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,
     
     for i in range(intents):
         p.autozeros()
-        E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C,gamma,None,hfidr=False,nofmp2=False)
+        E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,C,gamma,None,hfidr=False,nofmp2=False)
         if(E<E_min):
             E_min = E
             C_min = C
@@ -282,7 +282,7 @@ def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,
     p.RI = RI_last
     p.gpu = gpu_last
     p.jit = True
-    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,p.gradient,C_min,gamma_min,fmiug0_min,hfidr=False,nofmp2=False,ekt=ekt,mulliken_pop=mulliken_pop,lowdin_pop=lowdin_pop,m_diagnostic=m_diagnostic)
+    E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,C_min,gamma_min,fmiug0_min,hfidr=False,nofmp2=False,ekt=ekt,mulliken_pop=mulliken_pop,lowdin_pop=lowdin_pop,m_diagnostic=m_diagnostic)
     
     t2 = time()
     
