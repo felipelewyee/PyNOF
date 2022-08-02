@@ -139,3 +139,25 @@ class param():
         self.no0 = self.nbf - self.nbf5
         self.nvar = int(self.nbf*(self.nbf-1)/2) - int(self.no0*(self.no0-1)/2)
         self.nv = self.ncwo*self.ndoc
+
+    def remove_no1(self,gamma=None):
+
+        no1_old = self.no1
+
+        no1 = 0 #Number of inactive doubly occupied orbitals | Se puede variar
+        self.ndoc = self.nbeta   -   no1
+        self.ndns = self.ndoc    +   self.nsoc
+
+        self.nac = self.ndoc * (1 + self.ncwo)
+        self.nbf5 = no1 + self.nac + self.nsoc   #JFHLY warning: nbf must be >nbf5
+        self.no0 = self.nbf - self.nbf5
+
+        self.no1 = no1     # Número de orbitales inactivos con ocupación 1
+        self.nv = self.ncwo*self.ndoc
+        self.nvar = int(self.nbf*(self.nbf-1)/2) - int(self.no0*(self.no0-1)/2)
+
+        if(not gamma is None):
+            gamma = np.concatenate((np.ones((no1_old))*np.arccos(np.sqrt(2.0*0.999-1.0)),gamma))
+            return gamma
+
+
