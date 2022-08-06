@@ -397,7 +397,7 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
             for l in prange(nbfaux):
                 for n in range(nbf):
                     b_pql[p][q][l] += C[n][q]*b_pnl[p][n][l]
-            b_pql[q][p][l] = b_pql[p][q][l]
+                #b_pql[q][p][l] = b_pql[p][q][l]
 
     #hstarj
     J_MO = np.zeros((nbf5,nbf5))
