@@ -379,11 +379,11 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
 
     #denmatj
     D = np.zeros((nbf5,nbf,nbf))
-    for mu in prange(nbf):
-        for nu in prange(mu+1):
-            for i in prange(nbf5):
-                D[i][mu][nu] = C[mu][i]*C[nu][i]
-                D[i][nu][mu] = D[i][mu][nu]
+    for p in prange(nbf5):
+        for mu in prange(nbf):
+            for nu in prange(mu+1):
+                D[p][mu][nu] = C[mu][i]*C[nu][i]
+                D[p][nu][mu] = D[i][mu][nu]
 
     b_pnl = np.zeros((nbf5,nbf,nbfaux))
     for p in prange(nbf5):
@@ -416,11 +416,11 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
             K_MO[q][p] = K_MO[p][q]
 
     H_core = np.zeros((nbf5))
-    for i in prange(nbf5):
+    for p in prange(nbf5):
         for m in range(nbf):
             for n in range(m):
-                H_core[i] += 2*D[i][m][n]*H[m][n]
-            H_core[i] += D[i][m][m]*H[m][m]
+                H_core[p] += 2*D[p][m][n]*H[m][n]
+            H_core[p] += D[p][m][m]*H[m][m]
 
     return J_MO,K_MO,H_core
 
