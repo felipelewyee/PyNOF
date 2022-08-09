@@ -57,18 +57,16 @@ def computeF_RC_GPU(J,K,n,H,cj12,ck12,p):
     F += cp.einsum('i,mn->imn',n,H,optimize=True)        # i = [1,nbf5]
 
     # nJ
-    F[ini:p.nbeta,:,:] += cp.einsum('i,imn->imn',n[ini:p.nbeta],J[ini:p.nbeta,:,:],optimize=True)        # i = [ini,nbeta]
-    F[p.nalpha:p.nbf5,:,:] += cp.einsum('i,imn->imn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:],optimize=True)  # i = [nalpha,nbf5]
+    F[ini:p.nbeta,:,:] += cp.einsum('i,imn->imn',n[ini:p.nbeta],J[ini:p.nbeta,:,:],optimize=True)
+    F[p.nalpha:p.nbf5,:,:] += cp.einsum('i,imn->imn',n[p.nalpha:p.nbf5],J[p.nalpha:p.nbf5,:,:],optimize=True)
 
     # C^J J
     np.fill_diagonal(cj12[ini:,ini:],0) # Remove diag.
-    F += cp.einsum('ij,jmn->imn',cj12,J,optimize=True)                                                # i = [1,nbf5]
-    #F[ini:p.nbf5,:,:] -= np.einsum('ii,imn->imn',cj12[ini:p.nbf5,ini:p.nbf5],J[ini:p.nbf5,:,:],optimize=True) # quita i==j
+    F += cp.einsum('ij,jmn->imn',cj12,J,optimize=True)
 
     # -C^K K
     np.fill_diagonal(ck12[ini:,ini:],0) # Remove diag.
-    F -= cp.einsum('ij,jmn->imn',ck12,K,optimize=True)                                                # i = [1,nbf5]
-    #F[ini:p.nbf5,:,:] += np.einsum('ii,imn->imn',ck12[ini:p.nbf5,ini:p.nbf5],K[ini:p.nbf5,:,:],optimize=True) # quita i==j
+    F -= cp.einsum('ij,jmn->imn',ck12,K,optimize=True)
 
     return F.get()
 
