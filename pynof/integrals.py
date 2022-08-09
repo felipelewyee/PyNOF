@@ -199,33 +199,20 @@ def JKj_Full_jit(C,I,nbf,nbf5):
 def JKj_RI_jit(C,b_mnl,nbf,nbf5,nbfaux):
 
     #denmatj
-    b_qnl = np.zeros((nbf5,nbf,nbfaux))
-    for q in prange(nbf5):
-        for n in prange(nbf):
-            for l in prange(nbfaux):
-                for m in range(nbf):
-                    b_qnl[q][n][l] += C[m][q]*b_mnl[m][n][l]
-    b_qql = np.zeros((nbf5,nbfaux))
-    for q in prange(nbf5):
-        for l in prange(nbfaux):
-            for n in range(nbf):
-                b_qql[q][l] += C[n][q]*b_qnl[q][n][l]
-
-    #hstarj
     J = np.zeros((nbf5,nbf,nbf))
-    for q in prange(nbf5):
-        for m in prange(nbf):
-            for n in prange(nbf):
-                for l in range(nbfaux):
-                    J[q][m][n] += b_qql[q][l]*b_mnl[m][n][l]
-
-    #hstark
     K = np.zeros((nbf5,nbf,nbf))
     for q in prange(nbf5):
-        for m in prange(nbf):
-            for n in prange(nbf):
-                for l in range(nbfaux):
-                    K[q][m][n] += b_qnl[q][m][l]*b_qnl[q][n][l]
+        b_qnl = np.zeros((nbf,nbfaux))
+        b_qql = np.zeros((nbfaux))
+        for l in range(nbfaux):
+            for n in range(nbf):
+                for m in range(nbf):
+                    b_qnl[n][l] += C[m][q]*b_mnl[m][n][l]
+                b_qql[l] += C[n][q]*b_qnl[n][l]
+            for n in range(nbf):
+                for m in range(nbf):
+                    K[q][m][n] += b_qnl[m][l]*b_qnl[n][l]
+                    J[q][m][n] += b_qql[l]*b_mnl[m][n][l]
 
     return J,K
 
@@ -377,50 +364,29 @@ def JKH_MO_Full_jit(C,H,I,nbf,nbf5):
 @njit(parallel=True, cache=True)
 def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
 
-    #denmatj
-    D = np.zeros((nbf5,nbf,nbf))
-    for p in prange(nbf5):
-        for mu in prange(nbf):
-            for nu in prange(mu+1):
-                D[p][mu][nu] = C[mu][i]*C[nu][i]
-                D[p][nu][mu] = D[i][mu][nu]
-
-    b_pnl = np.zeros((nbf5,nbf,nbfaux))
-    for p in prange(nbf5):
-        for n in prange(nbf):
-            for l in prange(nbfaux):
-                for m in range(nbf):
-                    b_pnl[p][n][l] += C[m][p]*b_mnl[m][n][l]
     b_pql = np.zeros((nbf5,nbf5,nbfaux))
     for p in prange(nbf5):
-        for q in prange(p+1):
-            for l in prange(nbfaux):
-                for n in range(nbf):
-                    b_pql[p][q][l] += C[n][q]*b_pnl[p][n][l]
-                #b_pql[q][p][l] = b_pql[p][q][l]
-
-    #hstarj
-    J_MO = np.zeros((nbf5,nbf5))
-    for p in prange(nbf5):
-        for q in prange(p+1):
+        for n in range(nbf):
             for l in range(nbfaux):
-                J_MO[p][q] += b_pql[p][p][l]*b_pql[q][q][l]
-            J_MO[q][p] = J_MO[p][q]
-
-    #hstark
-    K_MO = np.zeros((nbf5,nbf5))
-    for p in prange(nbf5):
-        for q in prange(p+1):
-            for l in range(nbfaux):
-                K_MO[p][q] += b_pql[p][q][l]*b_pql[p][q][l]
-            K_MO[q][p] = K_MO[p][q]
+                b_pnl = 0
+                for m in range(nbf):
+                    b_pnl += C[m][p]*b_mnl[m][n][l]
+                for q in range(p+1):
+                    b_pql[p][q][l] += C[n][q]*b_pnl
 
     H_core = np.zeros((nbf5))
+    J_MO = np.zeros((nbf5,nbf5))
+    K_MO = np.zeros((nbf5,nbf5))
     for p in prange(nbf5):
         for m in range(nbf):
-            for n in range(m):
-                H_core[p] += 2*D[p][m][n]*H[m][n]
-            H_core[p] += D[p][m][m]*H[m][m]
+            for n in range(nbf):
+                H_core[p] += C[m][p]*H[m][n]*C[n][p]
+        for q in range(p+1):
+            for l in range(nbfaux):
+                J_MO[p][q] += b_pql[p][p][l]*b_pql[q][q][l]
+                K_MO[p][q] += b_pql[p][q][l]*b_pql[p][q][l]
+            J_MO[q][p] = J_MO[p][q]
+            K_MO[q][p] = K_MO[p][q]
 
     return J_MO,K_MO,H_core
 
