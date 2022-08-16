@@ -559,29 +559,29 @@ def JKH_MO_tmp(C,H,I,b_mnl,p):
 
 def Integrals_MO_Full_CPU(C,H,I,p):
 
-    H_mat = np.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
-    I_MO = np.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
+    H_mat = np.einsum("mi,mn,nj->ij",C,H,C[:,:p.nbf5],optimize=True)
+    I_MO = np.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C[:,:p.nbf5],I,C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
 
     return H_mat,I_MO
 
 def Integrals_MO_Full_GPU(C,H,I,p):
 
-    H_mat = cp.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
-    I_MO = cp.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C,I,C,C,optimize=True)
+    H_mat = cp.einsum("mi,mn,nj->ij",C,H,C[:,:p.nbf5],optimize=True)
+    I_MO = cp.einsum("mp,nq,mnsl,sr,lt->pqrt",C,C[:,:p.nbf5],I,C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
 
     return H_mat,I_MO
 
 def Integrals_MO_RI_CPU(C,H,b_mnl,p):
 
-    H_mat = np.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
-    b_MO = np.einsum("mp,nq,mnl->pql",C,C,b_mnl,optimize=True)
+    H_mat = np.einsum("mi,mn,nj->ij",C,H,C[:,:p.nbf5],optimize=True)
+    b_MO = np.einsum("mp,nq,mnl->pql",C,C[:,:p.nbf5],b_mnl,optimize=True)
 
     return H_mat,b_MO
 
 def Integrals_MO_RI_GPU(C,H,b_mnl,p):
 
-    H_mat = cp.einsum("mi,mn,nj->ij",C,H,C,optimize=True)
-    b_MO = cp.einsum("mp,nq,mnl->pql",C,C,b_mnl,optimize=True)
+    H_mat = cp.einsum("mi,mn,nj->ij",C,H,C[:,:p.nbf5],optimize=True)
+    b_MO = cp.einsum("mp,nq,mnl->pql",C,C[:,:p.nbf5],b_mnl,optimize=True)
 
     return H_mat,b_MO
 

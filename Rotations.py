@@ -13,7 +13,7 @@ p.autozeros()
 p.ipnof = 8
 
 p.RI = True
-#p.gpu = True
+p.gpu = False
 
 p.orbital_optimizer = "CG"
 p.method = "Rotations"
