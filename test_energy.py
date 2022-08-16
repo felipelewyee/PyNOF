@@ -13,7 +13,6 @@ p.autozeros()
 p.ipnof = 8
 
 p.RI = True
-p.method = "Rotations"
 #p.gpu = True
 
 E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
