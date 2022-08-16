@@ -160,10 +160,13 @@ def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
     y = np.zeros((p.nvar))
 
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = pynof.PNOFi_selector(n,p)
+
     if("trust" in p.orbital_optimizer or "Newton-CG" in p.orbital_optimizer):
-        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="2-point",method=p.orbital_optimizer,options={"maxiter":p.maxloop})
+        res = minimize(pynof.calcorbe, y, args=(n,cj12,ck12,C,H,I,b_mnl,p),jac=pynof.calcorbg,hess="2-point",method=p.orbital_optimizer,options={"maxiter":p.maxloop})
     else:
-        res = minimize(pynof.calcorbe, y, args=(gamma,C,H,I,b_mnl,p),jac=pynof.calcorbg,method=p.orbital_optimizer,options={"maxiter":p.maxloop})
+        res = minimize(pynof.calcorbe, y, args=(n,cj12,ck12,C,H,I,b_mnl,p),jac=pynof.calcorbg,method=p.orbital_optimizer,options={"maxiter":p.maxloop})
 
     E = res.fun
     y = res.x
