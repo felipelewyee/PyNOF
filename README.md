@@ -16,7 +16,7 @@ cd PyNOF
 
 In the PyNOF folder, execute the following code
 ~~~
-conda create -n pynof
+conda create -n pynof python=3.9
 conda activate pynof
 conda install -c psi4 psi4
 conda install pip numpy scipy numba cupy
@@ -50,6 +50,11 @@ p.RI = True
 #p.gpu = True
 
 E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
+~~~
+
+If everything worked, the job may be executed by
+~~~
+python -u test_energy.py
 ~~~
 
 *Note.* The first run may be slightly slow due to jit precompilation.
