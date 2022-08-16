@@ -1,7 +1,6 @@
 import pynof
 import numpy as np
 from numba import prange,njit
-import numdifftools.nd_statsmodels as nds
 import cupy as cp
 
 #CJCKD5
@@ -525,32 +524,6 @@ def calce(gamma,J_MO,K_MO,H_core,p):
 
     return E
 
-def calce2(gamma,J_MO,K_MO,H_core,p):
-
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
-    cj12,ck12 = PNOFi_selector(n,p)
-
-    E = 0
-
-    if(p.MSpin==0):
-
-        # 2H + J
-#        E = E + np.einsum('i,i',n[:p.nbeta],2*H_core[:p.nbeta],optimize=True) # [0,Nbeta]
-#        E = E + np.einsum('i,i',n[p.nbeta:p.nalpha],2*H_core[p.nbeta:p.nalpha],optimize=True)               # (Nbeta,Nalpha]
-#        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],2*H_core[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
-        E = E + np.einsum('i,i',n[:p.nbeta],np.diagonal(J_MO)[:p.nbeta],optimize=True) # [0,Nbeta]
-        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],np.diagonal(J_MO)[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
-
-        #C^J JMO
-#        np.fill_diagonal(cj12,0) # Remove diag.
-#        E = E + np.einsum('ij,ji->',cj12,J_MO,optimize=True) # sum_ij
-
-        #C^K KMO
-#        np.fill_diagonal(ck12,0) # Remove diag.
-#        E = E - np.einsum('ij,ji->',ck12,K_MO,optimize=True) # sum_ij
-
-    return E
-
 def calcg(gamma,J_MO,K_MO,H_core,p):
 
     grad = np.zeros((p.nv))
@@ -568,19 +541,13 @@ def calcg(gamma,J_MO,K_MO,H_core,p):
         diag = np.diag_indices(p.nbf5)
         Dcj12r[diag] = 0
         grad += 2*np.einsum('ijk,ji->k',Dcj12r[p.no1:p.nbeta,:p.nbf5,:p.nv],J_MO[:p.nbf5,p.no1:p.nbeta],optimize=True)
-        #grad -= 2*np.einsum('iik,ii->k',Dcj12r[p.no1:p.nbeta,p.no1:p.nbeta,:p.nv],J_MO[p.no1:p.nbeta,p.no1:p.nbeta],optimize=True)
-    
         grad += 2*np.einsum('ijk,ji->k',Dcj12r[p.nalpha:p.nbf5,:p.nbf5,:p.nv],J_MO[:p.nbf5,p.nalpha:p.nbf5],optimize=True)
-        #grad -= 2*np.einsum('iik,ii->k',Dcj12r[p.nalpha:p.nbf5,p.nalpha:p.nbf5,:p.nv],J_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
     
         # -2 dCK_dgamma K_MO
         diag = np.diag_indices(p.nbf5)
         Dck12r[diag] = 0
         grad -= 2*np.einsum('ijk,ji->k',Dck12r[p.no1:p.nbeta,:p.nbf5,:p.nv],K_MO[:p.nbf5,p.no1:p.nbeta],optimize=True)
-        #grad += 2*np.einsum('iik,ii->k',Dck12r[p.no1:p.nbeta,p.no1:p.nbeta,:p.nv],K_MO[p.no1:p.nbeta,p.no1:p.nbeta],optimize=True)
-    
         grad -= 2*np.einsum('ijk,ji->k',Dck12r[p.nalpha:p.nbf5,:p.nbf5,:p.nv],K_MO[:p.nbf5,p.nalpha:p.nbf5],optimize=True)
-        #grad += 2*np.einsum('iik,ii->k',Dck12r[p.nalpha:p.nbf5,p.nalpha:p.nbf5,:p.nv],K_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
 
     elif(not p.MSpin==0):
     
@@ -618,15 +585,6 @@ def calcorbe(y,gamma,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
     E = calce(gamma,J_MO,K_MO,H_core,p)
-
-    return E
-
-def calcorbe2(y,gamma,C,H,I,b_mnl,p):
-
-    Cnew = pynof.rotate_orbital(y,C,p)
-
-    J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
-    E = calce2(gamma,J_MO,K_MO,H_core,p)
 
     return E
 
@@ -690,8 +648,6 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
                 grad[:,:p.nbf5] += -4*cp.einsum('bq,aqbq->ab',ck12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
                 grad[:p.nbf5,:] +=  4*cp.einsum('aq,aqbq->ab',ck12,I_MO[:p.nbf5,:p.nbf5,:,:p.nbf5],optimize=True)
         
-#        triu_idx = np.triu_indices(p.nbf,k=1)
-#        grad = grad[triu_idx]
         grad = grad.get()    
     else:
         grad = np.zeros((p.nbf,p.nbf))
@@ -737,9 +693,6 @@ def calcorbg(y,gamma,C,H,I,b_mnl,p):
                 np.fill_diagonal(ck12,0) # Remove diag.
                 grad[:,:p.nbf5] += -4*np.einsum('bq,aqbq->ab',ck12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
                 grad[:p.nbf5,:] +=  4*np.einsum('aq,aqbq->ab',ck12,I_MO[:p.nbf5,:p.nbf5,:,:p.nbf5],optimize=True)
-
-#        triu_idx = np.triu_indices(p.nbf,k=1)
-#        grad = grad[triu_idx]
 
     grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
     n = 0
@@ -871,25 +824,6 @@ def calcorbh(y,gamma,C,H,I,b_mnl,p):
     hess = pynof.extract_tiu_tensor(d2E_dycddyab,1)
     return hess
 
-def calcorbg_num(y,gamma,C,H,I,b_mnl,p):
-
-    grad = nds.Gradient(calcorbe)(y,gamma,C,H,I,b_mnl,p)
-
-    return grad
-
-def calcorbh_num(y,gamma,C,H,I,b_mnl,p):
-
-    hess = nds.Hessian(calcorbe)(y,gamma,C,H,I,b_mnl,p)
-
-    return hess
-
-def calcorbh_num2(y,gamma,C,H,I,b_mnl,p):
-
-    hess = nds.Hessian(calcorbe2)(y,gamma,C,H,I,b_mnl,p)
-
-    return hess
-
-
 def calccombe(x,C,H,I,b_mnl,p):
 
     nvar = int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)
@@ -919,17 +853,3 @@ def calccombg(x,C,H,I,b_mnl,p):
     grad[nvar:] = calcg(gamma,J_MO,K_MO,H_core,p)
 
     return grad
-
-
-def calccombg_num(x,C,H,I,b_mnl,p):
-
-    grad = nds.Gradient(calccombe)(x,C,H,I,b_mnl,p)
-
-    return grad
-
-def calccombh_num(x,C,H,I,b_mnl,p):
-
-    hess = nds.Hessian(calccombe)(x,C,H,I,b_mnl,p)
-
-    return hess
-

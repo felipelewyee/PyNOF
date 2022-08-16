@@ -5,7 +5,6 @@ from time import time
 import cupy as cp
 from scipy.linalg import eigh,expm,solve
 from scipy.optimize import root
-import trustregion
 
 def computeF_RC_driver(J,K,n,H,cj12,ck12,p):
 
@@ -339,149 +338,6 @@ def rotate_orbital(y,C,p):
     return Cnew
 
 
-def optimize_trust(y0,r,maxr,func,grad,hess,*args):
-
-    ####### Initialization of variables #######
-    neg_eig_orig = []
-    ynorm_orig = 0
-
-    y = y0
-    f = func(y,*args)
-    f_old = f
-    print("f inicial:",f)
-    print(" Step    radius    Neg Eig    Norm    New Norm    Old F(x)    New F(x)    Diff       Pred     Ratio     New r  Status  Grad Norm")
-    ####### Optimization #######
-    for i in range(10000):
-
-        r_orig = r
-
-        g = grad(y,*args)
-        H = hess(y,*args)
-        eigval, eigvec = eigh(H)
-        neg_eig_orig = eigval[eigval<0]
-        minval = min(eigval)
-
-        p = solve(H,-g)
-        pnorm_orig = np.linalg.norm(p)
-        if(minval<0 or np.linalg.norm(p) > r ):
-            p = trustregion.solve(g, H, r, sl=None, su=None, verbose_output=False)
-
-            #if(minval<0):
-            #    lambd = -minval + 1e-3
-            #elif(np.linalg.norm(p) > r):
-            #    lambd = 1e-3
-            #def phi(lambd):
-            #    B = H + lambd * np.identity(len(H))
-            #    p = solve(B,-g)
-            #    return 1/r - 1/np.linalg.norm(p)
-            #res = root(phi,lambd)
-            #lambd = res.x
-            #B = H + lambd * np.identity(len(H))
-            #p = solve(B,-g)
-            #eigval, eigvec = eigh(B)
-
-        f_new = func(y+p,*args)
-        diff = f_new - f_old
-        pred = np.dot(p,g) + 1/2*np.einsum("m,mn,n->",p,H,p)
-        ratio = diff/pred
-
-        if ratio > 0 and diff < 0:
-            status = "Accepted"
-            y = y + p
-            f_old = f
-            f = f_new
-            if(ratio > 0.75 and np.linalg.norm(p) >= r):
-                r = min(1.2*r,maxr)
-            elif(ratio < 0.25):
-                r = 0.7*r
-
-            g = grad(y+p,*args)
-            H = hess(y+p,*args)
-            eigval, eigvec = eigh(H)
-            print(" {: 3d}     {:3.1e}    {: 3d}      {:3.1e}   {:3.1e}   {:8.3f}    {:8.3f}   {: 3.1e}   {: 3.1e}   {: 6.2f}   {:3.1e}  {} {: 4.1e}".format(i,r_orig,len(neg_eig_orig),pnorm_orig,np.linalg.norm(p),f_old,f_new,diff,pred,ratio,r, status,np.linalg.norm(g)))
-            if(np.linalg.norm(g)<1e-4 and len(neg_eig_orig) == 0):
-                break
-        else:
-            status= "Rejected"
-            r = 0.7*r
-            #r = max(minr,0.7*r)
-
-            print(" {: 3d}     {:3.1e}    {: 3d}      {:3.1e}   {:3.1e}   {:8.3f}    {:8.3f}   {: 3.1e}   {: 3.1e}   {: 6.2f}   {:3.1e}  {} {: 4.1e}".format(i,r_orig,len(neg_eig_orig),pnorm_orig,np.linalg.norm(p),f_old,f_new,diff,pred,ratio,r, status,np.linalg.norm(g)))
-
-    return y,r,f_new,i,True
-
-def optimize_trust2(y0,r,maxr,func,g,H,*args):
-
-
-    ####### Initialization of variables #######
-    neg_eig_orig = []
-    ynorm_orig = 0
-
-    y = y0
-    f = func(y,*args)
-    f_old = f
-    print("f inicial:",f)
-    print(" Step    radius    Neg Eig    Norm    New Norm    Old F(x)    New F(x)    Diff       Pred     Ratio     New r  Status  Grad Norm")
-    ####### Optimization #######
-    for i in range(10):
-
-        r_orig = r
-
-        eigval, eigvec = eigh(H)
-        neg_eig_orig = eigval[eigval<0]
-        minval = min(eigval)
-
-        p = solve(H,-g)
-        pnorm_orig = np.linalg.norm(p)
-        if(minval<0 or np.linalg.norm(p) > r ):
-            p = trustregion.solve(g, H, r, sl=None, su=None, verbose_output=False)
-            #if(minval<0):
-            #    lambd = -minval + 1e-5
-            #elif(np.linalg.norm(p) > r):
-            #    lambd = 1e-5
-            #def phi(lambd):
-            #    B = H + lambd * np.identity(len(H))
-            #    p = solve(B,-g)
-            #    return 1/r - 1/np.linalg.norm(p)
-            #res = root(phi,lambd)
-            #lambd = res.x
-            #B = H + lambd * np.identity(len(H))
-            #p = solve(B,-g)
-            #eigval, eigvec = eigh(B)
-
-        f_new = func(y+p,*args)
-        diff = f_new - f_old
-        pred = np.dot(p,g) + 1/2*np.einsum("m,mn,n->",p,H,p)
-        ratio = diff/pred
-
-        if ratio > 0 and diff < 0:
-            status = "Accepted"
-            y = y + p
-            f_old = f
-            f = f_new
-            if(ratio > 0.75 and np.linalg.norm(p) > 0.8*r ):
-                r = min(2*r,maxr)
-            elif(ratio < 0.25):
-                r = 0.5*r
-                if(r< 1e-4):
-                    r = 1e-4
-                    print("Canceled Step by Small Radius")
-
-            print(" {: 3d}     {:3.1e}    {: 3d}      {:3.1e}   {:3.1e}   {:8.3f}    {:8.3f}   {: 3.1e}   {: 3.1e}   {: 6.2f}   {:3.1e}  {} {: 4.1e}".format(i,r_orig,len(neg_eig_orig),pnorm_orig,np.linalg.norm(p),f_old,f_new,diff,pred,ratio,r, status,np.linalg.norm(g)))
-            break
-        else:
-            status= "Rejected"
-            r = 0.5*r
-            #r = max(minr,0.7*r)
-            if(r< 1e-4):
-                r = 1e-4
-                print("Canceled Step by Small Radius")
-                break
-
-        print(" {: 3d}     {:3.1e}    {: 3d}      {:3.1e}   {:3.1e}   {:8.3f}    {:8.3f}   {: 3.1e}   {: 3.1e}   {: 6.2f}   {:3.1e}  {} {: 4.1e}".format(i,r_orig,len(neg_eig_orig),pnorm_orig,np.linalg.norm(p),f_old,f_new,diff,pred,ratio,r, status,np.linalg.norm(g)))
-
-    return p,r
-
 @njit
 def extract_tiu_tensor(t,k):
     dim = len(t)
@@ -499,52 +355,14 @@ def extract_tiu_tensor(t,k):
 
     return t_extracted
 
-def check_grads(gamma,C,H,I,b_mnl,p):
-    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
+def perturb_solution(C,gamma,grad_orb,grad_occ,p):
+    grad_orb = pynof.perturb_gradient(grad_orb,p.tol_gorb)
+    y = -grad_orb
+    C = pynof.rotate_orbital(y,C,p)
+    grad_occ = pynof.perturb_gradient(grad_occ,p.tol_gocc)
+    gamma += -grad_occ
 
-    print("======Gradient Check======")
-    print("Grad Analytical")
-    grad_a = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
-    print("Grad Numerical")
-    grad_n = pynof.calcorbg_num(y,gamma,C,H,I,b_mnl,p)
-
-    print("Max Diff {:3.1e}".format(np.max(np.abs(grad_a-grad_n))))
-
-def check_hessian(gamma,C,H,I,b_mnl,p):
-    y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-
-    print("======Hessian Check======")
-    print("Hess Analytical")
-    hess_a = pynof.calcorbh(y,gamma,C,H,I,b_mnl,p)
-    print("Hess Numerical")
-    hess_n = pynof.calcorbh_num(y,gamma,C,H,I,b_mnl,p)
-
-    print("Max Diff {:3.1e}".format(np.max(np.abs(hess_a-hess_n))))
-
-def check_hessian_eigvals(tol,gamma,C,H,I,b_mnl,p,printeig=False):
-        y = np.zeros((int(p.nbf*(p.nbf-1)/2)))
-        hess = pynof.calcorbh(y,gamma,C,H,I,b_mnl,p)
-        eigval, eigvec = eigh(hess)
-        while(tol >= -0.1):
-            neg_eig_orig = eigval[eigval<tol]
-            if(len(neg_eig_orig)>0):
-                print("{} Eigenvalues < {:3.1e} in the Orbital Hessian".format(len(neg_eig_orig),tol))
-                if(printeig):
-                    print(neg_eig_orig)
-            else:
-                print("No Eigenvalues < {:3.1e} in the Orbital Hessian".format(tol))
-            tol = tol*10
-
-def noise(radius,dim):
-
-    Y = np.random.normal(size=dim)
-    Y /= np.linalg.norm(Y)
-
-    U = np.random.uniform()
-
-    epsilon_vec = radius * Y * U**(1/dim)
-
-    return epsilon_vec
+    return C,gamma
 
 @njit
 def perturb_gradient(grad,tol):
@@ -555,11 +373,3 @@ def perturb_gradient(grad,tol):
 
     return grad
 
-def perturb_solution(C,gamma,grad_orb,grad_occ,p):
-    grad_orb = pynof.perturb_gradient(grad_orb,p.tol_gorb)
-    y = -grad_orb
-    C = pynof.rotate_orbital(y,C,p)
-    grad_occ = pynof.perturb_gradient(grad_occ,p.tol_gocc)
-    gamma += -grad_occ
-
-    return C,gamma

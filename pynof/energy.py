@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,check_hessian=False,perturb=False):
+def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False):
  
     t1 = time()
 
@@ -231,9 +231,6 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 
     t2 = time()
     print("Elapsed Time: {:10.2f} (Seconds)".format(t2-t1))
-
-    if(check_hessian and not p.RI):
-        pynof.check_hessian_eigvals(-1e-5,gamma,C,H,I,b_mnl,p)
 
     if(nofmp2):
         pynof.nofmp2(n,C,H,I,b_mnl,E_nuc,p)

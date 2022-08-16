@@ -20,34 +20,34 @@ class param():
         self.mul = mol.multiplicity()
         self.charge = mol.molecular_charge()
         no1 = 0 #Number of inactive doubly occupied orbitals | Se puede variar
-        for i in range(self.natoms):
-            Z = mol.Z(i)
-            if ( 1<=Z and Z<=  2):
-                no1 += 0           # H-He
-            elif ( 3<=Z and Z<= 10):
-                no1 +=  1          # Li-Ne
-            elif (11<=Z and Z<= 18):
-                no1 +=  5          # Na-Ar
-            elif(19<=Z and Z<= 36):
-                no1 +=  9          # K-Kr
-            elif(37<=Z and Z<= 49):
-                no1 += 18          # Rb-In
-            elif(50<=Z and Z<= 54):
-                no1 += 23          # Sn-Xe
-            elif(55<=Z and Z<= 71):
-                no1 += 27          # Cs-Lu
-            elif(72<=Z and Z<= 81):
-                no1 += 30          # Hf-Tl
-            elif(82<=Z and Z<= 86):
-                no1 += 39          # Pb-Rn
-            elif(87<=Z and Z<=109):
-                no1 += 43          # Fr-Mt
+        #for i in range(self.natoms):
+        #    Z = mol.Z(i)
+        #    if ( 1<=Z and Z<=  2):
+        #        no1 += 0           # H-He
+        #    elif ( 3<=Z and Z<= 10):
+        #        no1 +=  1          # Li-Ne
+        #    elif (11<=Z and Z<= 18):
+        #        no1 +=  5          # Na-Ar
+        #    elif(19<=Z and Z<= 36):
+        #        no1 +=  9          # K-Kr
+        #    elif(37<=Z and Z<= 49):
+        #        no1 += 18          # Rb-In
+        #    elif(50<=Z and Z<= 54):
+        #        no1 += 23          # Sn-Xe
+        #    elif(55<=Z and Z<= 71):
+        #        no1 += 27          # Cs-Lu
+        #    elif(72<=Z and Z<= 81):
+        #        no1 += 30          # Hf-Tl
+        #    elif(82<=Z and Z<= 86):
+        #        no1 += 39          # Pb-Rn
+        #    elif(87<=Z and Z<=109):
+        #        no1 += 43          # Fr-Mt
         self.ndoc = self.nbeta   -   no1
         self.nsoc = self.nalpha  -   self.nbeta
         self.ndns = self.ndoc    +   self.nsoc
         self.nvir = self.nbf     -   self.nalpha
         
-        ncwo = 1
+        ncwo = -1
         if(self.ne==2):
             ncwo= -1
         if(self.ndns!=0):
@@ -72,10 +72,10 @@ class param():
         self.thresheid = 10**-6#8 # Convergencia de la energía total
         self.maxitid = 30  # Número máximo de iteraciones externas en HF
         self.maxloop = 30  # Iteraciones internas en optimización orbital
-        self.ipnof = 7     # PNOFi a calcular
+        self.ipnof = 8     # PNOFi a calcular
         self.ista = 0     # PNOFi a calcular
-        self.threshl = 10**-5#4   # Convergencia de los multiplicadores de Lagrange
-        self.threshe = 10**-6#6   # Convergencia de la energía
+        self.threshl = 10**-4   # Convergencia de los multiplicadores de Lagrange
+        self.threshe = 10**-5   # Convergencia de la energía
         self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
