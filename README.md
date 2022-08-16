@@ -4,7 +4,7 @@ Formally readed as Python-Natural-Orbital-Functionals, PyNOF, is based on the or
 
 # Requirements
 
-You should have an [Anaconda] (https://www.anaconda.com/) instllation and the folowing libreries: psi4, numpy, scipy, numba, cupy; then, you may install pynof via pip.
+You should have [Anaconda] (https://www.anaconda.com/) installed, and the folowing libreries: psi4, numpy, scipy, numba, cupy; then, you may install pynof via pip.
 
 # Installation
 
