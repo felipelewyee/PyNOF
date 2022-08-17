@@ -468,10 +468,7 @@ def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     return n,dn_dgamma
 
-def calce(gamma,J_MO,K_MO,H_core,p):
-
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
-    cj12,ck12 = PNOFi_selector(n,p)
+def calce(n,cj12,ck12,J_MO,K_MO,H_core,p):
 
     E = 0
 
@@ -524,7 +521,16 @@ def calce(gamma,J_MO,K_MO,H_core,p):
 
     return E
 
-def calcg(gamma,J_MO,K_MO,H_core,p):
+def calcocce(gamma,J_MO,K_MO,H_core,p):
+
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = PNOFi_selector(n,p)
+
+    E = calce(n,cj12,ck12,J_MO,K_MO,H_core,p)
+
+    return E
+
+def calcoccg(gamma,J_MO,K_MO,H_core,p):
 
     grad = np.zeros((p.nv))
 
@@ -585,54 +591,7 @@ def calcorbe(y,n,cj12,ck12,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
 
-    E = 0
-
-    if(p.MSpin==0):
-
-        # 2H + J
-        E = E + np.einsum('i,i',n[:p.nbeta],2*H_core[:p.nbeta]+np.diagonal(J_MO)[:p.nbeta],optimize=True) # [0,Nbeta]
-        E = E + np.einsum('i,i',n[p.nbeta:p.nalpha],2*H_core[p.nbeta:p.nalpha],optimize=True)               # (Nbeta,Nalpha]
-        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],2*H_core[p.nalpha:p.nbf5]+np.diagonal(J_MO)[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
-
-        #C^J JMO
-        np.fill_diagonal(cj12,0) # Remove diag.
-        E = E + np.einsum('ij,ji->',cj12,J_MO,optimize=True) # sum_ij
-
-        #C^K KMO
-        np.fill_diagonal(ck12,0) # Remove diag.
-        E = E - np.einsum('ij,ji->',ck12,K_MO,optimize=True) # sum_ij
-
-    elif(not p.MSpin==0):
-        E = 0
-
-        # 2H + J
-        E = E + np.einsum('i,i',n[:p.nbeta],2*H_core[:p.nbeta]+np.diagonal(J_MO)[:p.nbeta],optimize=True) # [0,Nbeta]
-        E = E + np.einsum('i,i',n[p.nbeta:p.nalpha],2*H_core[p.nbeta:p.nalpha],optimize=True)               # (Nbeta,Nalpha]
-        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],2*H_core[p.nalpha:p.nbf5]+np.diagonal(J_MO)[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
-
-        #C^J JMO
-        np.fill_diagonal(cj12,0) # Remove diag.
-        E = E + np.einsum('ij,ji->',cj12[:p.nbeta,:p.nbeta],J_MO[:p.nbeta,:p.nbeta],optimize=True) # sum_ij
-        E = E + np.einsum('ij,ji->',cj12[:p.nbeta,p.nalpha:p.nbf5],J_MO[p.nalpha:p.nbf5,:p.nbeta],optimize=True) # sum_ij
-        E = E + np.einsum('ij,ji->',cj12[p.nalpha:p.nbf5,:p.nbeta],J_MO[:p.nbeta,p.nalpha:p.nbf5],optimize=True) # sum_ij
-        E = E + np.einsum('ij,ji->',cj12[p.nalpha:p.nbf5,p.nalpha:p.nbf5],J_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True) # sum_ij
-
-        #C^K KMO
-        np.fill_diagonal(ck12,0) # Remove diag.
-        E = E - np.einsum('ij,ji->',ck12[:p.nbeta,:p.nbeta],K_MO[:p.nbeta,:p.nbeta],optimize=True) # sum_ij
-        E = E - np.einsum('ij,ji->',ck12[:p.nbeta,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,:p.nbeta],optimize=True) # sum_ij
-        E = E - np.einsum('ij,ji->',ck12[p.nalpha:p.nbf5,:p.nbeta],K_MO[:p.nbeta,p.nalpha:p.nbf5],optimize=True) # sum_ij
-        E = E - np.einsum('ij,ji->',ck12[p.nalpha:p.nbf5,p.nalpha:p.nbf5],K_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True) # sum_ij
-
-        #n JMO
-        E = E + 2*np.einsum('i,ji->',n[:p.nbeta],J_MO[p.nbeta:p.nalpha,:p.nbeta],optimize=True) # sum_ij
-        E = E + 2*np.einsum('i,ji->',n[p.nalpha:p.nbf5],J_MO[p.nbeta:p.nalpha,p.nalpha:p.nbf5],optimize=True) # sum_ij
-        E = E + 0.5*(np.einsum('i,ji->',n[p.nbeta:p.nalpha],J_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha],optimize=True) - np.einsum('i,ii->',n[p.nbeta:p.nalpha],J_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha],optimize=True))
-
-        #n KMO
-        E = E - np.einsum('i,ji->',n[:p.nbeta],K_MO[p.nbeta:p.nalpha,:p.nbeta],optimize=True) # sum_ij
-        E = E - np.einsum('i,ji->',n[p.nalpha:p.nbf5],K_MO[p.nbeta:p.nalpha,p.nalpha:p.nbf5],optimize=True) # sum_ij
-        E = E - 0.5*(np.einsum('i,ji->',n[p.nbeta:p.nalpha],K_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha],optimize=True) + np.einsum('i,ii->',n[p.nbeta:p.nalpha],K_MO[p.nbeta:p.nalpha,p.nbeta:p.nalpha],optimize=True))
+    E = calce(n,cj12,ck12,J_MO,K_MO,H_core,p)
 
     return E
 
@@ -856,8 +815,12 @@ def calccombe(x,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = PNOFi_selector(n,p)
+
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
-    E = calce(gamma,J_MO,K_MO,H_core,p)
+
+    E = calce(n,cj12,ck12,J_MO,K_MO,H_core,p)
 
     return E
 
@@ -869,11 +832,14 @@ def calccombg(x,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = pynof.PNOFi_selector(n,p)
+
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
 
     grad = np.zeros(nvar + p.nv)
 
-    grad[:nvar] = calcorbg(y,gamma,Cnew,H,I,b_mnl,p)
-    grad[nvar:] = calcg(gamma,J_MO,K_MO,H_core,p)
+    grad[:nvar] = calcorbg(y,n,cj12,ck12,Cnew,H,I,b_mnl,p)
+    grad[nvar:] = calcoccg(gamma,J_MO,K_MO,H_core,p)
 
     return grad

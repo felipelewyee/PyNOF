@@ -118,7 +118,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
             cj12,ck12 = pynof.PNOFi_selector(n,p)
             grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
             J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
-            grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
+            grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
             print("{:6d} {:6d} {:6d}   {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
 
             if(np.linalg.norm(grad_orb) < 1e-3 and np.linalg.norm(grad_occ)< 1e-3 and ((success_orb and success_occ) or i_ext-last_iter>10)):
