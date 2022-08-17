@@ -290,7 +290,7 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
     dn_d_dgamma = np.zeros((len(n),nv))
     dn_d12_dgamma = np.zeros((len(n),nv))
 
-    for i in range(ndoc):
+    for i in prange(ndoc):
         idx = no1 + i
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
         ll = no1 + ndns + ncwo*(ndoc - i - 1)
@@ -336,7 +336,7 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
         Dck12r[i,nalpha:nbf5,:] += np.outer(fi[nalpha:nbf5],dfi_dgamma[i,:])
 
     if(MSpin==0 and nsoc>0):
-        for i in range(nbeta,nalpha):
+        for i in prange(nbeta,nalpha):
             Dck12r[no1:nbeta,i,:] += 0.5*dfi_dgamma[no1:nbeta,:]*0.5
             Dck12r[nalpha:nbf5,i,:] += dfi_dgamma[nalpha:nbf5,:]*0.5
 
@@ -622,7 +622,8 @@ def calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p):
                 grad_block[:,p.nalpha:p.nbf5] +=  4*cp.einsum('b,abk,bbk->ab',n[p.nalpha:p.nbf5],b_MO[:,p.nalpha:p.nbf5,:],b_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5,:],optimize=True)
 
                 # C^J_pq dJ_pq/dy_ab 
-                grad_block[:,:p.nbf5] +=  4*cp.einsum('bq,abk,qqk->ab',cj12,b_MO[:,:p.nbf5,:],b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
+                tmp = cp.einsum('bq,qqk->bk',cj12,b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
+                grad_block[:,:p.nbf5] +=  4*cp.einsum('abk,bk->ab',b_MO[:,:p.nbf5,:],tmp,optimize=True)
 
                 # -C^K_pq dK_pq/dy_ab 
                 grad_block[:,:p.nbf5] += -4*cp.einsum('bq,aqk,bqk->ab',ck12,b_MO[:,:p.nbf5,:],b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
@@ -655,12 +656,12 @@ def calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p):
                 grad_block[:,:p.nbeta] +=  4*np.einsum('b,abk,bbk->ab',n[:p.nbeta],b_MO[:,:p.nbeta,:],b_MO[:p.nbeta,:p.nbeta,:],optimize=True)
                 grad_block[:,p.nalpha:p.nbf5] +=  4*np.einsum('b,abk,bbk->ab',n[p.nalpha:p.nbf5],b_MO[:,p.nalpha:p.nbf5,:],b_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5,:],optimize=True)
 
-                # C^J_pq dJ_pq/dy_ab 
-                grad_block[:,:p.nbf5] +=  4*np.einsum('bq,abk,qqk->ab',cj12,b_MO[:,:p.nbf5,:],b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
+                # C^J_pq dJ_pq/dy_ab
+                tmp = np.einsum('bq,qqk->bk',cj12,b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
+                grad_block[:,:p.nbf5] +=  4*np.einsum('abk,bk->ab',b_MO[:,:p.nbf5,:],tmp,optimize=True)
 
                 # -C^K_pq dK_pq/dy_ab 
                 grad_block[:,:p.nbf5] += -4*np.einsum('bq,aqk,bqk->ab',ck12,b_MO[:,:p.nbf5,:],b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
-
         else:
             if(p.MSpin==0):
                 # 2ndH/dy_ab
