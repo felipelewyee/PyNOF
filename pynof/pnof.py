@@ -475,9 +475,9 @@ def calce(n,cj12,ck12,J_MO,K_MO,H_core,p):
     if(p.MSpin==0):
 
         # 2H + J
-        E = E + np.einsum('i,i',n[:p.nbeta],2*H_core[:p.nbeta]+np.diagonal(J_MO)[:p.nbeta],optimize=True) # [0,Nbeta]
-        E = E + np.einsum('i,i',n[p.nbeta:p.nalpha],2*H_core[p.nbeta:p.nalpha],optimize=True)               # (Nbeta,Nalpha]
-        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],2*H_core[p.nalpha:p.nbf5]+np.diagonal(J_MO)[p.nalpha:p.nbf5],optimize=True) # (Nalpha,Nbf5)
+        E = E + 2*np.einsum('i,i',n,H_core,optimize=True)
+        E = E + np.einsum('i,i',n[:p.nbeta],np.diagonal(J_MO)[:p.nbeta],optimize=True)
+        E = E + np.einsum('i,i',n[p.nalpha:p.nbf5],np.diagonal(J_MO)[p.nalpha:p.nbf5],optimize=True)
     
         #C^J JMO
         np.fill_diagonal(cj12,0) # Remove diag.
@@ -533,7 +533,6 @@ def calcocce(gamma,J_MO,K_MO,H_core,p):
 def calcoccg(gamma,J_MO,K_MO,H_core,p):
 
     grad = np.zeros((p.nv))
-    grad1 = np.zeros((p.nv))
 
     n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
     Dcj12r,Dck12r = der_PNOFi_selector(n,dn_dgamma,p)
@@ -541,8 +540,7 @@ def calcoccg(gamma,J_MO,K_MO,H_core,p):
     if(p.MSpin==0):
 
         # dn_dgamma (2H+J)
-        grad += np.einsum('ik,i->k',dn_dgamma,2*H_core+np.diagonal(J_MO),optimize=True) # [Nalpha,Nbf5]
-        print(np.sum(grad),np.sum(grad1))
+        grad += np.einsum('ik,i->k',dn_dgamma,2*H_core+np.diagonal(J_MO),optimize=True)
 
         # 2 dCJ_dgamma J_MO
         diag = np.diag_indices(p.nbf5)
