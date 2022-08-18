@@ -395,7 +395,7 @@ def der_PNOFi_selector(n,dn_dgamma,p):
         
     return Dcj12r,Dck12r
 
-@njit
+@njit(cache=True)
 def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     n = np.zeros((nbf5))
@@ -546,14 +546,12 @@ def calcoccg(gamma,J_MO,K_MO,H_core,p):
         # 2 dCJ_dgamma J_MO
         diag = np.diag_indices(p.nbf5)
         Dcj12r[diag] = 0
-        grad += 2*np.einsum('ijk,ji->k',Dcj12r[p.no1:p.nbeta,:p.nbf5,:p.nv],J_MO[:p.nbf5,p.no1:p.nbeta],optimize=True)
-        grad += 2*np.einsum('ijk,ji->k',Dcj12r[p.nalpha:p.nbf5,:p.nbf5,:p.nv],J_MO[:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+        grad += 2*np.einsum('ijk,ji->k',Dcj12r,J_MO,optimize=True)
     
         # -2 dCK_dgamma K_MO
         diag = np.diag_indices(p.nbf5)
         Dck12r[diag] = 0
-        grad -= 2*np.einsum('ijk,ji->k',Dck12r[p.no1:p.nbeta,:p.nbf5,:p.nv],K_MO[:p.nbf5,p.no1:p.nbeta],optimize=True)
-        grad -= 2*np.einsum('ijk,ji->k',Dck12r[p.nalpha:p.nbf5,:p.nbf5,:p.nv],K_MO[:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+        grad -= 2*np.einsum('ijk,ji->k',Dck12r,K_MO,optimize=True)
 
     elif(not p.MSpin==0):
     

@@ -338,7 +338,7 @@ def rotate_orbital(y,C,p):
     return Cnew
 
 
-@njit
+@njit(cache=True)
 def extract_tiu_tensor(t,k):
     dim = len(t)
     var = int(dim*(dim-1)/2)
