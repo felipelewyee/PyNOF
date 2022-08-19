@@ -31,12 +31,16 @@ def optgeo(mol,p=None,gradient="analytical"):
 
     coord = np.reshape(coord,(int(len(coord)/3),3))
 
-    return coord
+    print("Final Geometry (Bohrs)")
+    print("======================")
+    for symbol,xyz in zip(symbols,coord):
+        print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
+    print("Final Geometry (Angstroms)")
+    print("======================")
+    for symbol,xyz in zip(symbols,coord):
+        print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0]*0.529177,xyz[1]*0.529177,xyz[2]*0.529177))
 
-    #print("Final Geometry (Bohrs)")
-    #print("======================")
-    #for symbol,xyz in zip(symbols,coord):
-    #    print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
+    return coord
 
 
 def energy_optgeo(coord,symbols,p,gradient,printmode=False):
@@ -64,8 +68,8 @@ def energy_optgeo(coord,symbols,p,gradient,printmode=False):
     t1 = time()
     p.RI = True
     E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
-    p.RI = False
-    E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
+    #p.RI = False
+    #E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     t2 = time()
     print("                       Total Energy:", E_t)
 
