@@ -10,7 +10,7 @@ def optgeo(mol,p=None,gradient="analytical"):
     wfn = p.wfn
     coord, mass, symbols, Z, key = wfn.molecule().to_arrays()
     p.RI = True
-    E_t = pynof.compute_energy(mol,p,p.gradient,printmode=True)
+    E_t = pynof.compute_energy(mol,p,printmode=True)
     
     print("Initial Geometry (Bohrs)")
     print("========================")
@@ -63,9 +63,9 @@ def energy_optgeo(coord,symbols,p,gradient,printmode=False):
     
     t1 = time()
     p.RI = True
-    E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,p.gradient,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
+    E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     p.RI = False
-    E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,p.gradient,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
+    E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     t2 = time()
     print("                       Total Energy:", E_t)
 

@@ -10,4 +10,4 @@ H  0.0000  -0.749  -0.453
 p = pynof.param(mol,"cc-pVDZ")
 p.autozeros()
 
-pynof.optgeo(mol,p,p.gradient)
+pynof.optgeo(mol,p)
