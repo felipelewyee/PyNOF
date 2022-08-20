@@ -55,7 +55,7 @@ def build_AmB_ApB(eig,pqrt_at,nalpha,nbf,nab):
     return EcRPA, AmB, ApB
 
 
-@njit
+@njit(parallel=True, cache=True)
 def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
     #CCSD
     Eccsd = 0
@@ -141,7 +141,7 @@ def ccsd_eq(eig,pqrt,pqrt_at,nbeta,nalpha,nbf):
 
     return EcCCSD
 
-@njit
+@njit(parallel=True, cache=True)
 def ccsd_update_interm(ts,td,FockM,pqrt_at,nocc2,nvir2,nbf2):
     Fmi = np.zeros((nocc2,nocc2))
     Wmnij = np.zeros((nocc2,nocc2,nocc2,nocc2))
@@ -205,7 +205,7 @@ def ccsd_update_interm(ts,td,FockM,pqrt_at,nocc2,nvir2,nbf2):
 
     return Fmi,Wmnij,Fae,Wabef,Fme,Wmbej
 
-@njit
+@njit(parallel=True, cache=True)
 def ccsd_update_t1_t2(ts,td,Fmi,Wmnij,Fae,Wabef,Fme,Wmbej,FockM,pqrt_at,nocc2,nvir2,nbf2):
     tsnew = np.zeros((nocc2,nvir2))
     tdnew = np.zeros((nocc2,nocc2,nvir2,nvir2))
@@ -260,14 +260,14 @@ def ccsd_update_t1_t2(ts,td,Fmi,Wmnij,Fae,Wabef,Fme,Wmbej,FockM,pqrt_at,nocc2,nv
 
     return tsnew,tdnew
 
-@njit
+@njit(parallel=True, cache=True)
 def slbasis(i):
     if(i%2==0):
         return int(i/2)
     else:
         return int((i+1)/2)-1
 
-@njit
+@njit(parallel=True, cache=True)
 def spin_int(p,q,r,s,ERImol):
     value1, value2 = 0, 0
     if(p%2==r%2 and q%2==s%2):
@@ -276,7 +276,7 @@ def spin_int(p,q,r,s,ERImol):
         value2 = ERImol[slbasis(r),slbasis(p),slbasis(s),slbasis(q)]
     return value1 - value2
 
-@njit
+@njit(parallel=True, cache=True)
 def W(i,a,j,b,eri_at,wmn_at,eig,nab,bigomega,cfreq):
 
     w_iajb = eri_at
@@ -338,12 +338,12 @@ def rpa_sosex(freqs,weights,sumw,order,wmn_at,eig,pqrt,pqrt_at,bigomega,nab,nbet
 
     return iEcRPA, iEcSOSEX
 
-@njit
+@njit(parallel=True, cache=True)
 def gw_gm_eq(wmn_at,pqrt,eig,bigomega,XpY,nab,nbeta,nalpha,nbf):
     EcGoWo = 0
     EcGMSOS = 0
 
-    for a in range(nalpha,nbf):
+    for a in prange(nalpha,nbf):
         for b in range(nalpha,nbf):
             for i in range(nbeta):
                 for j in range(nbeta):
@@ -860,7 +860,7 @@ def CalTijab(iajb,F_MO,eig,FI1,FI2,p):
 
     return Tijab
 
-@njit
+@njit(parallel=True, cache=True)
 def build_A(F_MO,FI1,FI2,no1,ndoc,ndns,nvir,ncwo,nbf):
     npair = np.zeros((nvir))
     for i in range(ndoc):

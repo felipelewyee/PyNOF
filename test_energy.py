@@ -12,7 +12,9 @@ p.autozeros()
 
 p.ipnof = 8
 
-p.RI = True
+p.RI = False#True
+p.pnof = 7
+p.ista = 1
 #p.gpu = True
 
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,mbpt=True)
