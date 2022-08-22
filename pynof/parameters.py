@@ -74,9 +74,9 @@ class param():
         self.maxloop = 30  # Iteraciones internas en optimización orbital
         self.ipnof = 8     # PNOFi a calcular
         self.ista = 0     # PNOFi a calcular
-        self.threshl = 10**-4   # Convergencia de los multiplicadores de Lagrange
-        self.threshe = 10**-5   # Convergencia de la energía
-        self.threshec = 10**-10 # Convergencia  de la energía en optimización orbital
+        self.threshl = 10**-3   # Convergencia de los multiplicadores de Lagrange
+        self.threshe = 10**-4   # Convergencia de la energía
+        self.threshec = 10**-8 # Convergencia  de la energía en optimización orbital
         self.threshen = 10**-10 # Convergencia  de la energía en optimización de ocupaciones
         self.scaling = True     # Scaling for f
         self.nzeros = 0
@@ -109,17 +109,19 @@ class param():
 
     def autozeros(self,restart=False):
         if(restart):
-            self.nzeros = abs(int(np.log10(self.threshl))) - 1
-            self.nzerosr = self.nzeros
-            #self.nzerosm = abs(int(np.log10(self.threshl))) + 2         
-            #if(self.nzeros<3):
-            #    self.nzeros = 2
-            #    self.nzerosr = 2
-            #    self.nzerosm = 5
+            if(abs(np.log10(self.threshl))<=3):
+                self.nzeros = 2
+                self.nzerosr = 2
+                self.nzerosm = 5
+            else:
+                self.nzeros = abs(int(np.log10(self.threshl))) - 1
+                self.nzerosr = self.nzeros
+                self.nzerosm = abs(int(np.log10(self.threshl))) + 2         
         else:
-            self.nzeros = 0
-            self.nzerosr = 0
-            #self.nzerosm = abs(int(np.log10(self.threshl))) + 2
+            if(abs(np.log10(self.threshl))>3):
+                self.nzeros = 1
+                self.nzeros = 2
+                self.nzerosm = abs(int(np.log10(self.threshl))) + 2
 
     def set_ncwo(self,ncwo):
         if(self.ne==2):
