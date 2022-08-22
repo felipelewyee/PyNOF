@@ -3,7 +3,7 @@ from scipy.optimize import minimize
 from time import time
 import pynof 
 
-def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
+def hfidr(S,C,H,I,b_mnl,E_nuc,p,printmode):
 
     no1_ori = p.no1
     p.no1 = p.nbeta
@@ -24,7 +24,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
         print('{:^7} {:^7} {:^14} {:^14} {:^15} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
 
-    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(S,C,n,H,I,b_mnl,cj12,ck12,p)
 
     fmiug0 = None
 
@@ -45,7 +45,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
             fmiug0, W = np.linalg.eigh(fmiug)
             C = np.matmul(C,W)
-            E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+            E,elag,sumdiff,maxdiff = pynof.ENERGY1r(S,C,n,H,I,b_mnl,cj12,ck12,p)
 
             E_diff = E-E_old
             if(abs(E_diff)<p.thresheid):
@@ -67,9 +67,9 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     return E,C,fmiug0
 
-def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
+def occoptr(gamma,convgdelag,S,C,H,I,b_mnl,p):
 
-    J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+    J_MO,K_MO,H_core = pynof.computeJKH_MO(S,C,H,I,b_mnl,p)
 
     E = 0
     nit = 0
@@ -89,11 +89,11 @@ def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
 
     return E,nit,success,gamma,n,cj12,ck12
 
-def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
+def orboptr(S,C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
 
     convgdelag = False
 
-    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+    E,elag,sumdiff,maxdiff = pynof.ENERGY1r(S,C,n,H,I,b_mnl,cj12,ck12,p)
 
     #E_diff = E-E_old
     #P_CONV = abs(E_diff)
@@ -142,7 +142,7 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
 
         C = np.matmul(C,eigvec)
 
-        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+        E,elag,sumdiff,maxdiff = pynof.ENERGY1r(S,C,n,H,I,b_mnl,cj12,ck12,p)
 
         E_diff2 = E-E_old2
 

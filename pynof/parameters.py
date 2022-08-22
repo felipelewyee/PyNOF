@@ -99,6 +99,7 @@ class param():
         self.tol_gocc = 1e-2
         self.gpu = False
         self.RI = False
+        self.PARI = False
         self.jit= False
 
         self.HighSpin = False

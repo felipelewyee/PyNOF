@@ -1,3 +1,4 @@
+import pynof
 from time import time
 import psi4
 import numpy as np
@@ -29,7 +30,6 @@ def compute_integrals(wfn,mol,p):
         zero_bas = psi4.core.BasisSet.zero_ao_basis_set()
 
         Ppq = np.transpose(mints.ao_eri(aux, zero_bas, orb, orb))
-        #Ppq = mints.ao_eri(orb, orb, aux, zero_bas)
         
         metric = mints.ao_eri(aux, zero_bas, aux, zero_bas)
         metric.power(-0.5, 1.e-14)
@@ -37,6 +37,9 @@ def compute_integrals(wfn,mol,p):
 
         Ppq = np.squeeze(Ppq)
         metric = np.squeeze(metric)
+        p.metric = metric
+
+        p.mnl = Ppq
 
         b_mnl = np.einsum('pqP,PQ->pqQ', Ppq, metric, optimize=True)
 
@@ -91,7 +94,7 @@ def compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p):
 
 ######################################### J_mn^(j) K_mn^(j) #########################################
 
-def computeJKj(C,I,b_mnl,p):
+def computeJKj(S,C,I,b_mnl,p):
 
     if(p.gpu):
         if(p.RI):
@@ -102,6 +105,13 @@ def computeJKj(C,I,b_mnl,p):
         if(p.jit):
             if(p.RI):
                 J,K = JKj_RI_jit(C,b_mnl,p.nbf,p.nbf5,p.nbfaux)
+            elif(p.PARI):
+                metric = p.metric.copy()
+                #metric = np.real(inv(metric))
+                #metric = np.real(sqrtm(metric))
+                pop,pop_aux = pynof.local_domains(p,C,S)
+                J,K = JKj_RI_jit_tmp(pop,C,p.mnl,metric,p.nbf,p.nbf5,p.nbfaux)
+                #J,K = JKj_RI_jit(C,b_mnl,p.nbf,p.nbf5,p.nbfaux)
             else:
                 J,K = JKj_Full_jit(C,I,p.nbf,p.nbf5)
         else:
@@ -216,9 +226,66 @@ def JKj_RI_jit(C,b_mnl,nbf,nbf5,nbfaux):
 
     return J,K
 
+@njit(parallel=True, cache=True)
+def JKj_RI_jit_tmp(pop,C,b_mnk,G,nbf,nbf5,nbfaux):
+
+    #denmatj
+    b_qnk = np.zeros((nbf5,nbf,nbfaux))
+    b_qnl = np.zeros((nbf5,nbf,nbfaux))
+    K = np.zeros((nbf5,nbf,nbf))
+    #hstark
+    for q in prange(nbf5):
+        for n in range(nbf):
+            if(pop[q,n] == 1):
+                for k in range(nbfaux):
+                    for m in range(nbf):
+                        b_qnk[q][n][k] += C[m][q]*b_mnk[m][n][k]
+
+    np.save("b_qnk.npy",b_qnk)
+    #pynof.check_sparsity(b_qnk)
+    #pdata(b_qnk)
+
+    for q in prange(nbf5):
+        for n in range(nbf):
+            for l in range(nbfaux):
+                for k in range(nbfaux):
+                    b_qnl[q][n][l] += b_qnk[q][n][k]*G[k][l]
+
+        for n in range(nbf):
+            if(pop[q,n] == 1):
+                for m in range(nbf):
+                    if(pop[q,m] == 1):
+                        for l in range(nbfaux):
+                            K[q][m][n] += b_qnl[q][m][l]*b_qnl[q][n][l]
+
+    b_mnl = np.zeros((nbf,nbf,nbfaux))
+    for m in prange(nbf):
+        for n in range(nbf):
+            for l in range(nbfaux):
+                for k in range(nbfaux):
+                    b_mnl[m][n][l] += b_mnk[m][n][k]*G[k][l]
+
+    #hstarj
+    b_qql = np.zeros((nbf5,nbfaux))
+    J = np.zeros((nbf5,nbf,nbf))
+    for q in prange(nbf5):
+        for l in range(nbfaux):
+            for n in range(nbf):
+                if(pop[q,n] == 1):
+                    b_qql[q][l] += C[n][q]*b_qnl[q][n][l]
+
+        for l in range(nbfaux):
+            for m in range(nbf):
+                for n in range(nbf):
+                    J[q][m][n] += b_qql[q][l]*b_mnl[m][n][l]
+
+
+    return J,K
+
+
 ######################################### J_pq K_pq #########################################
 
-def computeJKH_MO(C,H,I,b_mnl,p):
+def computeJKH_MO(S,C,H,I,b_mnl,p):
 
     if(p.gpu):
         if(p.RI):
@@ -229,6 +296,12 @@ def computeJKH_MO(C,H,I,b_mnl,p):
         if(p.jit):
             if(p.RI):
                 J_MO,K_MO,H_core = JKH_MO_RI_jit(C,H,b_mnl,p.nbf,p.nbf5,p.nbfaux)
+            elif(p.PARI):
+                metric = p.metric.copy()
+                #metric = np.real(inv(metric))
+                #metric = np.real(sqrtm(metric))
+                pop, pop_aux = pynof.local_domains(p,C,S)
+                J_MO,K_MO,H_core = JKH_MO_RI_jit_tmp(pop,C,H,p.mnl.copy(),metric,p.nbf,p.nbf5,p.nbfaux)                
             else:
                 J_MO,K_MO,H_core = JKH_MO_Full_jit(C,H,I,p.nbf,p.nbf5)
         else:
@@ -389,6 +462,79 @@ def JKH_MO_RI_jit(C,H,b_mnl,nbf,nbf5,nbfaux):
             K_MO[q][p] = K_MO[p][q]
 
     return J_MO,K_MO,H_core
+
+@njit(parallel=True, cache=True)
+def JKH_MO_RI_jit_tmp(pop,C,H,b_mnk,G,nbf,nbf5,nbfaux):
+
+    #denmatj
+    D = np.zeros((nbf5,nbf,nbf))
+    #b_pnl = np.zeros((nbf5,nbf,nbfaux))
+    b_pnk = np.zeros((nbf5,nbf,nbfaux))
+    b_pqk = np.zeros((nbf5,nbf5,nbfaux))
+    b_pql = np.zeros((nbf5,nbf5,nbfaux))
+    H_core = np.zeros((nbf5))
+
+    for p in prange(nbf5):
+        for m in range(nbf):
+            for n in range(m+1):
+                D[p][m][n] = C[m][p]*C[n][p]
+                D[p][n][m] = D[p][m][n]
+        for m in range(nbf):
+            for n in range(m):
+                H_core[p] += 2*D[p][m][n]*H[m][n]
+            H_core[p] += D[p][m][m]*H[m][m]
+
+    #hstark
+    K_MO = np.zeros((nbf5,nbf5))
+    for p in prange(nbf5):
+        for n in range(nbf):
+            if(pop[p,n] == 1):
+                for l in range(nbfaux):
+                    for m in range(nbf):
+                        b_pnk[p][n][l] += C[m][p]*b_mnk[m][n][l]
+
+        for q in range(p+1):
+            for k in range(nbfaux):
+                for n in range(nbf):
+                    if(pop[p,n] == 1):
+                        b_pqk[p][q][k] += C[n][q]*b_pnk[p][n][k]
+       #         b_pqk[q][p][k] = b_pqk[p][q][k]
+
+        #for q in range(p+1):
+            for l in range(nbfaux):
+                for k in range(nbfaux):
+                    b_pql[p][q][l] += b_pqk[p][q][k]*G[k,l]
+        #        b_pql[q][p][l] = b_pql[p][q][l]
+
+        #for q in range(p+1):
+        #    for l in range(nbfaux):
+                K_MO[p][q] += b_pql[p][q][l]*b_pql[p][q][l]
+            K_MO[q][p] = K_MO[p][q]
+
+    #hstarj
+    b_ppk = np.zeros((nbf5,nbfaux))
+    for p in prange(nbf5):
+        for k in prange(nbfaux):
+            for n in range(nbf):
+                if(pop[p,n] == 1):
+                    b_ppk[p][k] += C[n][p]*b_pnk[p][n][k]
+
+    b_ppl = np.zeros((nbf5,nbfaux))
+    for p in prange(nbf5):
+        for l in prange(nbfaux):
+            for k in range(nbfaux):
+                b_ppl[p][l] += b_ppk[p][k]*G[k,l]
+
+    J_MO = np.zeros((nbf5,nbf5))
+    for p in prange(nbf5):
+        for q in prange(p+1):
+            for l in range(nbfaux):
+                #J_MO[p][q] += b_pql[p][p][l]*b_pql[q][q][l]
+                J_MO[p][q] += b_ppl[p][l]*b_ppl[q][l]
+            J_MO[q][p] = J_MO[p][q]
+
+    return J_MO,K_MO,H_core
+
 
 ######################################### J_mn^(j) K_mn^(j) #########################################
 

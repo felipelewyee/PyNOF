@@ -207,9 +207,9 @@ def computeLagrangeConvergency(elag):
     return sumdiff,maxdiff
 
 
-def ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p):
+def ENERGY1r(S,C,n,H,I,b_mnl,cj12,ck12,p):
 
-    J,K = pynof.computeJKj(C,I,b_mnl,p)
+    J,K = pynof.computeJKj(S,C,I,b_mnl,p)
 
     if(p.MSpin==0):
         F = computeF_RC_driver(J,K,n,H,cj12,ck12,p)
@@ -372,4 +372,52 @@ def perturb_gradient(grad,tol):
             grad[i] = np.sign(grad[i])*tol
 
     return grad
+
+def local_domains(p,C,S):
+
+    from matplotlib import pyplot as plt
+
+    wfn = p.wfn
+
+    np.save("S.npy",S)
+    np.save("C.npy",C)
+
+    S_12 = fractional_matrix_power(S, 0.5)
+
+    #pop_mo_bf
+    pop_im = np.einsum("sm,mi,ni,ns->is",S_12,C[:,:p.nbf5],C[:,:p.nbf5],S_12,optimize=True)
+
+    #pop_mo_atom
+    pop_iA = np.zeros((p.nbf5,p.natoms))
+    for mu in range(C.shape[0]):
+        iatom = wfn.basisset().function_to_center(mu)
+        pop_iA[:,iatom] += pop_im[:,mu]
+
+    #switch_mo_atom
+    switch_iA = np.zeros((p.nbf5,p.natoms))
+    for i in range(p.nbf5):
+        vals = pop_iA[i,:]
+        sort_index = np.flip(vals.argsort())
+        suma = 0
+        for idx in sort_index:
+            switch_iA[i,idx] = 1
+            suma += pop_iA[i,idx]
+            if(suma>10.9999):
+            #if(suma>0.99999):
+                break
+
+    print(np.sum(switch_iA)/p.nbf5/p.natoms*100)
+
+
+    switch_im = np.zeros((p.nbf5,p.nbf))
+    switch_ik = np.zeros((p.nbf5,p.nbfaux))
+    for i in range(p.nbf5):
+        for mu in range(C.shape[0]):
+            iatom = wfn.basisset().function_to_center(mu)
+            switch_im[i,mu] = switch_iA[i,iatom]
+        for k in range(p.nbfaux):
+            iatom = p.aux.function_to_center(k)
+            switch_ik[i,k] = switch_iA[i,iatom]
+
+    return switch_im,switch_ik
 
