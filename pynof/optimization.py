@@ -5,12 +5,12 @@ from time import time
 import pynof
 from scipy.optimize import minimize
 
-def optgeo(mol,p=None,gradient="analytical"):
+def optgeo(mol,p=None,C=None,gamma=None,fmiug0=None,gradient="analytical"):
    
     wfn = p.wfn
     coord, mass, symbols, Z, key = wfn.molecule().to_arrays()
     p.RI = True
-    E_t = pynof.compute_energy(mol,p,printmode=True)
+    E_t = pynof.compute_energy(mol,p,C,gamma,fmiug0,printmode=True)
     
     print("Initial Geometry (Bohrs)")
     print("========================")
