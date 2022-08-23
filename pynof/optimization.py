@@ -60,10 +60,10 @@ def energy_optgeo(coord,symbols,p,gradient,printmode=False):
     # Paramdetros del sistema
     p.wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
    
-    C,gamma,fmiug0 = pynof.read_all()
+    C,gamma,fmiug0 = pynof.read_all(p.title)
 
-    p.autozeros()
-    #p.autozeros(restart=True)
+    #p.autozeros()
+    p.autozeros(restart=True)
     
     t1 = time()
     p.RI = True
