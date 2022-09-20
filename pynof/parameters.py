@@ -118,10 +118,10 @@ class param():
                 self.nzerosr = self.nzeros
                 self.nzerosm = abs(int(np.log10(self.threshl))) + 2         
         else:
-            if(abs(np.log10(self.threshl))>3):
-                self.nzeros = 1
-                self.nzeros = 2
-                self.nzerosm = abs(int(np.log10(self.threshl))) + 2
+            #if(abs(np.log10(self.threshl))>3):
+            self.nzeros = 1
+            self.nzerosr = 2
+            self.nzerosm = abs(int(np.log10(self.threshl))) + 2
 
     def set_ncwo(self,ncwo):
         if(self.ne==2):
