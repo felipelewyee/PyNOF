@@ -1,10 +1,10 @@
 # PyNOF
 
-Formally readed as Python-Natural-Orbital-Functionals, PyNOF, is based on the original [DoNOF](https://github.com/DoNOF/DoNOFsw/) software written in Fortran by Prof. Mario Piris, but it take advantage of the Python capabilities such as optimizers, vectorization via numpy and gpu compatibiliy via cupy.
+Formally read as Python-Natural-Orbital-Functionals, PyNOF is based on the original [DoNOF](https://github.com/DoNOF/DoNOFsw/) software written in Fortran by Prof. Mario Piris, but it takes advantage of the Python capabilities such as optimizers, vectorization via numpy and gpu compatibility via cupy.
 
 # Requirements
 
-You should have [Anaconda](https://www.anaconda.com/) installed, and the following libreries: psi4, numpy, scipy, numba, cupy; then, you may install pynof via pip.
+You should have [Anaconda](https://www.anaconda.com/) installed, and the following libraries: psi4, numpy, scipy, numba, cupy; then, you may install pynof via pip.
 
 # Installation
 
