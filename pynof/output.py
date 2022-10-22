@@ -65,7 +65,7 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
     print("Coordinates of each shell                  R   N=      {:6d}".format(wfn.basisset().nshell()*3),file=f)
     idata = 0
     for ishell in range(wfn.basisset().nshell()):
-        xyz = coord[wfn.basisset().shell(ishell).ncenter-1]
+        xyz = coord[wfn.basisset().shell(ishell).ncenter]
         for ixyz in range(3):
             idata += 1
             print(" {: .8e}".format(xyz[ixyz]),end ="", file=f)
