@@ -172,6 +172,8 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
     print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
 
+    C,gamma,n,elag = pynof.order_subspaces(C,gamma,elag,H,I,b_mnl,p)
+
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)
 
@@ -180,38 +182,17 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
         print("RESULTS OF THE OCCUPATION OPTIMIZATION")
         print("========================================")
 
-        key = np.zeros((p.nbf5))
-        val = 0
-        for i in range(p.ndoc):       
-            val += 1
-            idx = p.no1 + i
-            # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-            ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-i-1)
-            ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-i)
-            key[idx] = val
-            key[ll:ul] = val
-        for i in range(p.nsoc):
-            val += 1
-            idx = p.no1 + p.ndoc + i
-            key[idx] = val
-
         e_val = elag[np.diag_indices(p.nbf5)]
-        sort_indices = np.array(list(e_val[:p.nbeta].argsort()) + list(e_val[p.nbeta:p.nalpha].argsort()) + list(e_val[p.nalpha:p.nbf5].argsort()))
-        sort_indices[p.nbeta:p.nalpha] += p.nbeta
-        sort_indices[p.nalpha:p.nbf5] += p.nalpha
-        n_sorted = n[sort_indices]
-        e_sorted = e_val[sort_indices]
-        key_sorted = key[sort_indices]
-        print(" {:^3}    {:^9}   {:>12}  {:^3}".format("Idx","n","E (Hartree)", "Key"))
+        print(" {:^3}    {:^9}   {:>12}".format("Idx","n","E (Hartree)"))
         for i in range(p.nbeta):
-            print(" {:3d}    {:9.7f}  {:12.8f}  {:3d}".format(i+1,2*n_sorted[i],e_sorted[i],int(key_sorted[i])))
+            print(" {:3d}    {:9.7f}  {:12.8f}".format(i+1,2*n[i],e_val[i]))
         for i in range(p.nbeta,p.nalpha):
             if(not p.HighSpin):
-                print(" {:3d}    {:9.7f}  {:12.8f}  {:3d}".format(i+1,2*n_sorted[i],e_sorted[i],int(key_sorted[i])))
+                print(" {:3d}    {:9.7f}  {:12.8f}".format(i+1,2*n[i],e_val[i]))
             else:
-                print(" {:3d}    {:9.7f}  {:12.8f}  {:3d}".format(i+1,n_sorted[i],e_sorted[i],int(key_sorted[i])))
+                print(" {:3d}    {:9.7f}  {:12.8f}".format(i+1,n[i],e_val[i]))
         for i in range(p.nalpha,p.nbf5):
-            print(" {:3d}    {:9.7f}  {:12.8f}  {:3d}".format(i+1,2*n_sorted[i],e_sorted[i],int(key_sorted[i])))
+            print(" {:3d}    {:9.7f}  {:12.8f}".format(i+1,2*n[i],e_val[i]))
 
         print("")
 

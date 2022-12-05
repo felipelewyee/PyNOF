@@ -2,6 +2,17 @@ import numpy as np
 
 def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
 
+    b = wfn.basisset()
+    if(b.has_puream()):
+        for ishell in range(b.nshell()):
+            shell = b.shell(ishell)
+            if(shell.am==1):
+                idx = b.shell_to_basis_function(ishell)
+                tmp_coeffs = C[idx:idx+3,:].copy()
+                C[idx+0,:] = tmp_coeffs[1,:]
+                C[idx+1,:] = tmp_coeffs[2,:]
+                C[idx+2,:] = tmp_coeffs[0,:]
+
     f = open(filename+".fchk","w")
 
     print("{}".format(filename),file=f)
