@@ -101,22 +101,15 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
                 print("",file=f)
 
     e_val = elag[np.diag_indices(p.nbf)]
-    try:
-        n_sorted = n[e_val.argsort()[:p.nbf5]]
-    except:
-        n_sorted = n
-        print("Orbital Sorting Problem: Optimized Orbitals are not the lowest in energy",file=f)
-    C_sorted = C[:,e_val.argsort()]
-    e_sorted = e_val[e_val.argsort()]
 
     print("Alpha Orbital Energies                     R   N=      {:6d}".format(p.nbf),file=f)
     for i in range(p.nbf):
-        print(" {: .8e}".format(e_sorted[i]),end ="", file=f)
+        print(" {: .8e}".format(e_val[i]),end ="", file=f)
         if((i+1)%5==0 or i+1==p.nbf):
             print("",file=f)
 #    print("Beta Orbital Energies                      R   N=      {:6d}".format(p.nbf),file=f)
 #    for i in range(p.nbf):
-#        print(" {: .8e}".format(e_sorted[i]),end ="", file=f)
+#        print(" {: .8e}".format(e_val[i]),end ="", file=f)
 #        if((i+1)%5==0 or i+1==p.nbf):
 #            print("",file=f)
     print("Alpha MO coefficients                      R   N=      {:6d}".format(p.nbf*p.nbf),file=f)
@@ -124,7 +117,7 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
     for j in range(p.nbf):
         for i in range(p.nbf):
             idata += 1
-            print(" {: .8e}".format(C_sorted[i,j]),end ="", file=f)
+            print(" {: .8e}".format(C[i,j]),end ="", file=f)
             if(idata%5==0 or idata==int(p.nbf*p.nbf)):
                 print("",file=f)
 #    print("Beta MO coefficients                       R   N=       {:6d}".format(p.nbf*p.nbf),file=f)
@@ -136,7 +129,7 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
 #            if(idata%5==0 or idata==int(p.nbf*p.nbf)):
 #                print("",file=f)
     print("Total SCF Density                          R   N=       {:6d}".format(int(p.nbf*(p.nbf+1)/2)),file=f)
-    DM = 2*np.einsum('i,mi,ni->mn',n_sorted,C_sorted[:,:p.nbf5],C_sorted[:,:p.nbf5])
+    DM = 2*np.einsum('i,mi,ni->mn',n,C[:,:p.nbf5],C[:,:p.nbf5])
     idata = 0
     for mu in range(p.nbf):
         for nu in range(mu+1):
@@ -146,7 +139,7 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
                 print("",file=f)
     print("Natural orbital occupancies                R   N=       {:6d}".format(p.nbf5),file=f)
     for i in range(p.nbf5):
-        print(" {: .8e}".format(n_sorted[i]),end ="", file=f)
+        print(" {: .8e}".format(n[i]),end ="", file=f)
         if((i+1)%5==0 or i==p.nbf5):
             print("",file=f)
 
