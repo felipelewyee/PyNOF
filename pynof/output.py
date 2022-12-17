@@ -2,59 +2,61 @@ import numpy as np
 
 def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
 
+    C_new = C.copy()
+
     b = wfn.basisset()
     if(b.has_puream()):
         for ishell in range(b.nshell()):
             shell = b.shell(ishell)
             if(shell.am==1):
                 idx = b.shell_to_basis_function(ishell)
-                tmp_coeffs = C[idx:idx+3,:].copy()
-                C[idx+0,:] = tmp_coeffs[1,:]
-                C[idx+1,:] = tmp_coeffs[2,:]
-                C[idx+2,:] = tmp_coeffs[0,:]
+                tmp_coeffs = C_new[idx:idx+3,:].copy()
+                C_new[idx+0,:] = tmp_coeffs[1,:]
+                C_new[idx+1,:] = tmp_coeffs[2,:]
+                C_new[idx+2,:] = tmp_coeffs[0,:]
     elif(not b.has_puream()):
         for ishell in range(b.nshell()):
             shell = b.shell(ishell)
             if(shell.am==2):
                 idx = b.shell_to_basis_function(ishell)
-                tmp_coeffs = C[idx:idx+6,:].copy()
-                C[idx+0,:] = tmp_coeffs[0,:]
-                C[idx+1,:] = tmp_coeffs[3,:]
-                C[idx+2,:] = tmp_coeffs[5,:]
-                C[idx+3,:] = tmp_coeffs[1,:]/np.sqrt(3)
-                C[idx+4,:] = tmp_coeffs[2,:]/np.sqrt(3)
-                C[idx+5,:] = tmp_coeffs[4,:]/np.sqrt(3)
+                tmp_coeffs = C_new[idx:idx+6,:].copy()
+                C_new[idx+0,:] = tmp_coeffs[0,:]
+                C_new[idx+1,:] = tmp_coeffs[3,:]
+                C_new[idx+2,:] = tmp_coeffs[5,:]
+                C_new[idx+3,:] = tmp_coeffs[1,:]/np.sqrt(3)
+                C_new[idx+4,:] = tmp_coeffs[2,:]/np.sqrt(3)
+                C_new[idx+5,:] = tmp_coeffs[4,:]/np.sqrt(3)
             elif(shell.am==3):
                 idx = b.shell_to_basis_function(ishell)
-                tmp_coeffs = C[idx:idx+10,:].copy()
-                C[idx+0,:] = tmp_coeffs[0,:]
-                C[idx+1,:] = tmp_coeffs[6,:]
-                C[idx+2,:] = tmp_coeffs[9,:]
-                C[idx+3,:] = tmp_coeffs[3,:]/np.sqrt(5)
-                C[idx+4,:] = tmp_coeffs[1,:]/np.sqrt(5)
-                C[idx+5,:] = tmp_coeffs[2,:]/np.sqrt(5)
-                C[idx+6,:] = tmp_coeffs[5,:]/np.sqrt(5)
-                C[idx+7,:] = tmp_coeffs[8,:]/np.sqrt(5)
-                C[idx+8,:] = tmp_coeffs[7,:]/np.sqrt(5)
-                C[idx+9,:] = tmp_coeffs[4,:]/np.sqrt(15)
+                tmp_coeffs = C_new[idx:idx+10,:].copy()
+                C_new[idx+0,:] = tmp_coeffs[0,:]
+                C_new[idx+1,:] = tmp_coeffs[6,:]
+                C_new[idx+2,:] = tmp_coeffs[9,:]
+                C_new[idx+3,:] = tmp_coeffs[3,:]/np.sqrt(5)
+                C_new[idx+4,:] = tmp_coeffs[1,:]/np.sqrt(5)
+                C_new[idx+5,:] = tmp_coeffs[2,:]/np.sqrt(5)
+                C_new[idx+6,:] = tmp_coeffs[5,:]/np.sqrt(5)
+                C_new[idx+7,:] = tmp_coeffs[8,:]/np.sqrt(5)
+                C_new[idx+8,:] = tmp_coeffs[7,:]/np.sqrt(5)
+                C_new[idx+9,:] = tmp_coeffs[4,:]/np.sqrt(15)
             elif(shell.am==4):
                 idx = b.shell_to_basis_function(ishell)
-                tmp_coeffs = C[idx:idx+15,:].copy()
-                C[idx+0,:] = tmp_coeffs[0,:]
-                C[idx+1,:] = tmp_coeffs[10,:]
-                C[idx+2,:] = tmp_coeffs[14,:]
-                C[idx+3,:] = tmp_coeffs[1,:]/np.sqrt(7)
-                C[idx+4,:] = tmp_coeffs[2,:]/np.sqrt(7)
-                C[idx+5,:] = tmp_coeffs[6,:]/np.sqrt(7)
-                C[idx+6,:] = tmp_coeffs[11,:]/np.sqrt(7)
-                C[idx+7,:] = tmp_coeffs[9,:]/np.sqrt(7)
-                C[idx+8,:] = tmp_coeffs[13,:]/np.sqrt(7)
-                C[idx+9,:] = tmp_coeffs[3,:]*np.sqrt(3)/np.sqrt(35)
-                C[idx+10,:] = tmp_coeffs[5,:]*np.sqrt(3)/np.sqrt(35)
-                C[idx+11,:] = tmp_coeffs[12,:]*np.sqrt(3)/np.sqrt(35)
-                C[idx+12,:] = tmp_coeffs[4,:]/np.sqrt(35)
-                C[idx+13,:] = tmp_coeffs[7,:]/np.sqrt(35)
-                C[idx+14,:] = tmp_coeffs[8,:]/np.sqrt(35)
+                tmp_coeffs = C_new[idx:idx+15,:].copy()
+                C_new[idx+0,:] = tmp_coeffs[0,:]
+                C_new[idx+1,:] = tmp_coeffs[10,:]
+                C_new[idx+2,:] = tmp_coeffs[14,:]
+                C_new[idx+3,:] = tmp_coeffs[1,:]/np.sqrt(7)
+                C_new[idx+4,:] = tmp_coeffs[2,:]/np.sqrt(7)
+                C_new[idx+5,:] = tmp_coeffs[6,:]/np.sqrt(7)
+                C_new[idx+6,:] = tmp_coeffs[11,:]/np.sqrt(7)
+                C_new[idx+7,:] = tmp_coeffs[9,:]/np.sqrt(7)
+                C_new[idx+8,:] = tmp_coeffs[13,:]/np.sqrt(7)
+                C_new[idx+9,:] = tmp_coeffs[3,:]*np.sqrt(3)/np.sqrt(35)
+                C_new[idx+10,:] = tmp_coeffs[5,:]*np.sqrt(3)/np.sqrt(35)
+                C_new[idx+11,:] = tmp_coeffs[12,:]*np.sqrt(3)/np.sqrt(35)
+                C_new[idx+12,:] = tmp_coeffs[4,:]/np.sqrt(35)
+                C_new[idx+13,:] = tmp_coeffs[7,:]/np.sqrt(35)
+                C_new[idx+14,:] = tmp_coeffs[8,:]/np.sqrt(35)
             elif(shell.am>=5):
                 print("Warning, angular momentum not supported in fchk")
 
@@ -163,7 +165,7 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
     for j in range(p.nbf):
         for i in range(p.nbf):
             idata += 1
-            print(" {: .8e}".format(C[i,j]),end ="", file=f)
+            print(" {: .8e}".format(C_new[i,j]),end ="", file=f)
             if(idata%5==0 or idata==int(p.nbf*p.nbf)):
                 print("",file=f)
 #    print("Beta MO coefficients                       R   N=       {:6d}".format(p.nbf*p.nbf),file=f)
@@ -171,11 +173,11 @@ def fchk(filename,wfn,mol,jobtype,E_t,elag,n,C,p):
 #    for j in range(p.nbf):
 #        for i in range(p.nbf):
 #            idata += 1
-#            print(" {: .8e}".format(C[i,j]),end ="", file=f)
+#            print(" {: .8e}".format(C_new[i,j]),end ="", file=f)
 #            if(idata%5==0 or idata==int(p.nbf*p.nbf)):
 #                print("",file=f)
     print("Total SCF Density                          R   N=       {:6d}".format(int(p.nbf*(p.nbf+1)/2)),file=f)
-    DM = 2*np.einsum('i,mi,ni->mn',n,C[:,:p.nbf5],C[:,:p.nbf5])
+    DM = 2*np.einsum('i,mi,ni->mn',n,C_new[:,:p.nbf5],C_new[:,:p.nbf5])
     idata = 0
     for mu in range(p.nbf):
         for nu in range(mu+1):
