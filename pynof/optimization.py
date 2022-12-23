@@ -5,19 +5,19 @@ from time import time
 import pynof
 from scipy.optimize import minimize
 
-def optgeo(mol,p=None,C=None,gamma=None,fmiug0=None,gradient="analytical"):
+def optgeo(mol,p,C=None,gamma=None,fmiug0=None):
    
     wfn = p.wfn
     coord, mass, symbols, Z, key = wfn.molecule().to_arrays()
-    p.RI = True
-    E_t = pynof.compute_energy(mol,p,C,gamma,fmiug0,printmode=True)
+    if(C is None or gamma is None or fmiug0 is None):
+        E_t = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=True,printmode=True)
     
     print("Initial Geometry (Bohrs)")
     print("========================")
     for symbol,xyz in zip(symbols,coord):
         print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
 
-    res = minimize(energy_optgeo, coord, args=(symbols,p,gradient,False), jac=True, method='L-BFGS-B')
+    res = minimize(energy_optgeo, coord, args=(symbols,p,True), jac=True, method='CG')
 
     print(res)
     coord = res.x
@@ -27,7 +27,7 @@ def optgeo(mol,p=None,C=None,gamma=None,fmiug0=None,gradient="analytical"):
     else:
         print("\n\n================¡Not Converged! :( ================\n\n")
 
-    E,grad = energy_optgeo(coord,symbols,p,gradient,printmode=True)
+    E,grad = energy_optgeo(coord,symbols,p,printmode=True)
 
     coord = np.reshape(coord,(int(len(coord)/3),3))
 
@@ -43,7 +43,7 @@ def optgeo(mol,p=None,C=None,gamma=None,fmiug0=None,gradient="analytical"):
     return coord
 
 
-def energy_optgeo(coord,symbols,p,gradient,printmode=False):
+def energy_optgeo(coord,symbols,p,printmode=False):
 
     coord = np.reshape(coord,(int(len(coord)/3),3))
     print("Iter Geometry (Bohrs)")
@@ -66,7 +66,6 @@ def energy_optgeo(coord,symbols,p,gradient,printmode=False):
     p.autozeros(restart=True)
     
     t1 = time()
-    p.RI = True
     E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     #p.RI = False
     #E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
