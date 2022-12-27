@@ -28,17 +28,17 @@ def compute_integrals(wfn,mol,p):
         aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", orb.blend())
         zero_bas = psi4.core.BasisSet.zero_ao_basis_set()
 
-        Ppq = np.transpose(mints.ao_eri(aux, zero_bas, orb, orb))
+        mnk = np.transpose(mints.ao_eri(aux, zero_bas, orb, orb))
         #Ppq = mints.ao_eri(orb, orb, aux, zero_bas)
         
         metric = mints.ao_eri(aux, zero_bas, aux, zero_bas)
         metric.power(-0.5, 1.e-14)
         p.nbfaux = metric.shape[0]
 
-        Ppq = np.squeeze(Ppq)
+        mnk = np.squeeze(mnk)
         metric = np.squeeze(metric)
 
-        b_mnl = np.einsum('pqP,PQ->pqQ', Ppq, metric, optimize=True)
+        b_mnl = np.einsum('mnk,kl->mnl', mnk, metric, optimize=True)
 
     if(p.gpu):
         I = cp.array(I)
@@ -75,16 +75,64 @@ def compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p):
 
     np.fill_diagonal(cj12,0) # Remove diag.
     np.fill_diagonal(ck12,0) # Remove diag.
-    RDM2 = np.einsum('qp,mp,np,sq,lq->msnl',cj12,C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
-    RDM2 += np.einsum('p,mp,np,sp,lp->msnl',n[:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
-    RDM2 += np.einsum('p,mp,np,sp,lp->msnl',n[p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],optimize=True)
-    RDM2 -= np.einsum('qp,mp,lp,sq,nq->msnl',ck12,C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
 
-    for i in range(p.natoms):
-        derix,deriy,deriz = np.array(mints.ao_tei_deriv1(i))
-        grad[i,0] += np.einsum("msnl,mnsl->",RDM2,derix,optimize=True)
-        grad[i,1] += np.einsum("msnl,mnsl->",RDM2,deriy,optimize=True)
-        grad[i,2] += np.einsum("msnl,mnsl->",RDM2,deriz,optimize=True)
+    if not p.RI:
+
+        RDM2 = np.einsum('pq,mp,np,sq,lq->mnsl',cj12,C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
+        RDM2 += np.einsum('p,mp,np,sp,lp->mnsl',n[:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],C[:,:p.nbeta],optimize=True)
+        RDM2 += np.einsum('p,mp,np,sp,lp->mnsl',n[p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],optimize=True)
+        RDM2 -= np.einsum('pq,mp,lp,sq,nq->mnsl',ck12,C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],C[:,:p.nbf5],optimize=True)
+
+        for i in range(p.natoms):
+            derix,deriy,deriz = np.array(mints.ao_tei_deriv1(i))
+            grad[i,0] += np.einsum("mnsl,mnsl->",RDM2,derix,optimize=True)
+            grad[i,1] += np.einsum("mnsl,mnsl->",RDM2,deriy,optimize=True)
+            grad[i,2] += np.einsum("mnsl,mnsl->",RDM2,deriz,optimize=True)
+
+    else:
+
+        orb = wfn.basisset()
+        aux = psi4.core.BasisSet.build(mol, "DF_BASIS_SCF", "", "JKFIT", orb.blend())
+        mints.set_basisset("aux",aux)
+        zero_bas = psi4.core.BasisSet.zero_ao_basis_set()
+
+        mnP = np.transpose(mints.ao_eri(aux, zero_bas, orb, orb))
+        mnP = np.squeeze(mnP)
+
+        metric = mints.ao_eri(aux, zero_bas, aux, zero_bas)
+        metric.power(-1.0, 1.e-14)
+        metric = np.squeeze(metric)
+
+        tmp1 = np.einsum('mp,mnP->pnP',C[:,:p.nbf5],mnP,optimize=True)
+        tmp1 = np.einsum('nq,pnP->pqP',C[:,:p.nbf5],tmp1,optimize=True)
+        tmp1 = np.einsum('pqP,PQ->pqQ',tmp1,metric,optimize=True)
+        tmp2 = np.einsum('pq,pqQ->pqQ',-ck12,tmp1,optimize=True)
+        tmp3 = np.einsum('sq,pqQ->psQ',C[:,:p.nbf5],tmp2,optimize=True)
+        val1 = np.einsum('lp,psQ->lsQ',C[:,:p.nbf5],tmp3,optimize=True)
+        tmp3 = None
+        val2 = np.einsum('pqQ,pqR->QR',tmp1,tmp2,optimize=True)
+
+        tmp2 = np.einsum('pq,ppQ->qQ',cj12,tmp1,optimize=True)
+        val1 += np.einsum('sq,lq,qQ->slQ',C[:,:p.nbf5],C[:,:p.nbf5],tmp2,optimize=True)
+        val2 += np.einsum('qqQ,qR->QR',tmp1,tmp2,optimize=True)
+
+        tmp2 = np.einsum('p,ppQ->pQ',n[:p.nbeta],tmp1[:p.nbeta,:p.nbeta],optimize=True)
+        val1 += np.einsum('lp,sp,pQ->lsQ',C[:,:p.nbeta],C[:,:p.nbeta],tmp2,optimize=True)
+        val2 += np.einsum('ppQ,pR->QR',tmp1[:p.nbeta,:p.nbeta],tmp2,optimize=True)
+
+        tmp2 = np.einsum('p,ppQ->pQ',n[p.nalpha:p.nbf5],tmp1[p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
+        val1 += np.einsum('lp,sp,pQ->lsQ',C[:,p.nalpha:p.nbf5],C[:,p.nalpha:p.nbf5],tmp2,optimize=True)
+        val2 += np.einsum('ppQ,pR->QR',tmp1[p.nalpha:p.nbf5,p.nalpha:p.nbf5],tmp2,optimize=True)
+
+        for i in range(p.natoms):
+            d3x,d3y,d3z = np.array(mints.ao_3center_deriv1(i,"aux"))
+            d2x,d2y,d2z = np.array(mints.ao_metric_deriv1(i,"aux"))
+            grad[i,0] += 2*np.einsum('lsQ,Qsl->',val1,d3x,optimize=True)
+            grad[i,0] -= np.einsum('QR,QR->',val2,d2x,optimize=True)
+            grad[i,1] += 2*np.einsum('lsQ,Qsl->',val1,d3y,optimize=True)
+            grad[i,1] -= np.einsum('QR,QR->',val2,d2y,optimize=True)
+            grad[i,2] += 2*np.einsum('lsQ,Qsl->',val1,d3z,optimize=True)
+            grad[i,2] -= np.einsum('QR,QR->',val2,d2z,optimize=True)
 
     return grad
 
