@@ -235,7 +235,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 
 
     if gradients:
-        grad = pynof.compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p)
+        grad = pynof.compute_geom_gradients(wfn,mol,n,C,cj12,ck12,elag,p)
         return E_t,C,gamma,fmiug0,grad.flatten()
     else:
         return E_t,C,gamma,fmiug0
