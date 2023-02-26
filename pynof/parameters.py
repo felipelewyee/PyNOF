@@ -124,8 +124,8 @@ class param():
             self.nzerosm = abs(int(np.log10(self.threshl))) + 2
 
     def set_ncwo(self,ncwo):
-        if(self.ne==2):
-            ncwo= -1
+        #if(self.ne==2):
+        #    ncwo= -1
         if(self.ndns!=0):
             if(self.ndoc>0):
                 if(ncwo!=1):

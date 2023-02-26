@@ -373,6 +373,126 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
 
     return Dcj12r,Dck12r
 
+def compute_2RDM(pp,n):
+
+######################################
+    # PNOF5
+    # Interpair Electron correlation #
+    Id = np.identity(pp.nbf5)
+
+    inter = np.outer(n,n)
+    intra = 0*np.outer(n,n)
+
+    # Intrapair Electron Correlation
+    for l in prange(pp.ndoc):
+        ldx = pp.no1 + l
+        # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+        ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
+        ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
+
+        inter[ldx,ldx] = 0
+        inter[ldx,ll:ul] = 0
+        inter[ll:ul,ldx] = 0
+        inter[ll:ul,ll:ul] = 0
+
+        intra[ldx,ldx] = np.sqrt(n[ldx]*n[ldx])
+        intra[ldx,ll:ul] = -np.sqrt(n[ldx]*n[ll:ul])
+        intra[ll:ul,ldx] = -np.sqrt(n[ldx]*n[ll:ul])
+        intra[ll:ul,ll:ul] = np.sqrt(np.outer(n[ll:ul],n[ll:ul]))
+
+    for i in range(pp.nbeta,pp.nalpha):
+        inter[i,i] = 0
+
+    Daa = np.einsum('pq,pr,qt->pqrt',inter,Id,Id,optimize=True) - np.einsum('pq,pt,qr->pqrt',inter,Id,Id,optimize=True)
+    Dab = np.einsum('pq,pr,qt->pqrt',inter,Id,Id,optimize=True) + np.einsum('pr,pq,rt->pqrt',intra,Id,Id,optimize=True)
+
+    # PNOF7
+    if(pp.ipnof == 7 or pp.ipnof==8):
+        fi = n*(1-n)
+        fi[fi<=0] = 0
+        fi = np.sqrt(fi)
+        Pi_s = np.outer(fi,fi)
+        # Intrapair Electron Correlation
+        for l in prange(pp.ndoc):
+            ldx = pp.no1 + l
+            # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+            ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
+            ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
+
+            Pi_s[ldx,ldx] = 0
+            Pi_s[ldx,ll:ul] = 0
+            Pi_s[ll:ul,ldx] = 0
+            Pi_s[ll:ul,ll:ul] = 0
+        for i in range(pp.nbeta,pp.nalpha):
+            Pi_s[i,i] = 0
+
+        inter2 = 0*Pi_s.copy()
+        inter2[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = Pi_s[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha]
+        Pi_s[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = 0
+
+        Dab -= np.einsum('pr,pt,qr->pqrt',inter2,Id,Id,optimize=True)
+#
+#
+#    #inter3 = 0*inter.copy()
+#    #inter3[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = -1/4
+#    # inter3 = inter2?
+
+        if(pp.ipnof==8):
+            Pi_s[:pp.nbeta,:pp.nbeta] = 0
+            Pi_s[:pp.nbeta,pp.nbeta:pp.nalpha] *= 0.5
+            Pi_s[pp.nbeta:pp.nalpha,:pp.nbeta] *= 0.5
+
+        Dab -= np.einsum('pr,pq,rt->pqrt',Pi_s,Id,Id,optimize=True)
+
+        if(pp.ipnof==8):
+
+            h_cut = 0.02*np.sqrt(2.0)
+            n_d = np.zeros((len(n)))
+
+            for i in prange(pp.ndoc):
+                idx = pp.no1 + i
+                # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+                ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - i - 1)
+                ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - i)
+                h = 1.0 - n[idx]
+                coc = h / h_cut
+                arg = -coc ** 2
+                F = np.exp(arg)  # ! Hd/Hole
+                n_d[idx] = n[idx] * F
+                n_d[ll:ul] = n[ll:ul] * F  # ROd = RO*Hd/Hole
+
+            n_d12 = np.sqrt(n_d)
+
+            inter = np.outer(n_d12,n_d12) - np.outer(n_d,n_d)
+            inter2 = np.outer(n_d12,n_d12) + np.outer(n_d,n_d)
+            # Intrapair Electron Correlation
+            for l in prange(pp.ndoc):
+                ldx = pp.no1 + l
+                # inicio y fin de los orbitales acoplados a los fuertemente ocupados
+                ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
+                ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
+
+                inter[ldx,ldx] = 0
+                inter[ldx,ll:ul] = 0
+                inter[ll:ul,ldx] = 0
+                inter[ll:ul,ll:ul] = 0
+                inter2[ldx,ldx] = 0
+                inter2[ldx,ll:ul] = 0
+                inter2[ll:ul,ldx] = 0
+                inter2[ll:ul,ll:ul] = 0
+
+            inter[pp.nbeta:,pp.nbeta:] = 0
+            inter[:pp.nalpha:,:pp.nalpha] = 0
+            inter2[pp.nbeta:,pp.nbeta:] = 0
+            inter2[:pp.nalpha:,:] = 0
+            inter2[:,:pp.nalpha:] = 0
+
+            Pi_d = inter + inter2
+
+            Dab -= np.einsum('pr,pq,rt->pqrt',Pi_d,Id,Id,optimize=True)
+
+    return Daa, Dab
+
 # Creamos un seleccionador de PNOF
 
 def PNOFi_selector(n,p):

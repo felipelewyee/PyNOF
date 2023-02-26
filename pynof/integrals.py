@@ -3,6 +3,7 @@ import psi4
 import numpy as np
 import cupy as cp
 from numba import prange,njit
+import pynof
 
 def compute_integrals(wfn,mol,p):
 
@@ -45,6 +46,234 @@ def compute_integrals(wfn,mol,p):
         b_mnl = cp.array(b_mnl)
 
     return S,T,V,H,I,b_mnl,Dipole
+
+def ERPA(wfn,mol,n,C,cj12,ck12,elag,pp):
+
+    mints = psi4.core.MintsHelper(wfn.basisset())
+
+    S = np.asarray(mints.ao_overlap())
+    T = np.asarray(mints.ao_kinetic())
+    V = np.asarray(mints.ao_potential())
+    H = T + V
+
+    h = np.einsum("mi,mn,nj->ij",C[:,0:pp.nbf5],H,C[:,0:pp.nbf5],optimize=True)
+
+    I = np.asarray(mints.ao_eri())
+
+    I = np.einsum("mi,nj,mnsr,sk,rl->ijkl",C[:,0:pp.nbf5],C[:,0:pp.nbf5],I,C[:,0:pp.nbf5],C[:,0:pp.nbf5],optimize=True)
+    I = np.einsum("ijkl->ikjl",I,optimize=True)
+
+    A = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+    Id = np.identity(pp.nbf5)
+
+    A += 2*np.einsum('sq,pr,p->rspq',h,Id,n,optimize=True)
+    A -= 2*np.einsum('sq,pr,s->rspq',h,Id,n,optimize=True)
+    A += 2*np.einsum('pr,sq,q->rspq',h,Id,n,optimize=True)
+    A -= 2*np.einsum('pr,sq,r->rspq',h,Id,n,optimize=True)
+
+
+    Daa, Dab = pynof.compute_2RDM(pp,n)
+
+#    suma = 0
+#    for i in range(pp.nbf5):
+#        for j in range(pp.nbf5):
+#            for k in range(pp.nbf5):
+#                for l in range(pp.nbf5):
+#                    suma += np.abs(Daa[i,j,k,l] - (-Daa[j,i,k,l]))
+#                    suma += np.abs(Daa[i,j,k,l] - (-Daa[i,j,l,k]))
+#                    suma += np.abs(Daa[i,j,k,l] - ( Daa[j,i,l,k]))
+#                    suma += np.abs(Daa[i,j,k,l] - ( Daa[k,l,i,j]))
+#                    #suma += np.abs(Dab[i,j,k,l] - (-Dab[j,i,k,l]))
+#                    #suma += np.abs(Dab[i,j,k,l] - (-Dab[i,j,l,k]))
+#                    #suma += np.abs(Dab[i,j,k,l] - ( Dab[j,i,l,k]))
+#                    #suma += np.abs(Dab[i,j,k,l] - ( Dab[k,l,i,j]))
+#    print("suma",suma)
+
+######################################
+    A += 2*np.einsum('stqu,purt->rspq',I,Daa,optimize=True) 
+    A -= 2*np.einsum('stuq,purt->rspq',I,Daa,optimize=True) 
+    A += 2*np.einsum('stqu,purt->rspq',I,Dab,optimize=True) 
+    A += 2*np.einsum('stuq,uprt->rspq',I,Dab,optimize=True)
+    A += 2*np.einsum('uptr,stqu->rspq',I,Daa,optimize=True) 
+    A -= 2*np.einsum('uprt,stqu->rspq',I,Daa,optimize=True) 
+    A += 2*np.einsum('uptr,stqu->rspq',I,Dab,optimize=True) 
+    A += 2*np.einsum('uprt,stuq->rspq',I,Dab,optimize=True) 
+    ####
+    A += np.einsum('pstu,turq->rspq',I,Daa,optimize=True)
+    A -= np.einsum('psut,turq->rspq',I,Daa,optimize=True)
+    A -= np.einsum('pstu,utrq->rspq',I,Dab,optimize=True)
+    A -= np.einsum('psut,turq->rspq',I,Dab,optimize=True)
+    A += np.einsum('tuqr,sptu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('turq,pstu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('tuqr,sptu->rspq',I,Dab,optimize=True)
+    A -= np.einsum('turq,sptu->rspq',I,Dab,optimize=True)
+    ####
+    A += np.einsum('sq,tpwu,wurt->rspq',Id,I,Daa,optimize=True) 
+    A -= np.einsum('sq,tpuw,wurt->rspq',Id,I,Daa,optimize=True) 
+    A -= np.einsum('sq,tpwu,uwrt->rspq',Id,I,Dab,optimize=True) 
+    A -= np.einsum('sq,tpuw,wurt->rspq',Id,I,Dab,optimize=True) 
+    A += np.einsum('pr,tuwq,swtu->rspq',Id,I,Daa,optimize=True) 
+    A -= np.einsum('pr,tuqw,swtu->rspq',Id,I,Daa,optimize=True) 
+    A -= np.einsum('pr,tuwq,wstu->rspq',Id,I,Dab,optimize=True) 
+    A -= np.einsum('pr,tuqw,swtu->rspq',Id,I,Dab,optimize=True) 
+
+#######################################
+
+    B = np.einsum("rspq->rsqp",A)
+
+    M = np.zeros((pp.nbf5**2,pp.nbf5**2))
+
+    # i is rows
+    # j is columns
+
+    #First equation (15)
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            # A_rspq X_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,p,q]
+            # B_rspq Y_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = B[r,s,p,q]
+            # A_rspp Z_p
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = A[r,s,p,p]
+
+    #Second equation (16)
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            # B_rspq X_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = B[r,s,p,q]
+            # A_rspq Y_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,p,q]
+            # B_rspp Z_p
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = B[r,s,p,p]
+
+    #Third equation (17)
+    for r in range(pp.nbf5):
+        i += 1
+        j = -1
+        # A_rrpq X_pq
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = A[r,r,p,q]
+        # B_rrpq Y_pq
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = B[r,r,p,q]
+        # A_rrpp Z_p
+        for p in range(pp.nbf5):
+            j += 1
+            M[i,j] = A[r,r,p,p]
+
+    # Remove extra variables from (17)
+    #print(M)
+    from matplotlib import pyplot as plt
+#    plt.imshow(M)
+#    plt.colorbar()
+#    plt.show()
+
+#    for r in range(pp.nbf5*(pp.nbf5-1),pp.nbf5**2):
+#        print("==================")
+#        print(M)
+#        for s in range(r,pp.nbf5**2):
+#            if(M[r,s] != 0.0):
+#                M[r,:] *= 1/M[r,s]
+#                for p in range(pp.nbf5*(pp.nbf5-1),r):
+#                    M[p,:] -= M[r,:]*M[p,s]
+#                for p in range(r+1,pp.nbf5**2):
+#                    M[p,:] -= M[r,:]*M[p,s]
+#                break
+#    for r in range(pp.nbf5*(pp.nbf5-1)):
+#        for s in range(pp.nbf5*(pp.nbf5-1),pp.nbf5**2):
+#            M[r,:] -= M[s,:]*M[r,s]
+
+
+#    for r in range(pp.nbf5*(pp.nbf5-1),pp.nbf5**2):
+#        for s in range(r,pp.nbf5**2):
+#            if(M[r,s] != 0.0):
+#                M[r,:] *= 1/M[r,s]
+#                for p in range(pp.nbf5*(pp.nbf5-1),r):
+#                    M[p,:] -= M[r,:]*M[s,r]
+#                for p in range(r+1,pp.nbf5**2):
+#                    M[p,:] -= M[r,:]*M[s,r] 
+#                break
+#    print(M)
+
+#    for r in range(pp.nbf5*(pp.nbf5-1),pp.nbf5**2):
+#        M[r,:] *= 1/M[r,r]
+#        for s in range(pp.nbf5*(pp.nbf5-1),r):
+#            M[s,:] -= M[r,:]*M[s,r]
+#        for s in range(r+1,pp.nbf5**2):
+#            M[s,:] -= M[r,:]*M[s,r]
+#    for r in range(pp.nbf5*(pp.nbf5-1)):
+#        for s in range(pp.nbf5*(pp.nbf5-1),pp.nbf5**2):
+#            M[r,:] -= M[s,:]*M[r,s]
+
+
+    #plt.imshow(M)
+    #plt.colorbar()
+    #plt.title("M Original")
+    #plt.show()
+    M = M[:pp.nbf5*(pp.nbf5-1),:pp.nbf5*(pp.nbf5-1)]
+    #M[np.abs(M)<1e-10] = 0
+    #from matplotlib import pyplot as plt
+    #plt.imshow(M)
+    #plt.colorbar()
+    #plt.title("M trimed")
+    #plt.show()
+
+    i = -1
+    v = np.zeros((pp.nbf5*(pp.nbf5-1)))
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = -2*(n[r] - n[s])
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = 2*(n[r] - n[s])
+
+    V = np.zeros((pp.nbf5**2-pp.nbf5,pp.nbf5**2-pp.nbf5))
+    np.fill_diagonal(V, v)
+
+    from scipy.linalg import eig
+    vals,vecs = eig(M,V)
+
+    vals_complex = np.array([val*27.2114 for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+    print("Number of complex eigenvalues:", np.size(vals_complex))
+
+    vals_real = np.array([np.real(val)*27.2114 for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0)])
+
+    #print(vals)
+    print("Excitation energies (eV):")
+    vals_real = np.sort(vals_real)
+    for i,val in enumerate(vals_real):
+        print(" {} {:6.2f}".format(i,val))
+
+
+    #plt.imshow(vecs)
+    #plt.show()
 
 def compute_geom_gradients(wfn,mol,n,C,cj12,ck12,elag,p):
 
