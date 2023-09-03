@@ -1,10 +1,587 @@
 from time import time
-from scipy.linalg import eig,eigh
+from scipy.linalg import eig
 import psi4
 import numpy as np
 import cupy as cp
 from numba import prange,njit
 import pynof
+
+def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
+
+    h = np.einsum("mi,mn,nj->ij",C[:,0:pp.nbf5],H,C[:,0:pp.nbf5],optimize=True)
+
+    if(pp.RI):
+        b_pql = np.einsum("mnl,mp,nq->pql",b_mnl,C[:,0:pp.nbf5],C[:,0:pp.nbf5],optimize=True)
+        I = np.einsum("pqR,slR->pqsl",b_pql,b_pql,optimize=True)
+
+    if(pp.gpu):
+        I = I.get()
+    c = np.sqrt(n)
+    c[pp.ndoc:] *= -1
+
+    I = np.einsum('rpsq->rspq',I,optimize=True)
+
+    A = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+    Id = np.identity(pp.nbf5)
+
+    A += 2*np.einsum('sq,pr,p->rspq',h,Id,n,optimize=True)
+    A -= 2*np.einsum('sq,pr,s->rspq',h,Id,n,optimize=True)
+    A += 2*np.einsum('pr,sq,q->rspq',h,Id,n,optimize=True)
+    A -= 2*np.einsum('pr,sq,r->rspq',h,Id,n,optimize=True)
+
+    Daa, Dab = pynof.compute_2RDM(pp,n)
+
+######################################
+    A += 2*np.einsum('stqu,purt->rspq',I,Daa,optimize=True)
+    A -= 2*np.einsum('stuq,purt->rspq',I,Daa,optimize=True)
+    A += 2*np.einsum('stqu,purt->rspq',I,Dab,optimize=True)
+    A += 2*np.einsum('stuq,uprt->rspq',I,Dab,optimize=True)
+    A += 2*np.einsum('uptr,stqu->rspq',I,Daa,optimize=True)
+    A -= 2*np.einsum('uprt,stqu->rspq',I,Daa,optimize=True)
+    A += 2*np.einsum('uptr,stqu->rspq',I,Dab,optimize=True)
+    A += 2*np.einsum('uprt,stuq->rspq',I,Dab,optimize=True)
+    ####
+    A += np.einsum('pstu,turq->rspq',I,Daa,optimize=True)
+    A -= np.einsum('psut,turq->rspq',I,Daa,optimize=True)
+    A -= np.einsum('pstu,utrq->rspq',I,Dab,optimize=True)
+    A -= np.einsum('psut,turq->rspq',I,Dab,optimize=True)
+    A += np.einsum('tuqr,sptu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('turq,sptu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('tuqr,pstu->rspq',I,Dab,optimize=True)
+    A -= np.einsum('turq,sptu->rspq',I,Dab,optimize=True)
+    ####
+    A += np.einsum('sq,tpwu,wurt->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('sq,tpuw,wurt->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('sq,tpwu,uwrt->rspq',Id,I,Dab,optimize=True)
+    A -= np.einsum('sq,tpuw,wurt->rspq',Id,I,Dab,optimize=True)
+    A += np.einsum('pr,tuwq,swtu->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('pr,tuqw,swtu->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('pr,tuwq,wstu->rspq',Id,I,Dab,optimize=True)
+    A -= np.einsum('pr,tuqw,swtu->rspq',Id,I,Dab,optimize=True)
+
+    #B = np.einsum("pqsr->pqrs",A,optimize=True)
+    M = np.zeros((pp.nbf5**2,pp.nbf5**2))
+
+    # i is rows
+    # j is columns
+
+    #First equation (15)
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            # A_rspq X_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,p,q]
+            # B_rspq Y_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,q,p]
+            # A_rspp Z_p
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = A[r,s,p,p]
+
+    #Second equation (16)
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            # B_rspq X_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,q,p]
+            # A_rspq Y_pq
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,p,q]
+            # B_rspp Z_p
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = A[r,s,p,p]
+
+    #Third equation (17)
+    for r in range(pp.nbf5):
+        i += 1
+        j = -1
+        # A_rrpq X_pq
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = A[r,r,p,q]
+        # B_rrpq Y_pq
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = A[r,r,q,p]
+        # A_rrpp Z_p
+        for p in range(pp.nbf5):
+            j += 1
+            M[i,j] = A[r,r,p,p]
+
+    v = np.zeros((pp.nbf5*(pp.nbf5-1)))
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = -2*(n[r] - n[s])
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = 2*(n[r] - n[s])
+
+    V = np.zeros((pp.nbf5*(pp.nbf5-1),pp.nbf5*(pp.nbf5-1)))
+    np.fill_diagonal(V, v)
+
+    idx = []
+    for i,vi in enumerate(v):
+        if(np.abs(vi) < 1e-5):
+            #print("v[{}] = {}".format(i,vi))
+            idx.append(i)
+    print("Number of small diagonal elements of V moved to the end:",len(idx))
+
+    dim = (pp.nbf5)*(pp.nbf5-1) - len(idx)
+
+    for i,j in enumerate(idx):
+        tmp = V[j-i,:].copy()
+        V[j-i:-1,:] = V[j-i+1:,:]
+        V[-1,:] = tmp
+        tmp = V[:,j-i].copy()
+        V[:,j-i:-1] = V[:,j-i+1:]
+        V[:,-1] = tmp
+
+        tmp = M[j-i,:].copy()
+        M[j-i:-1,:] = M[j-i+1:,:]
+        M[-1,:] = tmp
+        tmp = M[:,j-i].copy()
+        M[:,j-i:-1] = M[:,j-i+1:]
+        M[:,-1] = tmp
+
+    V = V[:dim,:dim]
+
+#    for i,j in enumerate(idx):
+#        tmp = v[j-i]
+#        v[j-i:-1] = v[j-i+1:]
+#        v[-1] = tmp
+
+#        tmp = M[j-i,:].copy()
+#        M[j-i:-1,:] = M[j-i+1:,:]
+#        M[-1,:] = tmp
+#        tmp = M[:,j-i].copy()
+#        M[:,j-i:-1] = M[:,j-i+1:]
+#        M[:,-1] = tmp
+
+#    dim = (pp.nbf5)*(pp.nbf5-1) - len(idx)
+
+#    V = np.zeros((dim,dim))
+#    np.fill_diagonal(V, v)
+
+
+    from scipy.linalg import eig
+
+    #### ERPA0
+
+    M_ERPA0 = M[:dim,:dim]
+
+    det = np.linalg.det(M_ERPA0)
+    print("ERPA0 Determinant: ", det)
+
+    vals,vecs = eig(M_ERPA0,V)
+
+    vals_complex = np.array([val*27.2114 for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+    print("Vals Complex:", np.size(vals_complex))
+
+    print("Excitation energies ERPA0 Original/PNOF{}(eV):".format(pp.ipnof))
+    vals_real = np.sort(np.array([np.real(val)*27.2114 for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0)]))
+    for i in range(min(10,len(vals_real))):
+        print("Excitation energy {}: {:6.3f}".format(i,vals_real[i]))
+
+    #### ERPA
+
+    C = M[:dim,:dim]
+    D = M[:dim,dim:]
+    E = M[dim:,:dim]
+    F = M[dim:,dim:]
+
+    vals,vecs = eig(F)
+    tol = 10**-5
+    idx = 0
+    for i,val in enumerate(vals):
+        if(np.abs(vals[i])<tol):
+            sign = np.sign(vals[i])
+            if(sign==0):
+                sign = 1
+            vals[i] = sign*tol
+            idx += 1
+    vecs_inv = np.linalg.inv(vecs)
+    print("Number of corrected eigenvalues of F", idx)
+    Finv = np.einsum("ij,j,jk->ik",vecs,1/vals,vecs_inv)
+    #Finv = np.linalg.inv(D)
+
+    M_ERPA = C-np.einsum("ij,jk,kl->il",D,Finv,E,optimize=True)
+
+    det = np.linalg.det(M_ERPA)
+    print("ERPA Determinant: ", det)
+
+    vals,vecs = eig(M_ERPA, V)
+
+    vals_complex = np.array([val*27.2114 for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+    print("Vals Complex:", np.size(vals_complex))
+
+    print("Excitation energies ERPAnew Original/PNOF{}(eV):".format(pp.ipnof))
+    vals_real = np.sort(np.array([np.real(val)*27.2114 for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0)]))
+    for i in range(min(10,len(vals_real))):
+        print("Excitation energy {}: {:6.3f}".format(i,vals_real[i]))
+    #############################################################################
+
+
+
+
+
+
+
+
+
+
+
+#    #############################################################################
+#
+#    C = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+#
+#    C += 2*np.einsum('qs,ppqr->rspq',h,Dab,optimize=True)
+#    C += 2*np.einsum('qt,qs,pprt->rspq',h,Id,Dab,optimize=True)
+#    C -= 2*np.einsum('qt,pr,pstq->rspq',h,Id,Dab,optimize=True)
+#    C -= 2*np.einsum('qt,pr,psqt->rspq',h,Id,Dab,optimize=True)
+#    ####
+#    C += 2*np.einsum('pr,qqps->rspq',h,Dab,optimize=True)
+#    C += 2*np.einsum('pt,pr,qqst->rspq',h,Id,Dab,optimize=True)
+#    C -= 2*np.einsum('pt,qs,rqtp->rspq',h,Id,Dab,optimize=True)
+#    C -= 2*np.einsum('pt,qs,rqpt->rspq',h,Id,Dab,optimize=True)
+#    ####
+#    C += 2*np.einsum('pprt,qqst->rspq',I,Dab,optimize=True)
+#    C += 2*np.einsum('qqst,pprt->rspq',I,Dab,optimize=True)
+#    ####
+#    C -= np.einsum('qs,pptu,qrtu->rspq',Id,I,Dab,optimize=True)
+#    C -= np.einsum('qs,pput,qrtu->rspq',Id,I,Dab,optimize=True)
+#    ####
+#    C -= np.einsum('pr,qqtu,pstu->rspq',Id,I,Dab,optimize=True)
+#    C -= np.einsum('pr,qqut,pstu->rspq',Id,I,Dab,optimize=True)
+#
+#    F = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+#
+#    F += 2*np.einsum('qs,psrr->rspq',h,Dab,optimize=True)
+#    F += 2*np.einsum('rp,qrss->rspq',h,Dab,optimize=True)
+#    F -= 2*np.einsum('pr,qt,ssrt->rspq',Id,h,Dab,optimize=True)
+#    F -= 2*np.einsum('qs,pt,rrst->rspq',Id,h,Dab,optimize=True)
+#    ####
+#    F += 2*np.einsum('qtss,ptrr->rspq',I,Dab,optimize=True)
+#    F += 2*np.einsum('ptrr,qtss->rspq',I,Dab,optimize=True)
+#    ####
+#    F -= np.einsum('qs,pstu,rrtu->rspq',Id,I,Dab,optimize=True)
+#    F -= np.einsum('qs,psut,rrtu->rspq',Id,I,Dab,optimize=True)
+#    ####
+#    F -= np.einsum('pr,qrtu,sstu->rspq',Id,I,Dab,optimize=True)
+#    F -= np.einsum('pr,qrut,sstu->rspq',Id,I,Dab,optimize=True)
+#
+#    E = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+#
+#    E += 2*np.einsum('pr,rp,qqss->rspq',Id,h,Dab,optimize=True)
+#    E += 2*np.einsum('sq,qs,pprr->rspq',Id,h,Dab,optimize=True)
+#    E -= 2*np.einsum('pr,qt,qtss->rspq',Id,h,Dab,optimize=True)
+#    E -= 2*np.einsum('qs,pt,ptrr->rspq',Id,h,Dab,optimize=True)
+#    ####
+#    E += np.einsum('pprr,qqss->rspq',I,Dab,optimize=True)
+#    E += np.einsum('qqss,pprr->rspq',I,Dab,optimize=True)
+#    ####
+#    E -= np.einsum('pr,qqtu,sstu->rspq',Id,I,Dab,optimize=True)
+#    E -= np.einsum('qs,pptu,rrtu->rspq',Id,I,Dab,optimize=True)
+#
+#    MM = np.zeros((pp.nbf5*(pp.nbf5-1)+pp.nbf5**2,pp.nbf5*(pp.nbf5-1)+pp.nbf5**2))
+#    MM[:pp.nbf5*(pp.nbf5-1),:pp.nbf5*(pp.nbf5-1)] = M[:pp.nbf5*(pp.nbf5-1),:pp.nbf5*(pp.nbf5-1)]
+#
+#    i = -1
+#    for s in range(pp.nbf5):
+#        for r in range(s+1,pp.nbf5):
+#            i += 1
+#            j = pp.nbf5*(pp.nbf5-1) - 1
+#            for q in range(pp.nbf5):
+#                for p in range(pp.nbf5):
+#                    j += 1
+#                    MM[i,j] = C[r,s,p,q]
+#    for s in range(pp.nbf5):
+#        for r in range(s+1,pp.nbf5):
+#            i += 1
+#            j = pp.nbf5*(pp.nbf5-1) - 1
+#            for q in range(pp.nbf5):
+#                for p in range(pp.nbf5):
+#                    j += 1
+#                    MM[i,j] = C[s,r,p,q]
+#    for s in range(pp.nbf5):
+#        for r in range(s,pp.nbf5):
+#            i += 1
+#            j = - 1
+#            for q in range(pp.nbf5):
+#                for p in range(q+1,pp.nbf5):
+#                    j += 1
+#                    MM[i,j] = F[r,s,p,q]
+#            for q in range(pp.nbf5):
+#                for p in range(q+1,pp.nbf5):
+#                    j += 1
+#                    MM[i,j] = F[r,s,q,p]
+#            for q in range(pp.nbf5):
+#                for p in range(pp.nbf5):
+#                    j += 1
+#                    MM[i,j] = E[r,s,p,q]
+#
+#
+#    V = np.zeros((pp.nbf5*(pp.nbf5-1),pp.nbf5*(pp.nbf5-1)))
+#    np.fill_diagonal(V, v)
+#
+#    VV = np.zeros((pp.nbf5*(pp.nbf5-1)+pp.nbf5**2,pp.nbf5*(pp.nbf5-1)+pp.nbf5**2))
+#    VV[:pp.nbf5*(pp.nbf5-1),:pp.nbf5*(pp.nbf5-1)] = V[:pp.nbf5*(pp.nbf5-1),:pp.nbf5*(pp.nbf5-1)]
+#
+#    i = pp.nbf5*(pp.nbf5-1) - 1
+#    for s in range(pp.nbf5):
+#        for r in range(pp.nbf5):
+#            i += 1
+#            j = pp.nbf5*(pp.nbf5-1) - 1
+#            for q in range(pp.nbf5):
+#                for p in range(pp.nbf5):
+#                    j += 1
+#                    if(p==r):
+#                        VV[i,j] = Dab[q,q,s,s]
+#                    if(q==s):
+#                        VV[i,j] = -Dab[p,p,r,r]
+#
+#    vals,vecs = eig(MM,VV)
+#
+#    vals_complex = np.array([val*27.2114 for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+#    print("Vals Complex:", np.size(vals_complex))
+#
+#    print("Excitation energies ERPA3/PNOF{}(eV):".format(pp.ipnof))
+#    vals_real = np.sort(np.array([np.real(val)*27.2114 for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 1e-5)]))
+#    for i in range(min(10,len(vals_real))):
+#        print("Excitation energy {}: {:6.3f}".format(i,vals_real[i]))
+#
+#
+#
+#######################################
+
+    M_ERPA2 = M.copy()
+
+    #First equation (15)
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = pp.nbf5*(pp.nbf5-1) -1
+            # C_rsp x_p
+            for p in range(pp.nbf5):
+                j += 1
+                M_ERPA2[i,j] = 1/2*(c[s]/(c[p]*(c[r]+c[s])))*A[r,s,p,p]
+
+    #Second equation (16)
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = pp.nbf5*(pp.nbf5-1) -1
+            # C_rsp Z_p
+            for p in range(pp.nbf5):
+                j += 1
+                M_ERPA2[i,j] = 1/2*(c[r]/(c[p]*(c[r]+c[s])))*A[r,s,p,p]
+
+    #Third equation (17)
+    for r in range(pp.nbf5):
+        i += 1
+        j = -1
+        # A_rrpq X_pq
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M_ERPA2[i,j] = (1/c[r])*A[r,r,p,q]
+        # B_rrpq Y_pq
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M_ERPA2[i,j] = (1/c[r])*A[r,r,q,p]
+        # E_rp x_p
+        for p in range(pp.nbf5):
+            j += 1
+            M_ERPA2[i,j] = (1/(4*c[p]*c[r]))*A[r,r,p,p]
+
+    v = np.zeros((pp.nbf5**2))
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = -2*(n[r] - n[s])
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = 2*(n[r] - n[s])
+    for r in range(pp.nbf5):
+        i += 1
+        v[i] = 1
+
+
+#    idx = []
+#    for i,vi in enumerate(v):
+#        if(np.abs(vi) < 1e-5):
+#            #print("v[{}] = {}".format(i,vi))
+#            idx.append(i)
+#    print("Number of small diagonal elements of V moved to the end:",len(idx))
+#
+#    dim = pp.nbf5*pp.nbf5
+#
+#    for i,j in enumerate(idx):
+#        tmp = V[j-i,:].copy()
+#        V[j-i:-1,:] = V[j-i+1:,:]
+#        V[-1,:] = tmp
+#        tmp = V[:,j-i].copy()
+#        V[:,j-i:-1] = V[:,j-i+1:]
+#        V[:,-1] = tmp
+#
+#        tmp = M[j-i,:].copy()
+#        M[j-i:-1,:] = M[j-i+1:,:]
+#        M[-1,:] = tmp
+#        tmp = M[:,j-i].copy()
+#        M[:,j-i:-1] = M[:,j-i+1:]
+#        M[:,-1] = tmp
+#
+#    V = V[:dim,:dim]
+    V = np.zeros((pp.nbf5**2,pp.nbf5**2))
+#
+##    for i,j in enumerate(idx):
+##        tmp = v[j-i]
+##        v[j-i:-1] = v[j-i+1:]
+##        v[-1] = tmp
+#
+##        tmp = M[j-i,:].copy()
+##        M[j-i:-1,:] = M[j-i+1:,:]
+##        M[-1,:] = tmp
+##        tmp = M[:,j-i].copy()
+##        M[:,j-i:-1] = M[:,j-i+1:]
+##        M[:,-1] = tmp
+#
+##    dim = (pp.nbf5)*(pp.nbf5-1) - len(idx)
+#
+##    V = np.zeros((dim,dim))
+    np.fill_diagonal(V, v)
+#
+#
+#    from scipy.linalg import eig
+#
+#    #### ERPA0
+#
+#    M_ERPA2 = M[:dim,:dim]
+
+    det = np.linalg.det(M_ERPA2)
+    print("ERPA2 Determinant: ", det)
+
+    vals,vecs = eig(M_ERPA2,V)
+
+    vals_complex = np.array([val*27.2114 for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+    print("Vals Complex:", np.size(vals_complex))
+
+    print("Excitation energies ERPA0 Original/PNOF{}(eV):".format(pp.ipnof))
+    vals_real = np.sort(np.array([np.real(val)*27.2114 for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0)]))
+    for i in range(min(10,len(vals_real))):
+        print("Excitation energy {}: {:6.3f}".format(i,vals_real[i]))
+
+
+
+
+
+
+
+
+
+
+    #############################################################################
+    A /= 2
+
+    B = np.einsum("pqsr->pqrs",A,optimize=True)
+
+    cp = np.add.outer(c,c)
+    cm = np.subtract.outer(c,c)
+
+    Ap = np.einsum("rs,rspq,pq->rspq",1/cp,A+B,1/cp,optimize=True)
+    Am = np.einsum("rs,rspq,pq->rspq",1/cm,A-B,1/cm,optimize=True)
+
+    Dp = 1/2*np.einsum("rspp,rs,p->rsp",A,1/cp,1/c,optimize=True)
+    Dpt = 1/2*np.einsum("rrqp,pq,r->rpq",A,1/cp,1/c,optimize=True)
+
+    #Dp = np.einsum("rs,pr->rsp",h,Id,optimize=True) + np.einsum("rs,ps->rsp",h,Id,optimize=True) + np.einsum("rspp->rsp",I,optimize=True)
+    #Dpt = np.einsum("rrpq,pq,r->rpq",B,1/cp,1/c,optimize=True)
+
+    Ep = 1/4*np.einsum("rrpp,r,p->rp",B,1/c,1/c,optimize=True)
+
+    M = np.zeros((pp.nbf5**2,pp.nbf5**2))
+
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = Am[r,s,p,q]
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = Dp[r,s,p]
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = Ap[r,s,p,q]
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = Dp[r,s,p]
+    for r in range(pp.nbf5):
+        i += 1
+        j = -1
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = 2*Dpt[r,p,q]
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+        for p in range(pp.nbf5):
+            M[i,j] = Ep[r,p]
+
+    #### ERPA2
+
+    M_ERPA2 = M.copy()
+    vals,vecs = eig(M_ERPA2)
+
+    det = np.linalg.det(M_ERPA2)
+    print("ERPA2 Determinant: ", det)
+
+    vals_complex = np.array([val*27.2114 for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+    print(vals)
+    print("Vals Complex:", np.size(vals_complex))
+
+    print("Excitation energies ERPA2/PNOF{}(eV):".format(pp.ipnof))
+    vals_real = np.sort(np.array([np.real(val)*27.2114 for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0)]))
+    for i in range(min(10,len(vals_real))):
+        print("Excitation energy {}: {:6.3f}".format(i,vals_real[i]))
 
 def compute_integrals(wfn,mol,p):
 
@@ -58,6 +635,8 @@ def compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p):
     grad = np.zeros((p.natoms,3))
 
     grad += np.array(mol.nuclear_repulsion_energy_deriv1())
+
+    print(grad)
 
     for i in range(p.natoms):
         dSx,dSy,dSz = np.array(mints.ao_oei_deriv1("OVERLAP",i))

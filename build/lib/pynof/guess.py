@@ -1,0 +1,74 @@
+import pynof
+import numpy as np
+
+def read_C(title = "pynof"):
+    C = np.load(title+"_C.npy")
+    return C
+
+def read_gamma(title = "pynof"):
+    gamma = np.load(title+"_gamma.npy")
+    return gamma
+
+def read_fmiug0(title = "pynof"):
+    fmiug0 = np.load(title+"_fmiug0.npy")
+    return fmiug0
+
+def read_all(title = "pynof"):
+    C = read_C(title)
+    gamma = read_gamma(title)
+    fmiug0 = read_fmiug0(title)
+
+    return C,gamma,fmiug0
+
+def order_subspaces(old_C,old_gamma,elag,H,I,b_mnl,p):
+
+    C = np.zeros((p.nbf,p.nbf))
+
+    #Sort no1 orbitals
+    elag_diag = np.diag(elag)[0:p.no1]
+    sort_idx = elag_diag.argsort()
+    for i in range(p.no1):
+        i_old  = sort_idx[i]
+        C[0:p.nbf,i] = old_C[0:p.nbf,i_old]
+
+    #Sort ndoc subspaces
+    elag_diag = np.diag(elag)[p.no1:p.ndoc]
+    sort_idx = elag_diag.argsort()
+    for i in range(p.ndoc):
+        i_old  = sort_idx[i]
+        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc - i - 1)
+        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc - i)
+
+        ll_old = p.no1 + p.ndns + p.ncwo*(p.ndoc - i_old - 1)
+        ul_old = p.no1 + p.ndns + p.ncwo*(p.ndoc - i_old)
+
+        C[0:p.nbf,p.no1+i] = old_C[0:p.nbf,p.no1+i_old]
+        C[0:p.nbf,ll:ul] = old_C[0:p.nbf,ll_old:ul_old]
+
+    gamma = np.zeros((p.nv))
+    for i in range(p.ndoc):
+        i_old  = sort_idx[i]
+        ll = p.ndoc + (p.ncwo-1)*i
+        ul = p.ndoc + (p.ncwo-1)*(i+1)
+        ll_old = p.ndoc + (p.ncwo-1)*(i_old)
+        ul_old = p.ndoc + (p.ncwo-1)*(i_old+1)
+
+        gamma[i] = old_gamma[i_old]
+        gamma[ll:ul] = old_gamma[ll_old:ul_old]
+
+    #Sort nsoc orbitals
+    elag_diag = np.diag(elag)[p.no1+p.ndoc:p.no1+p.ndns]
+    sort_idx = elag_diag.argsort()
+    for i in range(p.nsoc):
+        i_old  = sort_idx[i]
+        C[0:p.nbf,p.no1+p.ndoc+i] = old_C[0:p.nbf,p.no1+p.ndoc+i_old]
+
+    C[0:p.nbf,p.nbf5:p.nbf] = old_C[0:p.nbf,p.nbf5:p.nbf]
+
+    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+
+    cj12,ck12 = pynof.PNOFi_selector(n,p)
+    Etmp,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
+
+    return C,gamma,n,elag
+
