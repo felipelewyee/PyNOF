@@ -716,95 +716,42 @@ def calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
-    if p.RI:
-        Hmat,b_MO = pynof.JKH_MO_tmp(Cnew,H,I,b_mnl,p)
-    else:
-        Hmat,I_MO = pynof.JKH_MO_tmp(Cnew,H,I,b_mnl,p)
+    elag,Hmat = pynof.computeLagrange2(n,cj12,ck12,Cnew,H,I,b_mnl,p)
 
-    np.fill_diagonal(cj12,0) # Remove diag.
-    np.fill_diagonal(ck12,0) # Remove diag.
-
-    if p.gpu:
-        grad_block = cp.zeros((p.nbf,p.nbf))
-        grad = cp.zeros((p.nbf,p.nbf))
-        n = cp.array(n)
-        cj12 = cp.array(cj12)
-        ck12 = cp.array(ck12)
-        if p.RI:
-            if(p.MSpin==0):
-                # 2ndH/dy_ab
-                grad_block[:,:p.nbf5] +=  2*cp.einsum('b,ab->ab',2*n,Hmat[:,:p.nbf5],optimize=True)
-
-                # dJ_pp/dy_ab
-                grad_block[:,:p.nbeta] +=  4*cp.einsum('b,abk,bbk->ab',n[:p.nbeta],b_MO[:,:p.nbeta,:],b_MO[:p.nbeta,:p.nbeta,:],optimize=True)
-                grad_block[:,p.nalpha:p.nbf5] +=  4*cp.einsum('b,abk,bbk->ab',n[p.nalpha:p.nbf5],b_MO[:,p.nalpha:p.nbf5,:],b_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5,:],optimize=True)
-
-                # C^J_pq dJ_pq/dy_ab 
-                tmp = cp.einsum('bq,qqk->bk',cj12,b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
-                grad_block[:,:p.nbf5] +=  4*cp.einsum('abk,bk->ab',b_MO[:,:p.nbf5,:],tmp,optimize=True)
-
-                # -C^K_pq dK_pq/dy_ab 
-                grad_block[:,:p.nbf5] += -4*cp.einsum('bq,aqk,bqk->ab',ck12,b_MO[:,:p.nbf5,:],b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
-        else:        
-            if(p.MSpin==0):
-                # 2ndH/dy_ab
-                grad_block[:,:p.nbf5] +=  2*cp.einsum('b,ab->ab',2*n,Hmat[:,:p.nbf5],optimize=True)
-        
-                # dJ_pp/dy_ab
-                grad_block[:,:p.nbeta] +=  4*cp.einsum('b,abbb->ab',n[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
-                grad_block[:,p.nalpha:p.nbf5] +=  4*cp.einsum('b,abbb->ab',n[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
-        
-                # C^J_pq dJ_pq/dy_ab 
-                grad_block[:,:p.nbf5] +=  4*cp.einsum('bq,abqq->ab',cj12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
-        
-                # -C^K_pq dK_pq/dy_ab 
-                grad_block[:,:p.nbf5] += -4*cp.einsum('bq,aqbq->ab',ck12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
-        
-        grad += grad_block - grad_block.T
-        grad = grad.get()    
-    else:
-        grad_block = np.zeros((p.nbf,p.nbf))
-        grad = np.zeros((p.nbf,p.nbf))
-        if p.RI:
-            if(p.MSpin==0):
-                # 2ndH/dy_ab
-                grad_block[:,:p.nbf5] +=  2*np.einsum('b,ab->ab',2*n,Hmat[:,:p.nbf5],optimize=True)
-
-                # dJ_pp/dy_ab
-                grad_block[:,:p.nbeta] +=  4*np.einsum('b,abk,bbk->ab',n[:p.nbeta],b_MO[:,:p.nbeta,:],b_MO[:p.nbeta,:p.nbeta,:],optimize=True)
-                grad_block[:,p.nalpha:p.nbf5] +=  4*np.einsum('b,abk,bbk->ab',n[p.nalpha:p.nbf5],b_MO[:,p.nalpha:p.nbf5,:],b_MO[p.nalpha:p.nbf5,p.nalpha:p.nbf5,:],optimize=True)
-
-                # C^J_pq dJ_pq/dy_ab
-                tmp = np.einsum('bq,qqk->bk',cj12,b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
-                grad_block[:,:p.nbf5] +=  4*np.einsum('abk,bk->ab',b_MO[:,:p.nbf5,:],tmp,optimize=True)
-
-                # -C^K_pq dK_pq/dy_ab 
-                grad_block[:,:p.nbf5] += -4*np.einsum('bq,aqk,bqk->ab',ck12,b_MO[:,:p.nbf5,:],b_MO[:p.nbf5,:p.nbf5,:],optimize=True)
-        else:
-            if(p.MSpin==0):
-                # 2ndH/dy_ab
-                grad_block[:,:p.nbf5] +=  2*np.einsum('b,ab->ab',2*n,Hmat[:,:p.nbf5],optimize=True)
-    
-                # dJ_pp/dy_ab
-                grad_block[:,:p.nbeta] +=  4*np.einsum('b,abbb->ab',n[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
-                grad_block[:,p.nalpha:p.nbf5] +=  4*np.einsum('b,abbb->ab',n[p.nalpha:p.nbf5],I_MO[:,p.nalpha:p.nbf5,p.nalpha:p.nbf5,p.nalpha:p.nbf5],optimize=True)
-    
-                # C^J_pq dJ_pq/dy_ab 
-                grad_block[:,:p.nbf5] +=  4*np.einsum('bq,abqq->ab',cj12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
-    
-                # -C^K_pq dK_pq/dy_ab 
-                grad_block[:,:p.nbf5] += -4*np.einsum('bq,aqbq->ab',ck12,I_MO[:,:p.nbf5,:p.nbf5,:p.nbf5],optimize=True)
-        grad += grad_block - grad_block.T
+    grad = 4*(elag - elag.T)
 
     grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
-    n = 0
+
+    k = 0
     for i in range(p.nbf5):
         for j in range(i+1,p.nbf):
-            grads[n] = grad[i,j]
-            n += 1
+            grads[k] = grad[i,j]
+            k += 1
     grad = grads
 
     return grad
+
+def calcorbeg(y,n,cj12,ck12,C,H,I,b_mnl,p):
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+
+    elag,Hmat = pynof.computeLagrange2(n,cj12,ck12,Cnew,H,I,b_mnl,p)
+
+    grad = 4*(elag - elag.T)
+
+    grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
+
+    k = 0
+    for i in range(p.nbf5):
+        for j in range(i+1,p.nbf):
+            grads[k] = grad[i,j]
+            k += 1
+    grad = grads
+
+    E = np.einsum('ii',elag[:p.nbf5,:p.nbf5],optimize=True)
+    E = E + np.einsum('i,ii',n[:p.nbf5],Hmat[:p.nbf5,:p.nbf5],optimize=True)
+
+    return E,grad
 
 def calcorbh(y,gamma,C,H,I,b_mnl,p):
 
@@ -958,7 +905,27 @@ def calccombg(x,C,H,I,b_mnl,p):
 
     grad = np.zeros(nvar + p.nv)
 
-    grad[:nvar] = calcorbg(y,n,cj12,ck12,Cnew,H,I,b_mnl,p)
+    grad[:nvar] = calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
     grad[nvar:] = calcoccg(gamma,J_MO,K_MO,H_core,p)
 
     return grad
+
+def calccombeg(x,C,H,I,b_mnl,p):
+
+    nvar = int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)
+    y = x[:nvar]
+    gamma = x[nvar:]
+
+    Cnew = pynof.rotate_orbital(y,C,p)
+    
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    cj12,ck12 = pynof.PNOFi_selector(n,p)
+
+    J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
+
+    grad = np.zeros(nvar + p.nv)
+
+    E,grad[:nvar] = calcorbeg(y,n,cj12,ck12,C,H,I,b_mnl,p)
+    grad[nvar:] = calcoccg(gamma,J_MO,K_MO,H_core,p)
+
+    return E,grad

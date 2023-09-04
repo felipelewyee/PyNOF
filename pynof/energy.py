@@ -66,14 +66,11 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
             print("")
             print('{:^7} {:^7}  {:^14}  {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
         for i_ext in range(p.maxit):
-            #t1 = time()
             #orboptr
             convgdelag,E,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
-            #t2 = time()
     
             #occopt
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convgdelag,C,H,I,b_mnl,p)
-            #t3 = time()
     
             if(convgdelag):
 
@@ -92,7 +89,6 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
                         E,C,gamma = Estored,Cstored,gammastored
                     break
 
-            #print(t2-t1,t3-t2)
         np.save(p.title+"_fmiug0.npy",fmiug0)
     
     if(p.method=="Rotations"):
@@ -106,7 +102,6 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
         for i_ext in range(p.maxit):
 
             E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
-
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convorb,C,H,I,b_mnl,p)
 
             E = E_orb
@@ -142,19 +137,19 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
             print("")
             print('{:^4} {:^8} {:^14} {:^14} {:^14} {:^6} {:^10}'.format("Nit","Nit_int","Eelec","Etot","Ediff","grad","Int. Conv."))
         for i_ext in range(p.maxit):
-            E,C,gamma,n,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
+            E,C,gamma,n,grad,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
             E_diff = E-E_old
             E_old = E
 
-            x = np.zeros((p.nvar+p.nv))
-            x[p.nvar:] = gamma
-            grad = pynof.calccombg(x,C,H,I,b_mnl,p)
+            #x = np.zeros((p.nvar+p.nv))
+            #x[p.nvar:] = gamma
+            #grad = pynof.calccombg(x,C,H,I,b_mnl,p)
             grad_norm = np.linalg.norm(grad)
             grad_orb, grad_occ = grad[:p.nvar], grad[p.nvar:]
 
             print("{:4d} {:8d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(i_ext,nit,E,E+E_nuc,E_diff,grad_norm,success))
 
-            if(grad_norm < 5e-3 and (success or i_ext-last_iter>10)):
+            if(grad_norm < 5e-4 and (success or i_ext-last_iter>10)):
             #if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
                 if perturb and E - Estored < -1e-4:
                     print("Increasing Gradient")
