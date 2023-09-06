@@ -515,7 +515,7 @@ def PNOFi_selector(n,p):
 
 def der_PNOFi_selector(n,dn_dgamma,p):
     if(p.ipnof==5):
-        Dcj12r,Dck12r = der_CJCKD5(n,dn_dgamma,p)
+        Dcj12r,Dck12r = der_CJCKD5(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo)
     if(p.ipnof==7):
         Dcj12r,Dck12r = der_CJCKD7(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo)
     if(p.ipnof==8):
