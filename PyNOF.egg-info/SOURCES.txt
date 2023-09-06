@@ -9,11 +9,7 @@ pynof/__init__.py
 pynof/energy.py
 pynof/guess.py
 pynof/input.py
-pynof/integrals-erpa.py
-pynof/integrals-erpa2.py
 pynof/integrals.py
-pynof/integrals_tmp.py
-pynof/integrals_tmp5.py
 pynof/minimization.py
 pynof/optimization.py
 pynof/output.py
@@ -21,5 +17,4 @@ pynof/parameters.py
 pynof/pnof.py
 pynof/postpnof.py
 pynof/projection.py
-pynof/tmp.py
 pynof/utils.py

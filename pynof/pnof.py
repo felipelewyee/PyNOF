@@ -34,40 +34,48 @@ def CJCKD5(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
 
     return cj12,ck12
 
-def der_CJCKD5(n,dn_dgamma,p):
+@njit(parallel=True, cache=True)
+def der_CJCKD5(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
     # Interpair Electron correlation #
 
-    Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)    
-    Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n)    
+    Dcj12r = np.zeros((nbf5,nbf5,nv))
+    Dck12r = np.zeros((nbf5,nbf5,nv))
+    for k in prange(nv):
+        Dcj12r[:,:,k] = 2*np.outer(dn_dgamma[:,k],n)
+        Dck12r[:,:,k] = np.outer(dn_dgamma[:,k],n)
+    #Dcj12r = 2*np.einsum('ik,j->ijk',dn_dgamma,n)    
+    #Dck12r = np.einsum('ik,j->ijk',dn_dgamma,n)
 
-    # Interpair Electron Correlation
-    
-    for l in range(p.ndoc):            
-        ldx = p.no1 + l
+    # Intrapair Electron Correlation
+
+    for l in prange(ndoc):
+        ldx = no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = p.no1 + p.ndns + p.ncwo*(p.ndoc-l-1)
-        ul = p.no1 + p.ndns + p.ncwo*(p.ndoc-l)
+        ll = no1 + ndns + ncwo*(ndoc - l - 1)
+        ul = no1 + ndns + ncwo*(ndoc - l)
 
-        Dcj12r[ldx,ll:ul,:p.nv] = 0
-        Dcj12r[ll:ul,ldx,:p.nv] = 0
+        Dcj12r[ldx,ll:ul,:nv] = 0
+        Dcj12r[ll:ul,ldx,:nv] = 0
 
-        Dcj12r[ll:ul,ll:ul,:p.nv] = 0   
-        
-        a = n[ldx] 
-        a = max(a,10**-15)
+        Dcj12r[ll:ul,ll:ul,:nv] = 0
+
+        a = max(n[ldx],10**-15)
         b = n[ll:ul]
-        b[b<10**-15] = 10**-15        
-        
-        Dck12r[ldx,ll:ul,:p.nv] = 1/2 * 1/np.sqrt(a) * np.einsum('j,i->ij',dn_dgamma[ldx,:p.nv],np.sqrt(n[ll:ul]))
-        Dck12r[ll:ul,ldx,:p.nv] = 1/2 * np.einsum('i,ij->ij', 1/np.sqrt(b),dn_dgamma[ll:ul,:p.nv])*np.sqrt(n[ldx])
-        
-        for k in range(p.nv):
-            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.einsum('i,i,j->ij',1/np.sqrt(b),dn_dgamma[ll:ul,k],np.sqrt(n[ll:ul]))
-                        
-    return Dcj12r,Dck12r
+        b[b<10**-15] = 10**-15
 
+        for k in range(nv):
+            Dck12r[ldx,ll:ul,k] = 1/2 * 1/np.sqrt(a) * dn_dgamma[ldx,k] * np.sqrt(n[ll:ul])
+            Dck12r[ll:ul,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_dgamma[ll:ul,k] * np.sqrt(n[ldx])
+            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_dgamma[ll:ul,k],np.sqrt(n[ll:ul]))
+        #Dck12r[ldx,ll:ul,:nv] = 1/2 * 1/np.sqrt(a) * np.einsum('j,i->ij',dn_dgamma[ldx,:nv],np.sqrt(n[ll:ul]))
+        #Dck12r[ll:ul,ldx,:nv] = 1/2 * np.einsum('i,ij->ij', 1/np.sqrt(b),dn_dgamma[ll:ul,:nv])*np.sqrt(n[ldx])
+
+        #for k in range(nv):
+        #    Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.einsum('i,i,j->ij',1/np.sqrt(b),dn_dgamma[ll:ul,k],np.sqrt(n[ll:ul]))
+
+    return Dcj12r,Dck12r
 
 #CJCKD7
 @njit(parallel=True, cache=True)
