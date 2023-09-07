@@ -59,16 +59,19 @@ def energy_optgeo(coord,symbols,p,printmode=False):
     
     # Paramdetros del sistema
     p.wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
-   
-    C,gamma,fmiug0 = pynof.read_all(p.title)
+  
+    try:
+        C,gamma,fmiug0 = pynof.read_all(p.title)
+    except:
+        C = pynof.read_C(p.title)
+        gamma = pynof.read_gamma(p.title)
+        fmiug0 = None
 
     #p.autozeros()
     p.autozeros(restart=True)
     
     t1 = time()
     E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
-    #p.RI = False
-    #E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     t2 = time()
     print("                       Total Energy:", E_t)
 
