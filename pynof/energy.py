@@ -67,11 +67,14 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
             print('{:^7} {:^7}  {:^14}  {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
         for i_ext in range(p.maxit):
             #orboptr
+            #t1 = time()
             convgdelag,E,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
+            #t2 = time()
     
             #occopt
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convgdelag,C,H,I,b_mnl,p)
-    
+            #t3 = time()
+            #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
             if(convgdelag):
 
                 if perturb and E - Estored < -1e-4:
@@ -101,8 +104,12 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
         convorb = False
         for i_ext in range(p.maxit):
 
+            #t1 = time()
             E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+            #t2 = time()
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convorb,C,H,I,b_mnl,p)
+            #t3 = time()
+            #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
 
             E = E_orb
             E_diff = E-E_old
@@ -137,7 +144,10 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
             print("")
             print('{:^4} {:^8} {:^14} {:^14} {:^14} {:^6} {:^10}'.format("Nit","Nit_int","Eelec","Etot","Ediff","grad","Int. Conv."))
         for i_ext in range(p.maxit):
+            #t1 = time()
             E,C,gamma,n,grad,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
+            #t2 = time()
+            #print("t_comb: {:3.1e}".format(t2-t1))
             E_diff = E-E_old
             E_old = E
 
@@ -151,7 +161,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 
             if(grad_norm < 5e-4 and (success or i_ext-last_iter>10)):
             #if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
-                if perturb and E - Estored < -1e-4:
+                if perturb and E - Estored < -1e-3:
                     print("Increasing Gradient")
                     last_iter = i_ext
                     Estored,Cstored,gammastored = E,C.copy(),gamma.copy()

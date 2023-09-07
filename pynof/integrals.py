@@ -48,7 +48,7 @@ def compute_integrals(wfn,mol,p):
 
     return S,T,V,H,I,b_mnl,Dipole
 
-def compute_der_integrals(wfn,mol,n,C,cj12,ck12,elag,p):
+def compute_geom_gradients(wfn,mol,n,C,cj12,ck12,elag,p):
 
     mints = psi4.core.MintsHelper(wfn.basisset())
 

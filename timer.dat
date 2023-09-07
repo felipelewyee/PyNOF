@@ -1,0 +1,30 @@
+
+Host: B450-AORUS-PRO-WIFI
+
+Timers On : Thu Sep  7 15:26:56 2023
+Timers Off: Thu Sep  7 15:26:56 2023
+
+Wall Time:        0.51 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+
+--------------------------------------------------------------------------------------
+
+**************************************************************************************
+
+Host: B450-AORUS-PRO-WIFI
+
+Timers On : Thu Sep  7 15:29:26 2023
+Timers Off: Thu Sep  7 15:30:28 2023
+
+Wall Time:       61.95 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Libint2ERI::Libint2ERI              :      0.500u      0.033s      0.258w    342 calls
+
+--------------------------------------------------------------------------------------
+Libint2ERI::Libint2ERI              :      0.500u      0.033s      0.258w    342 calls
+
+**************************************************************************************
