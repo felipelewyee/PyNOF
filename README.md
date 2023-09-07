@@ -16,11 +16,12 @@ cd PyNOF
 
 In the PyNOF folder, execute the following code
 ~~~
+cd PyNOF
 conda create -n pynof python=3.9
 conda activate pynof
+conda install pip numpy=1.23 scipy numba cupy
 conda install -c psi4 psi4
-conda install pip numpy scipy numba cupy
-python setup.py bdist_wheel && cd dist && pip install PyNOF-0.1-py3-none-any.whl --force-reinstall && cd ..
+python setup.py bdist_wheel && cd dist && pip install PyNOF-0.1-py3-none-any.whl && cd ..
 ~~~
 
 # Example
