@@ -159,7 +159,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 
             print("{:4d} {:8d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(i_ext,nit,E,E+E_nuc,E_diff,grad_norm,success))
 
-            if(grad_norm < 5e-4 and (success or i_ext-last_iter>10)):
+            if(grad_norm < 1e-3 and (success or i_ext-last_iter>10)):
             #if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
                 if perturb and E - Estored < -1e-3:
                     print("Increasing Gradient")

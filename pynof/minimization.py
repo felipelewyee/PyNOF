@@ -189,6 +189,7 @@ def comb(gamma,C,H,I,b_mnl,p):
     E = res.fun
     x = res.x
     grad = res.jac
+    nit = res.nit
     y = x[:p.nvar]
     gamma = x[p.nvar:]
     C = pynof.rotate_orbital(y,C,p)
