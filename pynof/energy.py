@@ -54,7 +54,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
 
     elag = np.zeros((p.nbf,p.nbf))
 
-    E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,C,H,I,b_mnl,p)
+    E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
 
     iloop = 0
     itlim = 0
@@ -84,9 +84,9 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
 
                 if perturb and E - Estored < -1e-4:
                     y = np.zeros((p.nvar))
-                    grad_orb = pynof.calcorbg(y,gamma,C,H,I,b_mnl,p)
+                    grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
                     J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
-                    grad_occ = pynof.calcg(gamma,J_MO,K_MO,H_core,p)
+                    grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
                     print("Increasing Gradient")
                     last_iter = i_ext
                     Estored,Cstored,gammastored = E,C.copy(),gamma.copy()

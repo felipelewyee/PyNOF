@@ -67,7 +67,7 @@ def hfidr(C,H,I,b_mnl,E_nuc,p,printmode):
 
     return E,C,fmiug0
 
-def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
+def occoptr(gamma,C,H,I,b_mnl,p):
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
 
