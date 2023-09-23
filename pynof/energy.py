@@ -77,7 +77,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
             #t2 = time()
     
             #occopt
-            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convgdelag,C,H,I,b_mnl,p)
+            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
             #t3 = time()
             #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
             if(convgdelag):
@@ -112,7 +112,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
             #t1 = time()
             E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
             #t2 = time()
-            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,convorb,C,H,I,b_mnl,p)
+            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
             #t3 = time()
             #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
 
