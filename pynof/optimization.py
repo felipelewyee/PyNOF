@@ -5,12 +5,12 @@ from time import time
 import pynof
 from scipy.optimize import minimize
 
-def optgeo(mol,p,C=None,gamma=None,fmiug0=None):
+def optgeo(mol,p,C=None,n=None,fmiug0=None):
    
     wfn = p.wfn
     coord, mass, symbols, Z, key = wfn.molecule().to_arrays()
-    if(C is None or gamma is None or fmiug0 is None):
-        E_t = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=True,printmode=True)
+    if(C is None or n is None or fmiug0 is None):
+        E_t = pynof.compute_energy(mol,p,C,n,fmiug0,hfidr=True,printmode=True)
     
     print("Initial Geometry (Bohrs)")
     print("========================")
@@ -61,17 +61,17 @@ def energy_optgeo(coord,symbols,p,printmode=False):
     p.wfn = psi4.core.Wavefunction.build(mol, psi4.core.get_global_option('basis'))
   
     try:
-        C,gamma,fmiug0 = pynof.read_all(p.title)
+        C,n,fmiug0 = pynof.read_all(p.title)
     except:
         C = pynof.read_C(p.title)
-        gamma = pynof.read_gamma(p.title)
+        n = pynof.read_n(p.title)
         fmiug0 = None
 
     #p.autozeros()
     p.autozeros(restart=True)
     
     t1 = time()
-    E_t,C,gamma,fmiug0,grad = pynof.compute_energy(mol,p,C,gamma,fmiug0,hfidr=False,gradients=True,printmode=printmode)
+    E_t,C,n,fmiug0,grad = pynof.compute_energy(mol,p,C,n,fmiug0,hfidr=False,gradients=True,printmode=printmode)
     t2 = time()
     print("                       Total Energy:", E_t)
 

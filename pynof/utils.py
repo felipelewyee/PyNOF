@@ -454,3 +454,54 @@ def perturb_gradient(grad,tol):
 
     return grad
 
+@njit(cache=True)
+def n_to_gammas_trigonometric(n,nv,no1,ndoc,ndns,ncwo):
+    gamma = np.zeros(nv)
+    for i in range(ndoc):
+        idx = no1 + i
+        gamma[i] = np.arccos(np.sqrt(2.0*n[idx]-1.0))
+        prefactor = max(1-n[idx],1e-14)
+        for j in range(ncwo-1):
+            jg = ndoc + i*(ncwo-1) + j
+            ig = no1 + ndns + ncwo*(ndoc - i - 1) + j
+            gamma[jg] = np.arcsin(np.sqrt(n[ig]/prefactor))
+            prefactor = prefactor * (np.cos(gamma[jg]))**2
+    return gamma
+
+@njit(cache=True)
+def n_to_gammas_softmax(n,nv,no1,ndoc,ndns,ncwo):
+
+    gamma = np.zeros((nv))
+
+    for i in range(ndoc):
+
+        ll = no1 + ndns + ncwo*(ndoc - i - 1)
+        ul = no1 + ndns + ncwo*(ndoc - i)
+
+        llg = ll - ndns + ndoc - no1
+        ulg = ul - ndns + ndoc - no1
+
+        ns = n[ll:ul]
+
+        A = np.zeros((ncwo,ncwo))
+        b = np.zeros((ncwo))
+
+        for j in range(ncwo):
+            A[j,:] = ns[j]
+            A[j,j] = ns[j]-1
+            b[j] = -ns[j]
+
+        x = np.log(np.linalg.solve(A,b))
+        gamma[llg:ulg] = x
+
+    return gamma
+
+@njit(cache=True)
+def compute_gammas_trigonometric(nv,ndoc,ncwo):
+    gamma = np.zeros((nv))
+    for i in range(ndoc):
+        gamma[i] = np.arccos(np.sqrt(2.0*0.999-1.0))
+        for j in range(ncwo-1):
+            ig = ndoc+i*(ncwo-1)+j
+            gamma[ig] = np.arcsin(np.sqrt(1.0/(ncwo-j)))
+    return gamma

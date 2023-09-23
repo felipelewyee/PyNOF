@@ -105,7 +105,8 @@ class param():
         self.MSpin = 0
 
         self.lamb = 0.0
-        self.method = "ID"
+        self.occ_method = "Trigonometric"
+        self.orb_method = "ID"
 
     def autozeros(self,restart=False):
         if(restart):

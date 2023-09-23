@@ -84,7 +84,7 @@ def occoptr(gamma,convgdelag,C,H,I,b_mnl,p):
         nit = res.nit
         success = res.success
 
-    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
 
     return E,nit,success,gamma,n,cj12,ck12
@@ -158,7 +158,7 @@ def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
     y = np.zeros((p.nvar))
 
-    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
 
     if("trust" in p.orbital_optimizer or "Newton-CG" in p.orbital_optimizer):

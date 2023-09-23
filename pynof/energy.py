@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False,erpa=False):
+def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False,erpa=False):
  
     t1 = time()
 
@@ -39,15 +39,20 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
         C = Cguess
     C = pynof.check_ortho(C,S,p)
 
-    if(gamma is None):
-        gamma = np.zeros((p.nv))
-        for i in range(p.ndoc):
-            gamma[i] = np.arccos(np.sqrt(2.0*0.999-1.0))
-            for j in range(p.ncwo-1):
-                ig = p.ndoc+i*(p.ncwo-1)+j
-                gamma[ig] = np.arcsin(np.sqrt(1.0/(p.ncwo-j)))
+    if(n is None):
+        gamma = pynof.compute_gammas_trigonometric(p.nv,p.ndoc,p.ncwo)
+        if p.occ_method == "Softmax":
+            p.nv = p.nbf5 - p.no1 - p.nsoc 
+            n,dn_dgamma = pynof.ocupacion_trigonometric(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+            gamma = pynof.n_to_gammas_softmax(n,p.nv,p.no1,p.ndoc,p.ndns,p.ncwo)
+    else:
+        if p.occ_method == "Trigonometric":
+            gamma = pynof.n_to_gammas_trigonometric(n,p.nv,p.no1,p.ndoc,p.ndns,p.ncwo)
+        if p.occ_method == "Softmax":
+            p.nv = p.nbf5 - p.no1 - p.nsoc 
+            gamma = pynof.n_to_gammas_softmax(n,p.nv,p.no1,p.ndoc,p.ndns,p.ncwo)
 
-    elag = np.zeros((p.nbf,p.nbf)) #temporal
+    elag = np.zeros((p.nbf,p.nbf))
 
     E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,False,C,H,I,b_mnl,p)
 
@@ -58,7 +63,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
     Estored,Cstored,gammastored = 0,0,0
     last_iter = 0
 
-    if(p.method=="ID"):
+    if(p.orb_method=="ID"):
         if(printmode):
             print("")
             print("PNOF{} Calculation (ID Optimization)".format(p.ipnof))
@@ -94,7 +99,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 
         np.save(p.title+"_fmiug0.npy",fmiug0)
     
-    if(p.method=="Rotations"):
+    if(p.orb_method=="Rotations"):
         if(printmode):
             print("")
             print("PNOF{} Calculation (Rotations Optimization)".format(p.ipnof))
@@ -116,7 +121,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
             E_old = E
 
             y = np.zeros((p.nvar))
-            n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+            n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
             cj12,ck12 = pynof.PNOFi_selector(n,p)
             grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
             J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
@@ -136,7 +141,7 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
                         E,C,gamma = Estored,Cstored,gammastored
                     break
 
-    if(p.method=="Combined"):
+    if(p.orb_method=="Combined"):
         if(printmode):
             print("")
             print("PNOF{} Calculation (Combined Optimization)".format(p.ipnof))
@@ -172,12 +177,12 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
                         E,C,gamma = Estored,Cstored,gammastored
                     break
 
-    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
     print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
 
-    C,gamma,n,elag = pynof.order_subspaces(C,gamma,elag,H,I,b_mnl,p)
+    C,n,elag = pynof.order_subspaces(C,n,elag,H,I,b_mnl,p)
 
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_gamma.npy",gamma)
@@ -244,9 +249,9 @@ def compute_energy(mol,p=None,C=None,gamma=None,fmiug0=None,hfidr=True,nofmp2=Fa
 
     if gradients:
         grad = pynof.compute_geom_gradients(wfn,mol,n,C,cj12,ck12,elag,p)
-        return E_t,C,gamma,fmiug0,grad.flatten()
+        return E_t,C,n,fmiug0,grad.flatten()
     else:
-        return E_t,C,gamma,fmiug0
+        return E_t,C,n,fmiug0
 
 
 def brute_force_energy(mol,p,intents=5,C=None,gamma=None,fmiug0=None,hfidr=True,RI_last=False,gpu_last=False,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False):

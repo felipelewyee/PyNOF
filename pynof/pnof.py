@@ -524,7 +524,15 @@ def der_PNOFi_selector(n,dn_dgamma,p):
     return Dcj12r,Dck12r
 
 @njit(cache=True)
-def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
+def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin,occ_method):
+    if occ_method == "Trigonometric":
+        n,dn_dgamma = ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin)
+    elif occ_method == "Softmax":
+        n,dn_dgamma = ocupacion_softmax(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin)
+    return n,dn_dgamma
+
+@njit(cache=True)
+def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     n = np.zeros((nbf5))
     dni_dgammai = np.zeros((nbf5))
@@ -538,7 +546,6 @@ def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
         n[no1+ndoc:no1+ndns] = 0.5   # (no1+ndoc,no1+ndns]
     elif(HighSpin):
         n[no1+ndoc:no1+ndns] = 1.0   # (no1+ndoc,no1+ndns]
-
 
     if(ncwo==1):
         dn_dgamma = np.zeros((nbf5,nv))
@@ -596,6 +603,43 @@ def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     return n,dn_dgamma
 
+@njit(cache=True)
+def ocupacion_softmax(x,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
+
+    n = np.zeros((nbf5))
+    dn_dx = np.zeros((nbf5,nv))
+
+    if(not HighSpin):
+         n[no1+ndoc:no1+ndns] = 0.5   # (no1+ndoc,no1+ndns]
+    elif(HighSpin):
+         n[no1+ndoc:no1+ndns] = 1.0   # (no1+ndoc,no1+ndns]
+
+    exp_x = np.exp(x)
+
+    for i in range(ndoc):
+        ll = no1 + ndns + ncwo*(ndoc - i - 1)
+        ul = no1 + ndns + ncwo*(ndoc - i)
+
+        ll_x = ll - ndns + ndoc - no1
+        ul_x = ul - ndns + ndoc - no1
+
+        sum_exp = exp_x[i] + np.sum(exp_x[ll_x:ul_x])
+
+        n[i] = exp_x[i]/sum_exp
+        n[ll:ul] = exp_x[ll_x:ul_x]/sum_exp
+
+        dn_dx[ll:ul,ll_x:ul_x] = -np.outer(exp_x[ll_x:ul_x],exp_x[ll_x:ul_x])/sum_exp**2
+
+        dn_dx[i,ll_x:ul_x] = -exp_x[ll_x:ul_x]*exp_x[i]/sum_exp**2
+        dn_dx[ll:ul,i] = -exp_x[ll_x:ul_x]*exp_x[i]/sum_exp**2
+
+        dn_dx[i,i] = exp_x[i]*(sum_exp-exp_x[i])/sum_exp**2
+
+        for j in range(ncwo):
+            dn_dx[ll+j,ll_x+j] = exp_x[ll_x+j]*(sum_exp-exp_x[ll_x+j])/sum_exp**2
+
+    return n,dn_dx
+
 def calce(n,cj12,ck12,J_MO,K_MO,H_core,p):
 
     E = 0
@@ -651,7 +695,7 @@ def calce(n,cj12,ck12,J_MO,K_MO,H_core,p):
 
 def calcocce(gamma,J_MO,K_MO,H_core,p):
 
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = PNOFi_selector(n,p)
 
     E = calce(n,cj12,ck12,J_MO,K_MO,H_core,p)
@@ -662,7 +706,7 @@ def calcoccg(gamma,J_MO,K_MO,H_core,p):
 
     grad = np.zeros((p.nv))
 
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     Dcj12r,Dck12r = der_PNOFi_selector(n,dn_dgamma,p)
 
     if(p.MSpin==0):
@@ -765,7 +809,7 @@ def calcorbh(y,gamma,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = PNOFi_selector(n,p)
     np.fill_diagonal(cj12,0) # Remove diag.
     np.fill_diagonal(ck12,0) # Remove diag.
@@ -889,7 +933,7 @@ def calccombe(x,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
-    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = PNOFi_selector(n,p)
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
@@ -906,7 +950,7 @@ def calccombg(x,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
 
-    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
@@ -926,7 +970,7 @@ def calccombeg(x,C,H,I,b_mnl,p):
 
     Cnew = pynof.rotate_orbital(y,C,p)
     
-    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
 
     J_MO,K_MO,H_core = pynof.computeJKH_MO(Cnew,H,I,b_mnl,p)
