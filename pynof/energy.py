@@ -185,7 +185,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
     C,n,elag = pynof.order_subspaces(C,n,elag,H,I,b_mnl,p)
 
     np.save(p.title+"_C.npy",C)
-    np.save(p.title+"_gamma.npy",gamma)
+    np.save(p.title+"_n.npy",n)
 
     if(printmode):
         print("")
