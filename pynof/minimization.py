@@ -194,6 +194,6 @@ def comb(gamma,C,H,I,b_mnl,p):
     gamma = x[p.nvar:]
     C = pynof.rotate_orbital(y,C,p)
 
-    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
+    n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
 
     return E,C,gamma,n,grad,res.nit,res.success
