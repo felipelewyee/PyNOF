@@ -17,4 +17,4 @@ p.RI = True
 
 p.combined_optimizer = "CG"
 p.method = "Combined"
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,perturb=True)
+E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,perturb=True)

@@ -16,4 +16,4 @@ p.RI = True
 #p.gpu = True
 
 p.method = "ID"
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
+E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)

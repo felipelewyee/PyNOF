@@ -1159,6 +1159,16 @@ def M_diagnostic(p,n):
     print("---------------------------------")
     print("")
     
+def matrix_product(x,M,V):
+
+    w = x[0]
+    y = x[1:]
+
+    MM = M - w*V
+    vec = np.matmul(MM,y)
+
+    return(np.linalg.norm(vec))
+
 def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     
     time1 = time()
@@ -1168,7 +1178,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     print("---------------\n")
 
     tol_n = 10**-150
-    tol_dn = 10**-8
+    tol_dn = 10**-7
     tol_eig = 10**-8
 
     norb = len(n[n>tol_n])
@@ -1324,90 +1334,128 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
             i += 1
             v[i] = 2*(n[r] - n[s])
 
-    idx = []
-    for i,vi in enumerate(v):
-        if(np.abs(vi) < tol_dn):
-            idx.append(i)
 
-    dim = (norb)*(norb-1) - len(idx)
+#    idx = []
+#    for i,vi in enumerate(v):
+#        if(np.abs(vi) < tol_dn):
+#            idx.append(i)
+
+#    dim = (norb)*(norb-1) - len(idx)
     
-    for i,j in enumerate(idx):
-        tmp = v[j-i]
-        v[j-i:-1] = v[j-i+1:]
-        v[-1] = tmp
+#    for i,j in enumerate(idx):
+#        tmp = v[j-i]
+#        v[j-i:-1] = v[j-i+1:]
+#        v[-1] = tmp
+#
+#        tmp = M[j-i,:].copy()
+#        M[j-i:-1,:] = M[j-i+1:,:]
+#        M[-1,:] = tmp
+#        tmp = M[:,j-i].copy()
+#        M[:,j-i:-1] = M[:,j-i+1:]
+#        M[:,-1] = tmp
 
-        tmp = M[j-i,:].copy()
-        M[j-i:-1,:] = M[j-i+1:,:]
-        M[-1,:] = tmp
-        tmp = M[:,j-i].copy()
-        M[:,j-i:-1] = M[:,j-i+1:]
-        M[:,-1] = tmp
-    
-    #### ERPA0
+#    print(len(idx),dim)
 
-    M_ERPA0 = M[:dim,:dim].copy()
+    ######## ERPA0 ########
 
-    for i in range(dim):
-        M_ERPA0[i,:] = M_ERPA0[i,:]/v[i] 
+    dd = int((norb)*(norb-1)/2) #int(dim/2)
+    AA = M[:dd,:dd]
+    BB = M[:dd,dd:int(2*dd)]
+
+    ApB = AA + BB
+    AmB = AA - BB
+
+    dN = np.zeros((dd,dd))
+    np.fill_diagonal(dN, -v[:dd])
+    dNm1 = np.linalg.pinv(dN)
+
+    maxApBsym = np.max(np.abs(ApB - ApB.T))
+    maxAmBsym = np.max(np.abs(AmB - AmB.T))
+    print("max diff ApB {} and max AmB {}".format(maxApBsym,maxAmBsym))
+
+    ApB = (ApB + ApB.T)/2
+    AmB = (AmB + AmB.T)/2
+    vals1,vecs1 = np.linalg.eig(ApB)
+    vals2,vecs2 = np.linalg.eig(AmB)
+
+    for i,val in enumerate(vals1):
+        if val<10**-6:
+            vals1[i] = 10**-6
+    for i,val in enumerate(vals2):
+        if val<10**-6:
+            vals2[i] = 10**-6
+
+    ApB = np.einsum("ij,j,kj->ik",vecs1,vals1,vecs1,optimize=True)
+    AmB = np.einsum("ij,j,kj->ik",vecs2,vals2,vecs2,optimize=True)
+
+    MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,AmB,optimize=True)
+    vals = np.linalg.eigvals(MM)
+    #vals,vecs = np.linalg.eig(MM)
+    vals = np.sqrt(vals)
+
+    vals = vals*27.2114
+    vals_complex = np.array([val for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+
+    print("  Excitation energies ERPA0/PNOF{}(eV)".format(pp.ipnof))
+    print("  ===================================")
+    vals_real = np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 1.0)])
+
+    sort_idx = np.argsort(vals_real)
+    vals_real = vals_real[sort_idx]
+    #vecsm = vecs[:,sort_idx]
+    for i in range(min(10,len(vals_real))):
+        print("    Exc. en. {}: {:6.3f}".format(i,vals_real[i]))
+    print("    Vals Complex: {}\n".format(np.size(vals_complex)))
+
+    #MM = np.einsum("ij,jk,kl,lm->im",dNm1,AmB,dNm1,ApB,optimize=True)
+    #vals,vecs = np.linalg.eig(MM)
+    #vals = np.sqrt(vals)
+
+    #vals = vals*27.2114
+    #vals_complex = np.array([val for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
+    #vals_real = np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0.1)])
+
+    #sort_idx = np.argsort(vals_real)
+    #vals_real = vals_real[sort_idx]
+    #vecsp = vecs[:,sort_idx]
+
+    #X = (vecsp + vecsm)/2
+    #Y = (vecsp - vecsm)/2
+
+    #print(vals_real/27.2114)
 
     time8 = time()
-    
-    vals = np.linalg.eigvals(M_ERPA0)
 
     time9 = time()
     
+    ######## ERPA0 ########
+
+    CC = M[:dd,int(2*dd):]
+    DD = M[int(2*dd):,:dd]
+    EE = M[int(2*dd):,int(2*dd):]
+
+    EEm1 = np.linalg.inv(EE)
+
+    tmpMat = 2*np.einsum("ij,jk,kl->il",CC,EEm1,DD,optimize=True)
+
+    MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB-tmpMat,dNm1,AmB,optimize=True)
+    vals = np.linalg.eigvals(MM)
+    vals = np.sqrt(vals)
+
     vals = vals*27.2114
     vals_complex = np.array([val for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
-    
-    print("  Excitation energies ERPA0/PNOF{}(eV)".format(pp.ipnof))
+
+    print("  Excitation energies ERPA/PNOF{}(eV)".format(pp.ipnof))
     print("  ===================================")
-    vals_real = np.sort(np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0.1)]))
+    vals_real = np.sort(np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 1.0)]))
     for i in range(min(10,len(vals_real))):
         print("    Exc. en. {}: {:6.3f}".format(i,vals_real[i]))
-    print("\n    Number of small diagonal elements of V moved to the end:",len(idx))
     print("    Vals Complex: {}\n".format(np.size(vals_complex)))
-    
-    #### ERPA
 
-    C = M[:dim,:dim]
-    D = M[:dim,dim:]
-    E = M[dim:,:dim]
-    F = M[dim:,dim:]
-
-    vals,vecs = eig(F)
-    idx = 0
-    for i,val in enumerate(vals):
-        if(np.abs(vals[i])<tol_eig):
-            sign = np.sign(vals[i])
-            if(sign==0):
-                sign = 1
-            vals[i] = sign*tol_eig
-            idx += 1
-    vecs_inv = np.linalg.inv(vecs)
-    Finv = np.einsum("ij,j,jk->ik",vecs,1/vals,vecs_inv)
-    
-    M_ERPA = C-np.einsum("ij,jk,kl->il",D,Finv,E,optimize=True)
-    M_ERPA = np.real(M_ERPA)
-    for i in range(dim):
-        M_ERPA[i,:] = M_ERPA[i,:]/v[i] 
-    
     time10 = time()
-
-    vals = np.linalg.eigvals(M_ERPA)
 
     time11 = time()
     
-    vals = vals*27.2114
-    vals_complex = np.array([val for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
-    
-    print("  Excitation energies ERPA/PNOF{}(eV)".format(pp.ipnof))
-    print("  ==================================")
-    vals_real = np.sort(np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0.1)]))
-    for i in range(min(10,len(vals_real))):
-        print("    Exc. en. {}: {:6.3f}".format(i,vals_real[i]))
-    print("\n    Number of corrected eigenvalues of F:", idx)
-    print("    Vals Complex: {}\n".format(np.size(vals_complex)))
-
     time12 = time()
     
     #############################################################################
@@ -1484,6 +1532,22 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     V = np.zeros((norb**2,norb**2))
     np.fill_diagonal(V, v)
 
+#    M_ERPA2 = M.copy()
+#    vals = vals_real/27.2114
+#    for i,w in enumerate(vals[:3]):
+#        x = np.zeros((norb**2+1))
+#        x[0] = w
+#        x[1:1+int(norb*(norb-1)/2)] = Y[:,i]
+#        x[1+int(norb*(norb-1)/2):1+int(norb*(norb-1))] = X[:,i]
+#        res = minimize(pynof.matrix_product, x, args=(M_ERPA2,V),method="Nelder-Mead")
+#        x = res.x
+#        print(w,x,res.fun)
+        #print("{} {} {:7.4e}".format(i,w,np.linalg.det(M_ERPA2-w*V)))
+        #print(i,w,np.linalg.slogdet(M_ERPA2-w*V),np.linalg.slogdet(M_ERPA2),np.linalg.slogdet(w*V))
+        #egv = np.linalg.eigvals(M_ERPA2-w*V)
+        #a = np.matmul((M_ERPA2-w*V),v)
+        #print(np.linalg.norm(a))
+
     lidx = []
     for i,vi in enumerate(v):
         if(np.abs(vi) < tol_dn):
@@ -1504,25 +1568,6 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
         M[:,-1] = tmp
 
     M_ERPA2 = M[:dim,:dim]
-    if len(lidx) > 0:
-        C = M[:dim,:dim]
-        D = M[:dim,dim:]
-        E = M[dim:,:dim]
-        F = M[dim:,dim:]
-
-        vals,vecs = eig(F)
-        idx = 0
-        for i,val in enumerate(vals):
-            if(np.abs(vals[i])<tol_eig):
-                sign = np.sign(vals[i])
-                if(sign==0):
-                    sign = 1
-                vals[i] = sign*tol_eig
-                idx += 1
-        vecs_inv = np.linalg.inv(vecs)
-        Finv = np.einsum("ij,j,jk->ik",vecs,1/vals,vecs_inv)
-         
-        M_ERPA2 = C-np.einsum("ij,jk,kl->il",D,Finv,E,optimize=True)
   
     time15 = time()
     
@@ -1541,11 +1586,10 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     
     print("  Excitation energies ERPA2/PNOF{}(eV)".format(pp.ipnof))
     print("  ==================================")
-    vals_real = np.sort(np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0.1)]))
+    vals_real = np.sort(np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 1.0)]))
     for i in range(min(11,len(vals_real))):
         print("    Exc. en. {}: {:6.3f}".format(i,vals_real[i]))
     print("\n    Number of small diagonal elements of V moved to the end:",len(lidx))
-    print("    Number of corrected eigenvalues of F:", idx)
     print("    Vals Complex: {}\n".format(np.size(vals_complex)))
 
     time18 = time()
