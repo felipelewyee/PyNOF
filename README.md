@@ -1,9 +1,11 @@
 # PyNOF
 
 | **Citation** | [![DOI](https://zenodo.org/badge/346216950.svg)](https://zenodo.org/badge/latestdoi/346216950) |
+| ------------ | ---------------------------------------------------------------------------------------------- |
 
 Formally read as Python-Natural-Orbital-Functionals, PyNOF is based on the original [DoNOF](https://github.com/DoNOF/DoNOFsw/) software written in Fortran by Prof. Mario Piris, but it takes advantage of the Python capabilities such as optimizers, vectorization via numpy and gpu compatibility via cupy.
 
+# <img src="https://github.com/felipelewyee/PyNOF/blob/master/PyNOF.png" height=150>
 
 # Requirements
 
