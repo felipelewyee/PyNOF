@@ -15,6 +15,5 @@ p.ipnof = 8
 p.RI = True
 p.gpu = True
 
-p.orbital_optimizer = "CG"
-p.method = "Rotations"
+p.orb_method = "Rotations"
 E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,perturb=True)

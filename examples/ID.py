@@ -15,5 +15,5 @@ p.ipnof = 8
 p.RI = True
 #p.gpu = True
 
-p.method = "ID"
+p.orb_method = "ID"
 E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)

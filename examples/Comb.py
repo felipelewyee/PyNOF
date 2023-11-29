@@ -15,6 +15,5 @@ p.ipnof = 8
 p.RI = True
 #p.gpu = True
 
-p.combined_optimizer = "CG"
-p.method = "Combined"
+p.orb_method = "Combined"
 E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,perturb=True)

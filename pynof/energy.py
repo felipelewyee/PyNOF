@@ -80,6 +80,9 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
             #t3 = time()
             #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
+            if(p.occ_method=="Softmax"):
+                C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
+
             if(convgdelag):
 
                 if perturb and E - Estored < -1e-4:
@@ -115,6 +118,8 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
             E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
             #t3 = time()
             #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
+            if(p.occ_method=="Softmax"):
+                C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
 
             E = E_orb
             E_diff = E-E_old
@@ -153,6 +158,8 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
             E,C,gamma,n,grad,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
             #t2 = time()
             #print("t_comb: {:3.1e}".format(t2-t1))
+            if(p.occ_method=="Softmax"):
+                C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
             E_diff = E-E_old
             E_old = E
 

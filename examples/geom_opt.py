@@ -15,5 +15,5 @@ p.ipnof = 8
 p.RI = True
 #p.gpu = True
 
-p.method = "Rotations"
+p.orb_method = "Rotations"
 pynof.optgeo(mol,p)
