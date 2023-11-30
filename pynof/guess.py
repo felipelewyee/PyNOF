@@ -88,7 +88,7 @@ def order_occupations_softmax(old_C,old_gamma,H,I,b_mnl,p):
         C_tmp = C_tmp[:,sort_idx]
 
         gamma[i] = gamma_tmp[0]
-        gamma[old_ll:old_ul] = gamma_tmp[1:]
+        gamma[old_ll_x:old_ul_x] = gamma_tmp[1:]
         C[:,p.no1+i] = C_tmp[:,0]
         C[:,old_ll:old_ul] = C_tmp[:,1:]
 
