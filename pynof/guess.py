@@ -67,7 +67,7 @@ def order_subspaces(old_C,old_n,elag,H,I,b_mnl,p):
 def order_occupations_softmax(old_C,old_gamma,H,I,b_mnl,p):
 
     C = old_C.copy()
-    gamma = np.zeros((p.nbf5))
+    gamma = np.zeros((p.nv))
 
     #Sort ndoc subspaces
     gamma_tmp = np.zeros((1+p.ncwo))
