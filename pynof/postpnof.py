@@ -1227,39 +1227,39 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     A = np.zeros((norb,norb,norb,norb))
     Id = np.identity(norb)
 
-    A += 2*np.einsum('sq,pr,p->rspq',h,Id,n_s,optimize=True)
-    A -= 2*np.einsum('sq,pr,s->rspq',h,Id,n_s,optimize=True)
-    A += 2*np.einsum('pr,sq,q->rspq',h,Id,n_s,optimize=True)
-    A -= 2*np.einsum('pr,sq,r->rspq',h,Id,n_s,optimize=True)
+    A += np.einsum('sq,pr,p->rspq',h,Id,n_s,optimize=True)
+    A -= np.einsum('sq,pr,s->rspq',h,Id,n_s,optimize=True)
+    A += np.einsum('pr,sq,q->rspq',h,Id,n_s,optimize=True)
+    A -= np.einsum('pr,sq,r->rspq',h,Id,n_s,optimize=True)
 
     Daa, Dab = pynof.compute_2RDM(pp,n_s,orb_pair_ll,orb_pair_ul)
 
     time2 = time()
     
 ######################################
-    A += 2*np.einsum('stqu,purt->rspq',I,Daa,optimize=True)
-    A -= 2*np.einsum('stuq,purt->rspq',I,Daa,optimize=True)
-    A += 2*np.einsum('stqu,purt->rspq',I,Dab,optimize=True)
-    A += 2*np.einsum('stuq,putr->rspq',I,Dab,optimize=True)
-    A += 2*np.einsum('uptr,stqu->rspq',I,Daa,optimize=True)
-    A -= 2*np.einsum('uprt,stqu->rspq',I,Daa,optimize=True)
-    A += 2*np.einsum('uptr,stqu->rspq',I,Dab,optimize=True)
-    A += 2*np.einsum('uprt,stuq->rspq',I,Dab,optimize=True)
+    A += np.einsum('stqu,purt->rspq',I,Daa,optimize=True)
+    A -= np.einsum('stuq,purt->rspq',I,Daa,optimize=True)
+    A += np.einsum('stqu,purt->rspq',I,Dab,optimize=True)
+    A += np.einsum('stuq,putr->rspq',I,Dab,optimize=True)
+    A += np.einsum('uptr,stqu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('uprt,stqu->rspq',I,Daa,optimize=True)
+    A += np.einsum('uptr,stqu->rspq',I,Dab,optimize=True)
+    A += np.einsum('uprt,stuq->rspq',I,Dab,optimize=True)
    
     time3 = time()
     
    ####
-    A += 2*np.einsum('pstu,turq->rspq',I,Daa,optimize=True)
-    A -= 2*np.einsum('pstu,utrq->rspq',I,Dab,optimize=True)
-    A += 2*np.einsum('tuqr,sptu->rspq',I,Daa,optimize=True)
-    A -= 2*np.einsum('tuqr,pstu->rspq',I,Dab,optimize=True)
+    A += np.einsum('pstu,turq->rspq',I,Daa,optimize=True)
+    A -= np.einsum('pstu,utrq->rspq',I,Dab,optimize=True)
+    A += np.einsum('tuqr,sptu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('tuqr,pstu->rspq',I,Dab,optimize=True)
     ####
     time4 = time()
     
-    A += 2*np.einsum('sq,tpwu,wurt->rspq',Id,I,Daa,optimize=True)
-    A -= 2*np.einsum('sq,tpwu,uwrt->rspq',Id,I,Dab,optimize=True)
-    A += 2*np.einsum('pr,tuwq,swtu->rspq',Id,I,Daa,optimize=True)
-    A -= 2*np.einsum('pr,tuwq,wstu->rspq',Id,I,Dab,optimize=True)
+    A += np.einsum('sq,tpwu,wurt->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('sq,tpwu,uwrt->rspq',Id,I,Dab,optimize=True)
+    A += np.einsum('pr,tuwq,swtu->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('pr,tuwq,wstu->rspq',Id,I,Dab,optimize=True)
 
     M = np.zeros((norb**2,norb**2))
 
@@ -1328,11 +1328,11 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
-            v[i] = -2*(n[r] - n[s])
+            v[i] = -(n[r] - n[s])
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
-            v[i] = 2*(n[r] - n[s])
+            v[i] = (n[r] - n[s])
 
 
 #    idx = []
@@ -1373,20 +1373,22 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     maxAmBsym = np.max(np.abs(AmB - AmB.T))
     print("max diff ApB {} and max AmB {}".format(maxApBsym,maxAmBsym))
 
-    ApB = (ApB + ApB.T)/2
-    AmB = (AmB + AmB.T)/2
-    vals1,vecs1 = np.linalg.eig(ApB)
-    vals2,vecs2 = np.linalg.eig(AmB)
+    #ApB = (ApB + ApB.T)/2
+    #AmB = (AmB + AmB.T)/2
+    #vals1,vecs1 = np.linalg.eig(ApB)
+    #vals2,vecs2 = np.linalg.eig(AmB)
 
-    for i,val in enumerate(vals1):
-        if val<10**-6:
-            vals1[i] = 10**-6
-    for i,val in enumerate(vals2):
-        if val<10**-6:
-            vals2[i] = 10**-6
+    #for i,val in enumerate(vals1):
+    #    if val<10**-6:
+    #        print("t",val)
+    #        vals1[i] = 10**-6
+    #for i,val in enumerate(vals2):
+    #    if val<10**-6:
+    #        print("tt",val)
+    #        vals2[i] = 10**-6
 
-    ApB = np.einsum("ij,j,kj->ik",vecs1,vals1,vecs1,optimize=True)
-    AmB = np.einsum("ij,j,kj->ik",vecs2,vals2,vecs2,optimize=True)
+    #ApB = np.einsum("ij,j,kj->ik",vecs1,vals1,vecs1,optimize=True)
+    #AmB = np.einsum("ij,j,kj->ik",vecs2,vals2,vecs2,optimize=True)
 
     MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,AmB,optimize=True)
     vals = np.linalg.eigvals(MM)
@@ -1520,14 +1522,14 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
-            v[i] = -2*(n[r] - n[s])
+            v[i] = -(n[r] - n[s])
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
-            v[i] = 2*(n[r] - n[s])
+            v[i] = (n[r] - n[s])
     for r in range(norb):
         i += 1
-        v[i] = 2
+        v[i] = 1
     
     V = np.zeros((norb**2,norb**2))
     np.fill_diagonal(V, v)
