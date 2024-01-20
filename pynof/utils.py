@@ -214,7 +214,7 @@ def computeLagrange2(n,cj12,ck12,C,H,I,b_mnl,p):
         else:
             if(p.MSpin==0):
                 # 2ndH/dy_ab
-                elag[:,:p.nbf5] +=  cp.einsum('b,ab->ab',2*n,Hmat[:,:p.nbf5],optimize=True)
+                elag[:,:p.nbf5] +=  cp.einsum('b,ab->ab',n,Hmat[:,:p.nbf5],optimize=True)
 
                 # dJ_pp/dy_ab
                 elag[:,:p.nbeta] +=  cp.einsum('b,abbb->ab',n[:p.nbeta],I_MO[:,:p.nbeta,:p.nbeta,:p.nbeta],optimize=True)
