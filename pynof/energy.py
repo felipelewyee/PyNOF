@@ -59,131 +59,61 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
     iloop = 0
     itlim = 0
     E,E_old,E_diff = 9999,9999,9999
-    sumdiff_old = 0
     Estored,Cstored,gammastored = 0,0,0
     last_iter = 0
 
+    if(printmode):
+        print("")
+        print("PNOF{} Calculation (ID Optimization)".format(p.ipnof))
+        print("==================")
+        print("")
+        print('{:^7} {:^7}  {:^7}  {:^14} {:^14} {:^14}   {:^6}   {:^6} {:^6} {:^6}'.format("Nitext","Nit_orb","Nit_occ","Eelec","Etot","Ediff","Grad_orb","Grad_occ","Conv Orb","Conv Occ"))
+    for i_ext in range(p.maxit):
+        #orboptr
+        #t1 = time()
+        if(p.orb_method=="ID"):
+            E_orb,C,nit_orb,success_orb,itlim,fmiug0 = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,i_ext,itlim,fmiug0,p,printmode)
+        if(p.orb_method=="Rotations"):
+            E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+        #t2 = time()
+
+        #occopt
+        E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
+        #t3 = time()
+        #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
+        if(p.occ_method=="Softmax"):
+            C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
+
+        E = E_orb
+        E_diff = E-E_old
+        E_old = E
+
+        y = np.zeros((p.nvar))
+        grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
+        J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+        grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
+        print("{:6d} {:6d} {:6d}   {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
+
+        if(success_orb or (np.linalg.norm(grad_orb) < 1e-3 and np.linalg.norm(grad_occ)< 1e-3)):
+
+            if perturb and E - Estored < -1e-4:
+                y = np.zeros((p.nvar))
+                grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
+                J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
+                grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
+                print("Increasing Gradient")
+                last_iter = i_ext
+                Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
+                C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
+            else:
+                print("Solution does not improve anymore")
+                if(Estored<E):
+                    E,C,gamma = Estored,Cstored,gammastored
+                break
+
     if(p.orb_method=="ID"):
-        if(printmode):
-            print("")
-            print("PNOF{} Calculation (ID Optimization)".format(p.ipnof))
-            print("==================")
-            print("")
-            print('{:^7} {:^7}  {:^14}  {:^14} {:^14} {:^14}'.format("Nitext","Nitint","Eelec","Etot","Ediff","maxdiff"))
-        for i_ext in range(p.maxit):
-            #orboptr
-            #t1 = time()
-            convgdelag,E,E_diff,sumdiff_old,itlim,fmiug0,C,elag = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,E,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode)
-            #t2 = time()
-    
-            #occopt
-            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
-            #t3 = time()
-            #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
-            if(p.occ_method=="Softmax"):
-                C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
-
-            if(convgdelag):
-
-                if perturb and E - Estored < -1e-4:
-                    y = np.zeros((p.nvar))
-                    grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
-                    J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
-                    grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
-                    print("Increasing Gradient")
-                    last_iter = i_ext
-                    Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
-                    C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
-                else:
-                    print("Solution does not improve anymore")
-                    if(Estored<E):
-                        E,C,gamma = Estored,Cstored,gammastored
-                    break
-
         np.save(p.title+"_fmiug0.npy",fmiug0)
     
-    if(p.orb_method=="Rotations"):
-        if(printmode):
-            print("")
-            print("PNOF{} Calculation (Rotations Optimization)".format(p.ipnof))
-            print("==================")
-            print("")
-            print('{:^7} {:^7}  {:^7}  {:^14} {:^14} {:^14}   {:^6}   {:^6} {:^6} {:^6}'.format("Nitext","Nit_orb","Nit_occ","Eelec","Etot","Ediff","Grad_orb","Grad_occ","Conv Orb","Conv Occ"))
-        convorb = False
-        for i_ext in range(p.maxit):
-
-            #t1 = time()
-            E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
-            #t2 = time()
-            E_occ,nit_occ,success_occ,gamma,n,cj12,ck12 = pynof.occoptr(gamma,C,H,I,b_mnl,p)
-            #t3 = time()
-            #print("t_orb: {:3.1e} t_occ: {:3.1e}".format(t2-t1,t3-t2))
-            if(p.occ_method=="Softmax"):
-                C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
-
-            E = E_orb
-            E_diff = E-E_old
-            E_old = E
-
-            y = np.zeros((p.nvar))
-            n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
-            cj12,ck12 = pynof.PNOFi_selector(n,p)
-            grad_orb = pynof.calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p)
-            J_MO,K_MO,H_core = pynof.computeJKH_MO(C,H,I,b_mnl,p)
-            grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
-            print("{:6d} {:6d} {:6d}   {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
-
-            if(np.linalg.norm(grad_orb) < 1e-4 and np.linalg.norm(grad_occ)< 1e-4 and ((success_orb and success_occ) or i_ext-last_iter>10)):
-            #if(np.abs(E_diff)<p.threshe and ((success_orb and success_occ) or i_ext-last_iter>10)):
-                if perturb and E - Estored < -1e-4:
-                    print("Increasing Gradient")
-                    last_iter = i_ext
-                    Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
-                    C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
-                else:
-                    print("Solution does not improve anymore")
-                    if(Estored<E):
-                        E,C,gamma = Estored,Cstored,gammastored
-                    break
-
-    if(p.orb_method=="Combined"):
-        if(printmode):
-            print("")
-            print("PNOF{} Calculation (Combined Optimization)".format(p.ipnof))
-            print("==================")
-            print("")
-            print('{:^4} {:^8} {:^14} {:^14} {:^14} {:^6} {:^10}'.format("Nit","Nit_int","Eelec","Etot","Ediff","grad","Int. Conv."))
-        for i_ext in range(p.maxit):
-            #t1 = time()
-            E,C,gamma,n,grad,nit,success = pynof.comb(gamma,C,H,I,b_mnl,p)
-            #t2 = time()
-            #print("t_comb: {:3.1e}".format(t2-t1))
-            if(p.occ_method=="Softmax"):
-                C,gamma = pynof.order_occupations_softmax(C,gamma,H,I,b_mnl,p)
-            E_diff = E-E_old
-            E_old = E
-
-            #x = np.zeros((p.nvar+p.nv))
-            #x[p.nvar:] = gamma
-            #grad = pynof.calccombg(x,C,H,I,b_mnl,p)
-            grad_norm = np.linalg.norm(grad)
-            grad_orb, grad_occ = grad[:p.nvar], grad[p.nvar:]
-
-            print("{:4d} {:8d} {:14.8f} {:14.8f} {:14.8f} {:3.1e} {}".format(i_ext,nit,E,E+E_nuc,E_diff,grad_norm,success))
-
-            if(grad_norm < 1e-3 and (success or i_ext-last_iter>10)):
-            #if(np.abs(E_diff)<p.threshe and (success or i_ext-last_iter>10)):
-                if perturb and E - Estored < -1e-3:
-                    print("Increasing Gradient")
-                    last_iter = i_ext
-                    Estored,Cstored,gammastored = E,C.copy(),gamma.copy()
-                    C,gamma = pynof.perturb_solution(C,gamma,grad_orb,grad_occ,p)
-                else:
-                    print("Solution does not improve anymore")
-                    if(Estored<E):
-                        E,C,gamma = Estored,Cstored,gammastored
-                    break
-
     n,dR = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
     cj12,ck12 = pynof.PNOFi_selector(n,p)
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)

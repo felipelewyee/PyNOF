@@ -89,23 +89,18 @@ def occoptr(gamma,C,H,I,b_mnl,p):
 
     return E,nit,success,gamma,n,cj12,ck12
 
-def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,E_nuc,p,printmode):
+def orboptr(C,n,H,I,b_mnl,cj12,ck12,i_ext,itlim,fmiug0,p,printmode):
 
-    convgdelag = False
+    i_int = 0
+    success_orb = False
 
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
 
-    #E_diff = E-E_old
-    #P_CONV = abs(E_diff)
-    #E_old = E
+    if(maxdiff<p.threshl):# and abs(E_diff)<p.threshe):
+        success_orb = True
+        return E,C,i_int,success_orb,itlim,fmiug0
 
-    if(maxdiff<p.threshl and abs(E_diff)<p.threshe):
-        convgdelag = True
-        if(printmode):
-            print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext,0,E,E+E_nuc,E_diff,maxdiff),p.nzeros)
-        return convgdelag,E_old,E_diff,sumdiff_old,itlim,fmiug0,C,elag
-
-    if (p.scaling and i_ext>1 and i_ext >= itlim and sumdiff > sumdiff_old):
+    if (p.scaling and i_ext>1 and i_ext >= itlim):# and sumdiff > sumdiff_old):
         p.nzeros = p.nzeros + 1
         itlim = i_ext + p.itziter
         if (p.nzeros>p.nzerosm):
@@ -147,12 +142,9 @@ def orboptr(C,n,H,I,b_mnl,cj12,ck12,E_old,E_diff,sumdiff_old,i_ext,itlim,fmiug0,
         E_diff2 = E-E_old2
 
         if(abs(E_diff2)<p.threshec or i_int==maxlp-1):
-            E_diff = E-E_old
-            if(printmode):
-                print('{:6d} {:6d} {:14.8f} {:14.8f} {:14.8f} {:14.8f}'.format(i_ext+1,i_int,E,E+E_nuc,E_diff,maxdiff),p.nzeros)
             break
 
-    return convgdelag,E,E_diff,sumdiff_old,itlim,fmiug0,C,elag
+    return E,C,i_int,success_orb,itlim,fmiug0
 
 def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
