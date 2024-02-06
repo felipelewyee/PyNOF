@@ -2,9 +2,12 @@ import numpy as np
 import pynof
 from numba import prange,njit,jit
 from time import time
-import cupy as cp
 from scipy.linalg import eigh,expm,solve
 from scipy.optimize import root
+try:
+    import cupy as cp
+except:
+    pass
 
 def computeF_RC_driver(J,K,n,H,cj12,ck12,p):
 

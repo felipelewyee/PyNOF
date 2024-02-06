@@ -105,7 +105,7 @@ class param():
         self.MSpin = 0
 
         self.lamb = 0.0
-        self.occ_method = "Trigonometric"
+        self.occ_method = "Softmax"
         self.orb_method = "ID"
 
     def autozeros(self,restart=False):

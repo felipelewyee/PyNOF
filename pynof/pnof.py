@@ -1,7 +1,10 @@
 import pynof
 import numpy as np
 from numba import prange,njit
-import cupy as cp
+try:
+    import cupy as cp
+except:
+    pass
 
 #CJCKD5
 @njit(parallel=True, cache=True)

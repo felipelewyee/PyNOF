@@ -64,7 +64,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
 
     if(printmode):
         print("")
-        print("PNOF{} Calculation (ID Optimization)".format(p.ipnof))
+        print("PNOF{} Calculation ({}/{} Optimization)".format(p.ipnof,p.orb_method,p.occ_method))
         print("==================")
         print("")
         print('{:^7} {:^7}  {:^7}  {:^14} {:^14} {:^14}   {:^6}   {:^6} {:^6} {:^6}'.format("Nitext","Nit_orb","Nit_occ","Eelec","Etot","Ediff","Grad_orb","Grad_occ","Conv Orb","Conv Occ"))

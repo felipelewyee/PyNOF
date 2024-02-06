@@ -2,9 +2,12 @@ from time import time
 from scipy.linalg import eig,eigh
 import psi4
 import numpy as np
-import cupy as cp
 from numba import prange,njit
 import pynof
+try:
+    import cupy as cp
+except:
+    pass
 
 def compute_integrals(wfn,mol,p):
 
