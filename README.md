@@ -79,7 +79,8 @@ conda create -y -n pynof
 conda activate pynof
 conda install -y psi4 -c conda-forge/label/libint_dev -c conda-forge
 conda install -y -c conda-forge cupy # Optional
-python -m build && cd dist && pip install PyNOF*.whl && cd ..
+pip install build
+python -m build && cd dist && pip install pynof*.whl && cd ..
 ~~~
 
 # Authors
