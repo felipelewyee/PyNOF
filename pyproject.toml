@@ -1,0 +1,24 @@
+[project]
+name = "pynof"
+version = "1.1"
+authors = [
+  { name="Juan Felipe Huan Lew Yee", email="felipe.lew.yee@gmail.com" },
+]
+description = "Package for performing Piris Natural Orbital Functionals (PNOF)"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/felipelewyee/PyNOF"
+
+[build-system]
+requires = ["hatchling","numpy","scipy","numba"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pynof"]

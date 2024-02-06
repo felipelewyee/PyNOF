@@ -7,26 +7,26 @@ Formally read as Python-Natural-Orbital-Functionals, PyNOF is based on the origi
 
 # <img src="https://github.com/felipelewyee/PyNOF/blob/master/PyNOF.png" height=150>
 
-# Requirements
-
-You should have [Anaconda](https://www.anaconda.com/) installed, and the following libraries: psi4, numpy, scipy, numba, cupy; then, you may install pynof via pip.
-
 # Installation
 
-First, clone PyNOF from github and change to the project directory
+We recommend to perform the installation inside an [Anaconda](https://www.anaconda.com/) enviroment:
 ~~~
-git clone https://github.com/felipelewyee/PyNOF.git
-cd PyNOF
+conda create -y -n pynof
+conda activate pynof
 ~~~
 
-In the PyNOF folder, execute the following code
+PyNOF uses [Psi4](https://psicode.org/installs/latest) for integrals, so it is necessary to install it first:
 ~~~
-conda create -n pynof -y
-conda activate pynof
-conda install -c conda-forge cupy
-conda install numpy scipy numba
-conda install psi4 -c conda-forge/label/libint_dev -c conda-forge 
-python setup.py bdist_wheel && cd dist && pip install PyNOF-0.1-py3-none-any.whl && cd ..
+conda install -y psi4 -c conda-forge/label/libint_dev -c conda-forge
+~~~
+then, you can simply install PyNOF using pip
+~~~
+pip install -y pynof
+~~~
+
+[Optional] Integrals transformations can benefit from a GPU. If available, just install [cupy](https://cupy.dev/)
+~~~
+conda install -y -c conda-forge cupy
 ~~~
 
 # Example
@@ -64,5 +64,26 @@ python -u test_energy.py
 ~~~
 
 *Note.* The first run may be slightly slow due to jit precompilation.
+
+# For development
+
+First, clone PyNOF from github and change to the project directory
+~~~
+git clone https://github.com/felipelewyee/PyNOF.git
+cd PyNOF
+~~~
+
+In the PyNOF folder, execute the following code
+~~~
+conda create -y -n pynof
+conda activate pynof
+conda install -y psi4 -c conda-forge/label/libint_dev -c conda-forge
+conda install -y -c conda-forge cupy # Optional
+python -m build && cd dist && pip install PyNOF*.whl && cd ..
+~~~
+
+# Authors
+
+The PyNOF code has been built by Juan Felipe Huan Lew Yee, Lizeth Franco Nolasco and Iván Alejandro Rivera under supervision of Jorge Martín del Campo Ramírez and Mario Piris.
 
 <meta name="google-site-verification" content="c8fIbSDge0oLPu2RxGxupxP2Gq0GlFawiFoX9M4QCGw" />
