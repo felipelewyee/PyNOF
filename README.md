@@ -21,7 +21,7 @@ conda install -y psi4 -c conda-forge/label/libint_dev -c conda-forge
 ~~~
 then, you can simply install PyNOF using pip
 ~~~
-pip install -y pynof
+pip install pynof
 ~~~
 
 [Optional] Integrals transformations can benefit from a GPU. If available, just install [cupy](https://cupy.dev/)
