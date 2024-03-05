@@ -17,9 +17,9 @@ def optgeo(mol,p,C=None,n=None,fmiug0=None):
     for symbol,xyz in zip(symbols,coord):
         print("{:s} {:10.4f} {:10.4f} {:10.4f}".format(symbol,xyz[0],xyz[1],xyz[2]))
 
+    coord = coord.flatten()
     res = minimize(energy_optgeo, coord, args=(symbols,p,True), jac=True, method='CG')
 
-    print(res)
     coord = res.x
 
     if(res.success):

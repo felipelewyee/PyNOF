@@ -16,4 +16,4 @@ p.RI = True
 #p.gpu = True
 
 p.orb_method = "Rotations"
-E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True,perturb=True)
+E,C,n,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
