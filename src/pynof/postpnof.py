@@ -1178,7 +1178,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     print("---------------\n")
 
     tol_n = 10**-150
-    tol_dn = 10**-7
+    tol_dn = 10**-3
     tol_eig = 10**-8
 
     norb = len(n[n>tol_n])
@@ -1268,7 +1268,6 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
 
     time5 = time()
     
-    #First equation (15)
     i = -1
     for s in range(norb):
         for r in range(s+1,norb):
@@ -1288,7 +1287,6 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
 
     time6 = time()
     
-    #Second equation (16)
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
@@ -1307,7 +1305,6 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
 
     time7 = time()
     
-    #Third equation (17)
     for r in range(norb):
         i += 1
         j = -1
@@ -1328,71 +1325,56 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
-            v[i] = -(n[r] - n[s])
+            v[i] = +(n[s] - n[r])
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
-            v[i] = (n[r] - n[s])
+            v[i] = -(n[s] - n[r])
 
 
-#    idx = []
-#    for i,vi in enumerate(v):
-#        if(np.abs(vi) < tol_dn):
-#            idx.append(i)
+    M_ERPA0 = M.copy()
+    v_ERPA0 = v.copy()
 
-#    dim = (norb)*(norb-1) - len(idx)
+    idx = []
+    for i,vi in enumerate(v):
+        if(np.abs(vi) < tol_dn):
+            idx.append(i)
+
+    dim = (norb)*(norb-1) - len(idx)
     
-#    for i,j in enumerate(idx):
-#        tmp = v[j-i]
-#        v[j-i:-1] = v[j-i+1:]
-#        v[-1] = tmp
-#
-#        tmp = M[j-i,:].copy()
-#        M[j-i:-1,:] = M[j-i+1:,:]
-#        M[-1,:] = tmp
-#        tmp = M[:,j-i].copy()
-#        M[:,j-i:-1] = M[:,j-i+1:]
-#        M[:,-1] = tmp
+    for i,j in enumerate(idx):
+        tmp = v_ERPA0[j-i]
+        v_ERPA0[j-i:-1] = v_ERPA0[j-i+1:]
+        v_ERPA0[-1] = tmp
+
+        tmp = M_ERPA0[j-i,:].copy()
+        M_ERPA0[j-i:-1,:] = M_ERPA0[j-i+1:,:]
+        M_ERPA0[-1,:] = tmp
+        tmp = M_ERPA0[:,j-i].copy()
+        M_ERPA0[:,j-i:-1] = M_ERPA0[:,j-i+1:]
+        M_ERPA0[:,-1] = tmp
 
 #    print(len(idx),dim)
 
     ######## ERPA0 ########
 
-    dd = int((norb)*(norb-1)/2) #int(dim/2)
-    AA = M[:dd,:dd]
-    BB = M[:dd,dd:int(2*dd)]
+    dd = int(dim/2)
+    AA = M_ERPA0[:dd,:dd]
+    BB = M_ERPA0[:dd,dd:int(2*dd)]
 
     ApB = AA + BB
     AmB = AA - BB
 
     dN = np.zeros((dd,dd))
-    np.fill_diagonal(dN, -v[:dd])
+    np.fill_diagonal(dN, v_ERPA0[:dd])
     dNm1 = np.linalg.pinv(dN)
 
     maxApBsym = np.max(np.abs(ApB - ApB.T))
     maxAmBsym = np.max(np.abs(AmB - AmB.T))
     print("max diff ApB {} and max AmB {}".format(maxApBsym,maxAmBsym))
 
-    #ApB = (ApB + ApB.T)/2
-    #AmB = (AmB + AmB.T)/2
-    #vals1,vecs1 = np.linalg.eig(ApB)
-    #vals2,vecs2 = np.linalg.eig(AmB)
-
-    #for i,val in enumerate(vals1):
-    #    if val<10**-6:
-    #        print("t",val)
-    #        vals1[i] = 10**-6
-    #for i,val in enumerate(vals2):
-    #    if val<10**-6:
-    #        print("tt",val)
-    #        vals2[i] = 10**-6
-
-    #ApB = np.einsum("ij,j,kj->ik",vecs1,vals1,vecs1,optimize=True)
-    #AmB = np.einsum("ij,j,kj->ik",vecs2,vals2,vecs2,optimize=True)
-
     MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,AmB,optimize=True)
     vals = np.linalg.eigvals(MM)
-    #vals,vecs = np.linalg.eig(MM)
     vals = np.sqrt(vals)
 
     vals = vals*27.2114
@@ -1404,33 +1386,24 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
 
     sort_idx = np.argsort(vals_real)
     vals_real = vals_real[sort_idx]
-    #vecsm = vecs[:,sort_idx]
     for i in range(min(10,len(vals_real))):
         print("    Exc. en. {}: {:6.3f}".format(i,vals_real[i]))
     print("    Vals Complex: {}\n".format(np.size(vals_complex)))
 
-    #MM = np.einsum("ij,jk,kl,lm->im",dNm1,AmB,dNm1,ApB,optimize=True)
-    #vals,vecs = np.linalg.eig(MM)
-    #vals = np.sqrt(vals)
-
-    #vals = vals*27.2114
-    #vals_complex = np.array([val for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
-    #vals_real = np.array([np.real(val) for val in vals if (np.abs(np.imag(val)) < 0.00000001 and np.real(val) > 0.1)])
-
-    #sort_idx = np.argsort(vals_real)
-    #vals_real = vals_real[sort_idx]
-    #vecsp = vecs[:,sort_idx]
-
-    #X = (vecsp + vecsm)/2
-    #Y = (vecsp - vecsm)/2
-
-    #print(vals_real/27.2114)
-
     time8 = time()
-
-    time9 = time()
     
-    ######## ERPA0 ########
+    ######## ERPA  ########
+
+    dd = int((norb)*(norb-1)/2) #int(dim/2)
+    AA = M[:dd,:dd]
+    BB = M[:dd,dd:int(2*dd)]
+
+    ApB = AA + BB
+    AmB = AA - BB
+
+    dN = np.zeros((dd,dd))
+    np.fill_diagonal(dN, v[:dd])
+    dNm1 = np.linalg.pinv(dN)
 
     CC = M[:dd,int(2*dd):]
     DD = M[int(2*dd):,:dd]
@@ -1454,15 +1427,10 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
         print("    Exc. en. {}: {:6.3f}".format(i,vals_real[i]))
     print("    Vals Complex: {}\n".format(np.size(vals_complex)))
 
-    time10 = time()
+    time9 = time()
 
-    time11 = time()
-    
-    time12 = time()
-    
-    #############################################################################
+    ######## ERPA2 ########
 
-    #First equation (15)
     i = -1
     for s in range(norb):
         for r in range(s+1,norb):
@@ -1480,9 +1448,8 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
                 j += 1
                 M[i,j] = A[r,s,p,p]*1/2*(c[s]/(c[p]*(c[r]+c[s])))
 
-    time13 = time()
+    time10 = time()
     
-    #Second equation (16)
     for s in range(norb):
         for r in range(s+1,norb):
             i += 1
@@ -1499,9 +1466,8 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
                 j += 1
                 M[i,j] = A[r,s,p,p]*1/2*(c[r]/(c[p]*(c[r]+c[s])))
 
-    time14 = time()
+    time11 = time()
     
-    #Third equation (17)
     for r in range(norb):
         i += 1
         j = -1
@@ -1534,22 +1500,6 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     V = np.zeros((norb**2,norb**2))
     np.fill_diagonal(V, v)
 
-#    M_ERPA2 = M.copy()
-#    vals = vals_real/27.2114
-#    for i,w in enumerate(vals[:3]):
-#        x = np.zeros((norb**2+1))
-#        x[0] = w
-#        x[1:1+int(norb*(norb-1)/2)] = Y[:,i]
-#        x[1+int(norb*(norb-1)/2):1+int(norb*(norb-1))] = X[:,i]
-#        res = minimize(pynof.matrix_product, x, args=(M_ERPA2,V),method="Nelder-Mead")
-#        x = res.x
-#        print(w,x,res.fun)
-        #print("{} {} {:7.4e}".format(i,w,np.linalg.det(M_ERPA2-w*V)))
-        #print(i,w,np.linalg.slogdet(M_ERPA2-w*V),np.linalg.slogdet(M_ERPA2),np.linalg.slogdet(w*V))
-        #egv = np.linalg.eigvals(M_ERPA2-w*V)
-        #a = np.matmul((M_ERPA2-w*V),v)
-        #print(np.linalg.norm(a))
-
     lidx = []
     for i,vi in enumerate(v):
         if(np.abs(vi) < tol_dn):
@@ -1571,20 +1521,20 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
 
     M_ERPA2 = M[:dim,:dim]
   
-    time15 = time()
+    time12 = time()
     
     M_ERPA2 = np.real(M_ERPA2)
     for i in range(dim):
         M_ERPA2[i,:] = M_ERPA2[i,:]/v[i] 
 
-    time16 = time()
+    time13 = time()
     
     vals = np.linalg.eigvals(M_ERPA2)
 
     vals = vals*27.2114
     vals_complex = np.array([val for val in vals if (np.abs(np.imag(val)) > 0.00000001)])
 
-    time17 = time()
+    time14 = time()
     
     print("  Excitation energies ERPA2/PNOF{}(eV)".format(pp.ipnof))
     print("  ==================================")
@@ -1594,14 +1544,13 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     print("\n    Number of small diagonal elements of V moved to the end:",len(lidx))
     print("    Vals Complex: {}\n".format(np.size(vals_complex)))
 
-    time18 = time()
+    time15 = time()
     
     #Opt
     
     times = [time1,time2,time3,time4,time5,
            time6,time7,time8,time9,time10,
-           time11,time12,time13,time14,time15,
-           time16,time17,time18,]
+           time11,time12,time13,time14,time15]
     
     time_total = times[-1] - times[0]
     
