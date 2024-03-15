@@ -17,7 +17,6 @@ from scipy.special import roots_legendre
 
 def build_XmY_XpY(L,tempm,bigomega,nab):
 
-    #XmY = np.matmul(L,tempm)
     XmY = np.dot(L,tempm)
 
     XpY = np.linalg.solve(np.transpose(L),tempm)
@@ -46,7 +45,6 @@ def build_AmB_ApB(eig,pqrt_at,nalpha,nbf,nab):
 
     ApB = ApB + AmB
 
-    # Eq. SI. (8) Second Part
     EcRPA = -0.25*( np.einsum("iaia->",ApB,optimize=True) + np.einsum("iaia->",AmB,optimize=True) )
 
     ApB = ApB.reshape(nab,nab)
@@ -1177,62 +1175,32 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     print(" ERPA Analysis")
     print("---------------\n")
 
-    tol_n = 10**-150
     tol_dn = 10**-3
-    tol_eig = 10**-8
 
-    norb = len(n[n>tol_n])
-    print("  Number of natural orbitals used: {}".format(norb))
-    print("  Number of screened NO (n<={}): {}\n".format(tol_n,pp.nbf5-norb))
-
-    n_s = np.zeros((norb))
-    C_s = np.zeros((pp.nbf,norb))
-
-    orb_pair_ll = np.zeros((pp.ndns),dtype=int)
-    orb_pair_ul = np.zeros((pp.ndns),dtype=int)
-
-    n_s[:pp.no1+pp.ndns] = n[:pp.no1+pp.ndns]
-    C_s[:,:pp.no1+pp.ndns] = C[:,:pp.no1+pp.ndns]
-    
-    i = pp.no1 + pp.ndns - 1
-    for l in range(pp.ndoc-1,-1,-1):
-        ldx = pp.no1 + l
-
-        ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
-        ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
-
-        orb_pair_ll[l] = i + 1
-        for li in range(ll,ul):
-            if(n[li]>tol_n):
-                i += 1
-                n_s[i] = n[li]
-                C_s[:,i] = C[:,li]
-        orb_pair_ul[l] = i + 1
-
-    h = np.einsum("mi,mn,nj->ij",C_s[:,0:norb],H,C_s[:,0:norb],optimize=True)
+    h = np.einsum("mi,mn,nj->ij",C[:,0:pp.nbf5],H,C[:,0:pp.nbf5],optimize=True)
 
     if(pp.RI):
-        b_pql = np.einsum("mnl,mp,nq->pql",b_mnl,C_s[:,0:norb],C_s[:,0:norb],optimize=True)
+        b_pql = np.einsum("mnl,mp,nq->pql",b_mnl,C[:,0:pp.nbf5],C[:,0:pp.nbf5],optimize=True)
         I = np.einsum("pqR,slR->pqsl",b_pql,b_pql,optimize=True)
     else:
-        I = np.einsum("mp,nq,mnab,as,bl->pqsl",C_s[:,0:norb],C_s[:,0:norb],I,C_s[:,0:norb],C_s[:,0:norb],optimize=True)
+        I = np.einsum("mp,nq,mnab,as,bl->pqsl",C[:,0:pp.nbf5],C[:,0:pp.nbf5],I,C[:,0:pp.nbf5],C[:,0:pp.nbf5],optimize=True)
     if(pp.gpu):
         I = I.get()
 
-    c = np.sqrt(n_s)
+    c = np.sqrt(n)
     c[pp.no1+pp.ndns:] *= -1
 
     I = np.einsum('rpsq->rspq',I,optimize=True)
 
-    A = np.zeros((norb,norb,norb,norb))
-    Id = np.identity(norb)
+    A = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+    Id = np.identity(pp.nbf5)
 
-    A += np.einsum('sq,pr,p->rspq',h,Id,n_s,optimize=True)
-    A -= np.einsum('sq,pr,s->rspq',h,Id,n_s,optimize=True)
-    A += np.einsum('pr,sq,q->rspq',h,Id,n_s,optimize=True)
-    A -= np.einsum('pr,sq,r->rspq',h,Id,n_s,optimize=True)
+    A += np.einsum('sq,pr,p->rspq',h,Id,n,optimize=True)
+    A -= np.einsum('sq,pr,s->rspq',h,Id,n,optimize=True)
+    A += np.einsum('pr,sq,q->rspq',h,Id,n,optimize=True)
+    A -= np.einsum('pr,sq,r->rspq',h,Id,n,optimize=True)
 
-    Daa, Dab = pynof.compute_2RDM(pp,n_s,orb_pair_ll,orb_pair_ul)
+    Daa, Dab = pynof.compute_2RDM(pp,n)
 
     time2 = time()
     
@@ -1261,7 +1229,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     A += np.einsum('pr,tuwq,swtu->rspq',Id,I,Daa,optimize=True)
     A -= np.einsum('pr,tuwq,wstu->rspq',Id,I,Dab,optimize=True)
 
-    M = np.zeros((norb**2,norb**2))
+    M = np.zeros((pp.nbf5**2,pp.nbf5**2))
 
     # i is rows
     # j is columns
@@ -1269,104 +1237,100 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     time5 = time()
     
     i = -1
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             j = -1
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,p,q]
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,q,p]
-            for p in range(norb):
+            for p in range(pp.nbf5):
                 j += 1
                 M[i,j] = A[r,s,p,p]
 
     time6 = time()
     
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             j = -1
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,q,p]
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,p,q]
-            for p in range(norb):
+            for p in range(pp.nbf5):
                 j += 1
                 M[i,j] = A[r,s,p,p]
 
     time7 = time()
     
-    for r in range(norb):
+    for r in range(pp.nbf5):
         i += 1
         j = -1
-        for q in range(norb):
-            for p in range(q+1,norb):
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
                 j += 1
                 M[i,j] = A[r,r,p,q]
-        for q in range(norb):
-            for p in range(q+1,norb):
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
                 j += 1
                 M[i,j] = A[r,r,q,p]
-        for p in range(norb):
+        for p in range(pp.nbf5):
             j += 1
             M[i,j] = A[r,r,p,p]
     
-    v = np.zeros((norb*(norb-1)))
+    v = np.zeros((pp.nbf5*(pp.nbf5-1)))
     i = -1
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             v[i] = +(n[s] - n[r])
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             v[i] = -(n[s] - n[r])
-
-
-    M_ERPA0 = M.copy()
-    v_ERPA0 = v.copy()
 
     idx = []
     for i,vi in enumerate(v):
         if(np.abs(vi) < tol_dn):
             idx.append(i)
 
-    dim = (norb)*(norb-1) - len(idx)
+    dim = (pp.nbf5)*(pp.nbf5-1) - len(idx)
     
     for i,j in enumerate(idx):
-        tmp = v_ERPA0[j-i]
-        v_ERPA0[j-i:-1] = v_ERPA0[j-i+1:]
-        v_ERPA0[-1] = tmp
+        tmp = v[j-i]
+        v[j-i:-1] = v[j-i+1:]
+        v[-1] = tmp
 
-        tmp = M_ERPA0[j-i,:].copy()
-        M_ERPA0[j-i:-1,:] = M_ERPA0[j-i+1:,:]
-        M_ERPA0[-1,:] = tmp
-        tmp = M_ERPA0[:,j-i].copy()
-        M_ERPA0[:,j-i:-1] = M_ERPA0[:,j-i+1:]
-        M_ERPA0[:,-1] = tmp
+        tmp = M[j-i,:].copy()
+        M[j-i:-1,:] = M[j-i+1:,:]
+        M[-1,:] = tmp
+        tmp = M[:,j-i].copy()
+        M[:,j-i:-1] = M[:,j-i+1:]
+        M[:,-1] = tmp
 
-#    print(len(idx),dim)
+    print("Orig dim: {} New dim: {} Elements below tol_dN: {}",(pp.nbf5)*(pp.nbf5-1),dim,len(idx))
 
     ######## ERPA0 ########
 
     dd = int(dim/2)
-    AA = M_ERPA0[:dd,:dd]
-    BB = M_ERPA0[:dd,dd:int(2*dd)]
+    AA = M[:dd,:dd]
+    BB = M[:dd,dd:int(2*dd)]
 
     ApB = AA + BB
     AmB = AA - BB
 
     dN = np.zeros((dd,dd))
-    np.fill_diagonal(dN, v_ERPA0[:dd])
+    np.fill_diagonal(dN, v[:dd])
     dNm1 = np.linalg.pinv(dN)
 
     maxApBsym = np.max(np.abs(ApB - ApB.T))
@@ -1394,7 +1358,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     
     ######## ERPA  ########
 
-    dd = int((norb)*(norb-1)/2) #int(dim/2)
+    dd = int(dim/2)
     AA = M[:dd,:dd]
     BB = M[:dd,dd:int(2*dd)]
 
@@ -1405,13 +1369,13 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     np.fill_diagonal(dN, v[:dd])
     dNm1 = np.linalg.pinv(dN)
 
-    CC = M[:dd,int(2*dd):]
-    DD = M[int(2*dd):,:dd]
-    EE = M[int(2*dd):,int(2*dd):]
+    CC = M[:dd,int(2*dd):int(2*dd)+pp.nbf5]
+    EE = M[int(2*dd):int(2*dd)+pp.nbf5,:dd]
+    FF = M[int(2*dd):int(2*dd)+pp.nbf5,int(2*dd):int(2*dd)+pp.nbf5]
 
-    EEm1 = np.linalg.inv(EE)
+    FFm1 = np.linalg.inv(FF)
 
-    tmpMat = 2*np.einsum("ij,jk,kl->il",CC,EEm1,DD,optimize=True)
+    tmpMat = 2*np.einsum("ij,jk,kl->il",CC,FFm1,EE,optimize=True)
 
     MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB-tmpMat,dNm1,AmB,optimize=True)
     vals = np.linalg.eigvals(MM)
@@ -1432,72 +1396,72 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
     ######## ERPA2 ########
 
     i = -1
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             j = -1
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,p,q]
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,q,p]
-            for p in range(norb):
+            for p in range(pp.nbf5):
                 j += 1
                 M[i,j] = A[r,s,p,p]*1/2*(c[s]/(c[p]*(c[r]+c[s])))
 
     time10 = time()
     
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             j = -1
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,q,p]
-            for q in range(norb):
-                for p in range(q+1,norb):
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
                     j += 1
                     M[i,j] = A[r,s,p,q]
-            for p in range(norb):
+            for p in range(pp.nbf5):
                 j += 1
                 M[i,j] = A[r,s,p,p]*1/2*(c[r]/(c[p]*(c[r]+c[s])))
 
     time11 = time()
     
-    for r in range(norb):
+    for r in range(pp.nbf5):
         i += 1
         j = -1
-        for q in range(norb):
-            for p in range(q+1,norb):
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
                 j += 1
                 M[i,j] = A[r,r,p,q]*(1/c[r])
-        for q in range(norb):
-            for p in range(q+1,norb):
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
                 j += 1
                 M[i,j] = A[r,r,q,p]*(1/c[r])
-        for p in range(norb):
+        for p in range(pp.nbf5):
             j += 1
             M[i,j] = A[r,r,p,p]*(1/(4*c[p]*c[r]))
 
-    v = np.zeros((norb**2))
+    v = np.zeros((pp.nbf5**2))
     i = -1
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             v[i] = -(n[r] - n[s])
-    for s in range(norb):
-        for r in range(s+1,norb):
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
             i += 1
             v[i] = (n[r] - n[s])
-    for r in range(norb):
+    for r in range(pp.nbf5):
         i += 1
         v[i] = 1
     
-    V = np.zeros((norb**2,norb**2))
+    V = np.zeros((pp.nbf5**2,pp.nbf5**2))
     np.fill_diagonal(V, v)
 
     lidx = []
@@ -1505,7 +1469,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
         if(np.abs(vi) < tol_dn):
             lidx.append(i)
 
-    dim = norb**2 - len(lidx)
+    dim = pp.nbf5**2 - len(lidx)
 
     for i,j in enumerate(lidx):
         tmp = v[j-i]

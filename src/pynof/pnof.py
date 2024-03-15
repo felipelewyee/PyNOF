@@ -384,7 +384,7 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
 
     return Dcj12r,Dck12r
 
-def compute_2RDM(pp,n,orb_pair_ll,orb_pair_ul):
+def compute_2RDM(pp,n):
 
     norb = len(n)
     # PNOF5
@@ -398,8 +398,8 @@ def compute_2RDM(pp,n,orb_pair_ll,orb_pair_ul):
     for l in prange(pp.ndoc):
         ldx = pp.no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = orb_pair_ll[l]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
-        ul = orb_pair_ul[l]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
+        ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
+        ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
 
         inter[ldx,ldx] = 0
         inter[ldx,ll:ul] = 0
@@ -427,8 +427,8 @@ def compute_2RDM(pp,n,orb_pair_ll,orb_pair_ul):
         for l in prange(pp.ndoc):
             ldx = pp.no1 + l
             # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-            ll = orb_pair_ll[l]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
-            ul = orb_pair_ul[l]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
+            ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
+            ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
 
             Pi_s[ldx,ldx] = 0
             Pi_s[ldx,ll:ul] = 0
@@ -442,11 +442,6 @@ def compute_2RDM(pp,n,orb_pair_ll,orb_pair_ul):
         Pi_s[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = 0
 
         Dab -= np.einsum('pr,pt,qr->pqrt',inter2,Id,Id,optimize=True)
-#
-#
-#    #inter3 = 0*inter.copy()
-#    #inter3[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = -1/4
-#    # inter3 = inter2?
 
         if(pp.ipnof==8):
             Pi_s[:pp.nbeta,:pp.nbeta] = 0
@@ -463,8 +458,8 @@ def compute_2RDM(pp,n,orb_pair_ll,orb_pair_ul):
             for i in prange(pp.ndoc):
                 idx = pp.no1 + i
                 # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-                ll = orb_pair_ll[i]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - i - 1)
-                ul = orb_pair_ul[i]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - i)
+                ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - i - 1)
+                ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - i)
                 h = 1.0 - n[idx]
                 coc = h / h_cut
                 arg = -coc ** 2
@@ -480,8 +475,8 @@ def compute_2RDM(pp,n,orb_pair_ll,orb_pair_ul):
             for l in prange(pp.ndoc):
                 ldx = pp.no1 + l
                 # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-                ll = orb_pair_ll[l]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
-                ul = orb_pair_ul[l]#pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
+                ll = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l - 1)
+                ul = pp.no1 + pp.ndns + pp.ncwo*(pp.ndoc - l)
 
                 inter[ldx,ldx] = 0
                 inter[ldx,ll:ul] = 0
