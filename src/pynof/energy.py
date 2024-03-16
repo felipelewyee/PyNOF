@@ -3,7 +3,7 @@ from scipy.linalg import eigh
 from time import time
 import pynof
 
-def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False,erpa=False):
+def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False,erpa=False,iter_erpa=0):
  
     t1 = time()
 
@@ -182,6 +182,9 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
 
     if(erpa):
         pynof.ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,p)
+
+    if(iter_erpa > 0):
+        pynof.iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,iter_erpa,p)
 
 
     if gradients:

@@ -404,6 +404,17 @@ def orthonormalize(C,S):
 
     return C
 
+def orthonormalize2(M):
+
+    for i in range(M.shape[1]):
+        norm = np.einsum('k,k->',M[:,i],M[:,i],optimize=True)
+        M[:,i] = M[:,i]/np.sqrt(norm)
+        for j in range(i+1,M.shape[1]):
+            val = -np.einsum('k,k->',M[:,i],M[:,j],optimize=True)
+            M[:,j] = M[:,j] + val*M[:,i]
+
+    return M
+
 def rotate_orbital(y,C,p):
 
     ynew = np.zeros((p.nbf,p.nbf))

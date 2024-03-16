@@ -1318,7 +1318,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
         M[:,j-i:-1] = M[:,j-i+1:]
         M[:,-1] = tmp
 
-    print("Orig dim: {} New dim: {} Elements below tol_dN: {}",(pp.nbf5)*(pp.nbf5-1),dim,len(idx))
+    print("M_ERPA Orig dim: {} New dim: {} Elements below tol_dN: {}".format((pp.nbf5)*(pp.nbf5-1),dim,len(idx)))
 
     ######## ERPA0 ########
 
@@ -1335,7 +1335,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
 
     maxApBsym = np.max(np.abs(ApB - ApB.T))
     maxAmBsym = np.max(np.abs(AmB - AmB.T))
-    print("max diff ApB {} and max AmB {}".format(maxApBsym,maxAmBsym))
+    print("Max diff ApB {:3.1e} and Max AmB {:3.1e}".format(maxApBsym,maxAmBsym))
 
     MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,AmB,optimize=True)
     vals = np.linalg.eigvals(MM)
@@ -1528,4 +1528,329 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
             j = i+2,
             d = d, 
             p = d *100/time_total))
+
+def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,n_guess_vectors,pp):
+    
+    time1 = time()
+    
+    print("\n---------------")
+    print(" ERPA Analysis")
+    print("---------------\n")
+
+    tol_dn = 10**-3
+
+    h = np.einsum("mi,mn,nj->ij",C[:,0:pp.nbf5],H,C[:,0:pp.nbf5],optimize=True)
+
+    if(pp.RI):
+        b_pql = np.einsum("mnl,mp,nq->pql",b_mnl,C[:,0:pp.nbf5],C[:,0:pp.nbf5],optimize=True)
+        I = np.einsum("pqR,slR->pqsl",b_pql,b_pql,optimize=True)
+    else:
+        I = np.einsum("mp,nq,mnab,as,bl->pqsl",C[:,0:pp.nbf5],C[:,0:pp.nbf5],I,C[:,0:pp.nbf5],C[:,0:pp.nbf5],optimize=True)
+    if(pp.gpu):
+        I = I.get()
+
+    c = np.sqrt(n)
+    c[pp.no1+pp.ndns:] *= -1
+
+    I = np.einsum('rpsq->rspq',I,optimize=True)
+
+    A = np.zeros((pp.nbf5,pp.nbf5,pp.nbf5,pp.nbf5))
+    Id = np.identity(pp.nbf5)
+
+    A += np.einsum('sq,pr,p->rspq',h,Id,n,optimize=True)
+    A -= np.einsum('sq,pr,s->rspq',h,Id,n,optimize=True)
+    A += np.einsum('pr,sq,q->rspq',h,Id,n,optimize=True)
+    A -= np.einsum('pr,sq,r->rspq',h,Id,n,optimize=True)
+
+    Daa, Dab = pynof.compute_2RDM(pp,n)
+
+    time2 = time()
+    
+######################################
+    A += np.einsum('stqu,purt->rspq',I,Daa,optimize=True)
+    A -= np.einsum('stuq,purt->rspq',I,Daa,optimize=True)
+    A += np.einsum('stqu,purt->rspq',I,Dab,optimize=True)
+    A += np.einsum('stuq,putr->rspq',I,Dab,optimize=True)
+    A += np.einsum('uptr,stqu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('uprt,stqu->rspq',I,Daa,optimize=True)
+    A += np.einsum('uptr,stqu->rspq',I,Dab,optimize=True)
+    A += np.einsum('uprt,stuq->rspq',I,Dab,optimize=True)
+   
+    time3 = time()
+    
+   ####
+    A += np.einsum('pstu,turq->rspq',I,Daa,optimize=True)
+    A -= np.einsum('pstu,utrq->rspq',I,Dab,optimize=True)
+    A += np.einsum('tuqr,sptu->rspq',I,Daa,optimize=True)
+    A -= np.einsum('tuqr,pstu->rspq',I,Dab,optimize=True)
+    ####
+    time4 = time()
+    
+    A += np.einsum('sq,tpwu,wurt->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('sq,tpwu,uwrt->rspq',Id,I,Dab,optimize=True)
+    A += np.einsum('pr,tuwq,swtu->rspq',Id,I,Daa,optimize=True)
+    A -= np.einsum('pr,tuwq,wstu->rspq',Id,I,Dab,optimize=True)
+
+    M = np.zeros((pp.nbf5**2,pp.nbf5**2))
+
+    # i is rows
+    # j is columns
+
+    time5 = time()
+    
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,p,q]
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,q,p]
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = A[r,s,p,p]
+
+    time6 = time()
+    
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            j = -1
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,q,p]
+            for q in range(pp.nbf5):
+                for p in range(q+1,pp.nbf5):
+                    j += 1
+                    M[i,j] = A[r,s,p,q]
+            for p in range(pp.nbf5):
+                j += 1
+                M[i,j] = A[r,s,p,p]
+
+    time7 = time()
+    
+    for r in range(pp.nbf5):
+        i += 1
+        j = -1
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = A[r,r,p,q]
+        for q in range(pp.nbf5):
+            for p in range(q+1,pp.nbf5):
+                j += 1
+                M[i,j] = A[r,r,q,p]
+        for p in range(pp.nbf5):
+            j += 1
+            M[i,j] = A[r,r,p,p]
+    
+    v = np.zeros((pp.nbf5*(pp.nbf5-1)))
+    i = -1
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = +(n[s] - n[r])
+    for s in range(pp.nbf5):
+        for r in range(s+1,pp.nbf5):
+            i += 1
+            v[i] = -(n[s] - n[r])
+
+    idx = []
+    for i,vi in enumerate(v):
+        if(np.abs(vi) < tol_dn):
+            idx.append(i)
+
+    i_start = 0  #start of hono/virtual coupling after tol_dn
+    for s in range(pp.ndoc-1):
+        for r in range(s+1,pp.nbf5):
+            if(np.abs(v[i]) < tol_dn):
+                i_start += 1
+
+    dim = (pp.nbf5)*(pp.nbf5-1) - len(idx)
+    
+    for i,j in enumerate(idx):
+        tmp = v[j-i]
+        v[j-i:-1] = v[j-i+1:]
+        v[-1] = tmp
+
+        tmp = M[j-i,:].copy()
+        M[j-i:-1,:] = M[j-i+1:,:]
+        M[-1,:] = tmp
+        tmp = M[:,j-i].copy()
+        M[:,j-i:-1] = M[:,j-i+1:]
+        M[:,-1] = tmp
+
+    print("M_ERPA Orig dim: {} New dim: {} Elements below tol_dN: {}".format((pp.nbf5)*(pp.nbf5-1),dim,len(idx)))
+
+    ######## ERPA0 ########
+
+    dd = int(dim/2)
+    AA = M[:dd,:dd]
+    BB = M[:dd,dd:int(2*dd)]
+
+    ApB = AA + BB
+    AmB = AA - BB
+
+    dN = np.zeros((dd,dd))
+    np.fill_diagonal(dN, v[:dd])
+    dNm1 = np.linalg.pinv(dN)
+
+    maxApBsym = np.max(np.abs(ApB - ApB.T))
+    maxAmBsym = np.max(np.abs(AmB - AmB.T))
+    print("Max diff ApB {:3.1e} and Max AmB {:3.1e}".format(maxApBsym,maxAmBsym))
+    print()
+
+    ######## Build XmY and XpY  ############
+    #MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,AmB,optimize=True)
+    #vals,XmY = np.linalg.eig(MM)
+    #sort_idx = np.argsort(vals)
+    #vals = vals[sort_idx]
+    #vals = np.sqrt(vals)
+    #XmY = XmY[:,sort_idx]
+    #####
+    #MM = np.einsum("ij,jk,kl,lm->im",dNm1,AmB,dNm1,ApB,optimize=True)
+    #vals2,XpY = np.linalg.eig(MM)
+    #sort_idx = np.argsort(vals2)
+    #vals2 = vals2[sort_idx]
+    #vals2 = np.sqrt(vals2)
+    #XpY = XpY[:,sort_idx]
+    #print("Correct Eigenvalues Roots")
+    #print(vals[:5])
+    #print("Correct Eigenvalues")
+    #print(vals[:5]**2)
+
+    ############ Build True L and R
+    #L = XmY
+    #R = np.einsum("ij,jk->ik",dN,XpY,optimize=True)
+    #LR = np.einsum("ji,jk->ik",L,R,optimize=True)
+    #diag_LR = np.diagonal(LR)
+    #print("Diagonal of LR")
+    #print(diag_LR)
+    #for i in range(dd):
+    #    L[:,i] = L[:,i]/np.sqrt(diag_LR[i])
+    #    R[:,i] = R[:,i]/np.sqrt(diag_LR[i])
+    #LMR = np.einsum("ji,jk,kl,lm,mn,no->io",L,AmB,dNm1,ApB,dNm1,R,optimize=True)
+    #print("Diagonal of LMR")
+    #print(np.diagonal(LMR))
+
+    #nL = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,R,optimize=True)
+    #nR = np.einsum("ij,jk->ik",AmB,L,optimize=True)
+    #for i in range(dd):
+    #    print("overlap {} L {} R {}".format(i,np.abs(np.dot(L[:,i]/np.linalg.norm(L[:,i]),nL[:,i]/np.linalg.norm(nL[:,i]))),np.abs(np.dot(R[:,i]/np.linalg.norm(R[:,i]),nR[:,i]/np.linalg.norm(nR[:,i])))))
+
+    k = n_guess_vectors
+    l = pp.nbf5-pp.ndoc
+    b = np.zeros((dd,l))
+
+    for j in range(l):
+        b[i_start+j,j] = 1
+
+    w_old = np.zeros((k))
+
+    b = pynof.orthonormalize2(b)
+    ######## Start iterations #######
+    for it in range(100):
+        print("==== Iter {} ====".format(it))
+        print("Number of guess vectors: ",np.shape(b[1]))
+        MM = np.einsum("ij,jk,kl,lm,mn,no->io",b.T,AmB,dNm1,ApB,dNm1,b,optimize=True)
+        r_vals,r_vecs = np.linalg.eig(MM)
+        r_vals,r_vecs = np.real(r_vals),np.real(r_vecs)
+        l_vals,l_vecs = np.linalg.eig(MM.T)
+        l_vals,l_vecs = np.real(l_vals),np.real(l_vecs)
+
+        r_vecs = r_vecs[:, r_vals > 1.0e-10]
+        r_vals = r_vals[r_vals > 1.0e-10]
+        sort_idx = np.argsort(r_vals)
+        r_vals = r_vals[sort_idx]
+        r_vecs = np.real(r_vecs[:,sort_idx])
+
+        l_vecs = l_vecs[:, l_vals > 1.0e-10]
+        l_vals = l_vals[l_vals > 1.0e-10]
+        sort_idx = np.argsort(l_vals)
+        l_vals = l_vals[sort_idx]
+        l_vecs = np.real(l_vecs[:,sort_idx])
+  
+        r_vecs = r_vecs[:,:k]
+        l_vecs = l_vecs[:,:k]
+        w = np.sqrt(r_vals[:k])
+
+        R = np.zeros((dd,k))
+        L = np.zeros((dd,k))
+        for i in range(k):
+            for j in range(l):
+                R[:,i] += r_vecs[j,i]*b[:,j]
+                L[:,i] += l_vecs[j,i]*b[:,j]
+
+        wR = np.zeros((dd,k))
+        wL = np.zeros((dd,k))
+        converged = True
+        for i in range(k):
+            lv = L[:,i]
+            rv = R[:,i]
+            #### Check R with L
+            # Generate asocciated L
+            aL = np.einsum("ij,jk,kl,l->i",dNm1,ApB,dNm1,rv,optimize=True)
+            cL = w[i]*lv
+            # Normalize associated L and current 
+            idx = np.argmax(np.abs(aL))
+            aL = aL / np.linalg.norm(aL) * np.sign(aL[idx])
+            idx = np.argmax(np.abs(cL))
+            cL = cL / np.linalg.norm(cL) * np.sign(cL[idx])
+            # Get R vector
+            wR[:,i] = aL - cL
+            #### Check R with L
+            # Generate asocciated R
+            aR = np.einsum("ij,j->i",AmB,lv,optimize=True)
+            cR = w[i]*rv
+            # Normalize associated R and current 
+            idx = np.argmax(np.abs(aR))
+            aR = aR / np.linalg.norm(aR) * np.sign(aR[idx])
+            idx = np.argmax(np.abs(cR))
+            cR = cR / np.linalg.norm(cR) * np.sign(cR[idx])
+            wL[:,i] = aR - cR
+            print("i: {} w: {:4.3f} Rdot: {:6.4f} Ldot: {:6.4f}".format(i,w[i],np.dot(aR,cR),np.dot(aR,cR)))
+            if(np.max(np.abs(w_old-w[:k]))>0.001):
+                converged = False
+                w_old = w[:k]
+
+        n_guess_vectors = np.shape(b)[1]
+        relevance = np.zeros((n_guess_vectors))
+        for i in range(n_guess_vectors):
+            relevance[i] = np.max(np.abs(r_vecs[i,:k])+np.abs(l_vecs[i,:k]))
+        thresh_relevance = np.max(relevance)*0.01
+        relevance_idx = np.argsort(relevance)[::-1]
+        for i in range(n_guess_vectors):
+            if relevance[relevance_idx[i]] < thresh_relevance:
+                relevance_idx = relevance_idx[:i]
+                break
+        b = b[:,relevance_idx]
+
+        b = np.hstack((b,wR))
+        b = np.hstack((b,wL))
+
+        b = pynof.orthonormalize2(b)
+
+        #plt.imshow(np.abs(b))
+        #plt.colorbar()
+        #plt.show()
+
+        if(converged):
+            break
+
+    vals = w[:k]*27.2114
+
+    print()
+    print("  Excitation energies ERPA0/PNOF{}(eV)".format(pp.ipnof))
+    print("  ===================================")
+
+    for i in range(min(10,len(vals))):
+        print("    Exc. en. {}: {:6.3f}".format(i,vals[i]))
+
+
 
