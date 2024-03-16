@@ -1757,8 +1757,19 @@ def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,n_guess_vectors,pp):
     ######## Start iterations #######
     for it in range(100):
         print("==== Iter {} ====".format(it))
-        print("Number of guess vectors: ",np.shape(b[1]))
-        MM = np.einsum("ij,jk,kl,lm,mn,no->io",b.T,AmB,dNm1,ApB,dNm1,b,optimize=True)
+        print("Number of guess vectors: ",np.shape(b)[1])
+
+        dNm1ApBdNm1 = np.zeros((dd,dd))
+        for i in range(dd):
+            for j in range(dd):
+                dNm1ApBdNm1[i,j] = dNm1[i,i]*ApB[i,j]*dNm1[j,j]
+        AmB_b = np.einsum("ij,jk->ik",AmB,b,optimize=True)
+        bT_AmB_b = np.einsum("ij,jk->ik",b.T,AmB_b,optimize=True)
+        dNm1ApBdNm1_b = np.einsum("ij,jk->ik",dNm1ApBdNm1,b,optimize=True)
+        bT_dNm1ApBdNm1_b = np.einsum("ij,jk->ik",b.T,dNm1ApBdNm1_b,optimize=True)
+        MM = np.einsum("ij,jk->ik",bT_AmB_b,bT_dNm1ApBdNm1_b,optimize=True)
+        #MM = np.einsum("ij,jk,kl,lm,mn,no->io",b.T,AmB,dNm1,ApB,dNm1,b,optimize=True)
+        
         r_vals,r_vecs = np.linalg.eig(MM)
         r_vals,r_vecs = np.real(r_vals),np.real(r_vecs)
         l_vals,l_vecs = np.linalg.eig(MM.T)
