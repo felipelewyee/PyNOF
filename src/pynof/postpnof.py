@@ -1717,6 +1717,9 @@ def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,number_of_excitations,p
         bp[i_start+j,j] = 1
         bm[i_start+j,j] = 1
 
+    bp = pynof.orthonormalize(bp,ApB)
+    bm = pynof.orthonormalize(bm,AmB)
+
     w_old = np.zeros((number_of_excitations))
     for k in range(100):
         converged = True
@@ -1724,29 +1727,15 @@ def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,number_of_excitations,p
         print("Number of guess vectors: ",np.shape(bp)[1])
         l = np.shape(bp)[1]
 
-        Ep = np.einsum("ji,jk,kl->il",bp,ApB,bp,optimize=True)
-        Em = np.einsum("ji,jk,kl->il",bm,AmB,bm,optimize=True)
-
         S = np.einsum("ji,jk,kl->il",bm,dN,bp,optimize=True)
 
-        SS = np.zeros((2*l,2*l))
-        SS[:l,l:] = S.T
-        SS[l:,:l] = S
-        EE = np.zeros((2*l,2*l))
-        EE[:l,:l] = Ep
-        EE[l:,l:] = Em
-
-        omega_inv, u = eig(SS,EE)
-        omega_inv, u = np.real(omega_inv), np.real(u)
-        omega = 1/omega_inv
-        sort_idx = np.argsort(omega)
-        omega, u = omega[sort_idx], u[:,sort_idx]
-        omega, u = omega[l:], u[:,l:]
+        lambda2, up = eigh(np.matmul(S.T,S))
+        sort_idx = np.argsort(lambda2)[::-1]
+        lambda2, up = lambda2[sort_idx], up[:,sort_idx]
+        omega = 1/np.sqrt(lambda2)
+        um = np.einsum("i,ij,jk->ik",1/omega,S,up)
         for i,val in enumerate(omega[:number_of_excitations]):
             print(" Exc. en {}: {:6.3f}".format(i,val*27.2114))
-
-        up = u[:l,:]
-        um = u[l:,:]
 
         if(np.max(np.abs(w_old-omega[:number_of_excitations]))>0.001):
             converged = False
@@ -1755,16 +1744,16 @@ def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,number_of_excitations,p
             break
 
         for i in range(number_of_excitations):
-            Rp = np.einsum("ij,jk,k->i",ApB,bp[:,:l],up[:,i]) - omega[i]*np.einsum("ij,jk,k->i",dN,bm[:,:l],um[:,i])
-            Rm = np.einsum("ij,jk,k->i",AmB,bm[:,:l],um[:,i]) - omega[i]*np.einsum("ij,jk,k->i",dN,bp[:,:l],up[:,i])
+            Rp = np.einsum("ij,jk,k->i",dN,bm[:,:l],um[:,i]) - 1/omega[i]*np.einsum("ij,jk,k->i",ApB,bp[:,:l],up[:,i])
+            Rm = np.einsum("ij,jk,k->i",dN,bp[:,:l],up[:,i]) - 1/omega[i]*np.einsum("ij,jk,k->i",AmB,bm[:,:l],um[:,i])
 
-            b_p1 = -np.matmul(np.linalg.pinv(np.matmul(dA,dA) - (omega[i]**2)*np.matmul(dN,dN)), np.matmul(dA,Rp)+omega[i]*np.matmul(dN,Rm) )
-            b_m1 = -np.matmul(np.linalg.pinv(np.matmul(dA,dA) - (omega[i]**2)*np.matmul(dN,dN)), np.matmul(dA,Rm)+omega[i]*np.matmul(dN,Rp) )
+            b_p1 = -np.matmul(np.linalg.pinv(1/omega[i]**2*np.matmul(dA,dA) - np.matmul(dN,dN)), 1/omega[i]*np.matmul(dA,Rp)+np.matmul(dN,Rm) )
+            b_m1 = -np.matmul(np.linalg.pinv(1/omega[i]**2*np.matmul(dA,dA) - np.matmul(dN,dN)), 1/omega[i]*np.matmul(dA,Rm)+np.matmul(dN,Rp) )
 
             bp = np.hstack((bp,b_p1.reshape(np.shape(bp)[0],-1)))
             bm = np.hstack((bm,b_m1.reshape(np.shape(bm)[0],-1)))
-        bp = pynof.orthonormalize2(bp)
-        bm = pynof.orthonormalize2(bm)
+        bp = pynof.orthonormalize(bp,ApB)
+        bm = pynof.orthonormalize(bm,AmB)
 
         #relevancep = np.zeros((number_of_excitations))
         #relevancem = np.zeros((number_of_excitations))
