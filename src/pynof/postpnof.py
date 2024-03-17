@@ -1529,7 +1529,7 @@ def ERPA(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,pp):
             d = d, 
             p = d *100/time_total))
 
-def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,n_guess_vectors,pp):
+def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,number_of_excitations,pp):
     
     time1 = time()
     
@@ -1697,6 +1697,9 @@ def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,n_guess_vectors,pp):
     ApB = AA + BB
     AmB = AA - BB
 
+    dA = np.zeros((dd,dd))
+    np.fill_diagonal(dA,A.diagonal())
+
     dN = np.zeros((dd,dd))
     np.fill_diagonal(dN, v[:dd])
     dNm1 = np.linalg.pinv(dN)
@@ -1706,155 +1709,77 @@ def iterative_ERPA0(wfn,mol,n,C,H,I,b_mnl,cj12,ck12,elag,n_guess_vectors,pp):
     print("Max diff ApB {:3.1e} and Max AmB {:3.1e}".format(maxApBsym,maxAmBsym))
     print()
 
-    ######## Build XmY and XpY  ############
-    #MM = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,AmB,optimize=True)
-    #vals,XmY = np.linalg.eig(MM)
-    #sort_idx = np.argsort(vals)
-    #vals = vals[sort_idx]
-    #vals = np.sqrt(vals)
-    #XmY = XmY[:,sort_idx]
-    #####
-    #MM = np.einsum("ij,jk,kl,lm->im",dNm1,AmB,dNm1,ApB,optimize=True)
-    #vals2,XpY = np.linalg.eig(MM)
-    #sort_idx = np.argsort(vals2)
-    #vals2 = vals2[sort_idx]
-    #vals2 = np.sqrt(vals2)
-    #XpY = XpY[:,sort_idx]
-    #print("Correct Eigenvalues Roots")
-    #print(vals[:5])
-    #print("Correct Eigenvalues")
-    #print(vals[:5]**2)
-
-    ############ Build True L and R
-    #L = XmY
-    #R = np.einsum("ij,jk->ik",dN,XpY,optimize=True)
-    #LR = np.einsum("ji,jk->ik",L,R,optimize=True)
-    #diag_LR = np.diagonal(LR)
-    #print("Diagonal of LR")
-    #print(diag_LR)
-    #for i in range(dd):
-    #    L[:,i] = L[:,i]/np.sqrt(diag_LR[i])
-    #    R[:,i] = R[:,i]/np.sqrt(diag_LR[i])
-    #LMR = np.einsum("ji,jk,kl,lm,mn,no->io",L,AmB,dNm1,ApB,dNm1,R,optimize=True)
-    #print("Diagonal of LMR")
-    #print(np.diagonal(LMR))
-
-    #nL = np.einsum("ij,jk,kl,lm->im",dNm1,ApB,dNm1,R,optimize=True)
-    #nR = np.einsum("ij,jk->ik",AmB,L,optimize=True)
-    #for i in range(dd):
-    #    print("overlap {} L {} R {}".format(i,np.abs(np.dot(L[:,i]/np.linalg.norm(L[:,i]),nL[:,i]/np.linalg.norm(nL[:,i]))),np.abs(np.dot(R[:,i]/np.linalg.norm(R[:,i]),nR[:,i]/np.linalg.norm(nR[:,i])))))
-
-    k = n_guess_vectors
     l = pp.nbf5-pp.ndoc
-    b = np.zeros((dd,l))
+    bp = np.zeros((dd,l))
+    bm = np.zeros((dd,l))
 
     for j in range(l):
-        b[i_start+j,j] = 1
+        bp[i_start+j,j] = 1
+        bm[i_start+j,j] = 1
 
-    w_old = np.zeros((k))
-
-    b = pynof.orthonormalize2(b)
-    ######## Start iterations #######
-    for it in range(100):
-        print("==== Iter {} ====".format(it))
-        print("Number of guess vectors: ",np.shape(b)[1])
-
-        #dNm1ApBdNm1 = np.zeros((dd,dd))
-        #for i in range(dd):
-        #    for j in range(dd):
-        #        dNm1ApBdNm1[i,j] = dNm1[i,i]*ApB[i,j]*dNm1[j,j]
-        #AmB_b = np.einsum("ij,jk->ik",AmB,b,optimize=True)
-        #bT_AmB_b = np.einsum("ij,jk->ik",b.T,AmB_b,optimize=True)
-        #dNm1ApBdNm1_b = np.einsum("ij,jk->ik",dNm1ApBdNm1,b,optimize=True)
-        #bT_dNm1ApBdNm1_b = np.einsum("ij,jk->ik",b.T,dNm1ApBdNm1_b,optimize=True)
-        #MM = np.einsum("ij,jk->ik",bT_AmB_b,bT_dNm1ApBdNm1_b,optimize=True)
-        MM = np.einsum("ij,jk,kl,lm,mn,no->io",b.T,AmB,dNm1,ApB,dNm1,b,optimize=True)
-        
-        r_vals,r_vecs = np.linalg.eig(MM)
-        r_vals,r_vecs = np.real(r_vals),np.real(r_vecs)
-        l_vals,l_vecs = np.linalg.eig(MM.T)
-        l_vals,l_vecs = np.real(l_vals),np.real(l_vecs)
-
-        r_vecs = r_vecs[:, r_vals > 1.0e-10]
-        r_vals = r_vals[r_vals > 1.0e-10]
-        sort_idx = np.argsort(r_vals)
-        r_vals = r_vals[sort_idx]
-        r_vecs = np.real(r_vecs[:,sort_idx])
-
-        l_vecs = l_vecs[:, l_vals > 1.0e-10]
-        l_vals = l_vals[l_vals > 1.0e-10]
-        sort_idx = np.argsort(l_vals)
-        l_vals = l_vals[sort_idx]
-        l_vecs = np.real(l_vecs[:,sort_idx])
-  
-        r_vecs = r_vecs[:,:k]
-        l_vecs = l_vecs[:,:k]
-        w = np.sqrt(r_vals[:k])
-
-        R = np.zeros((dd,k))
-        L = np.zeros((dd,k))
-        for i in range(k):
-            for j in range(l):
-                R[:,i] += r_vecs[j,i]*b[:,j]
-                L[:,i] += l_vecs[j,i]*b[:,j]
-
-        wR = np.zeros((dd,k))
-        wL = np.zeros((dd,k))
+    w_old = np.zeros((number_of_excitations))
+    for k in range(100):
         converged = True
-        for i in range(k):
-            lv = L[:,i]
-            rv = R[:,i]
-            #### Check R with L
-            # Generate asocciated L
-            aL = np.einsum("ij,jk,kl,l->i",dNm1,ApB,dNm1,rv,optimize=True)
-            cL = w[i]*lv
-            # Normalize associated L and current 
-            idx = np.argmax(np.abs(aL))
-            aL = aL / np.linalg.norm(aL) * np.sign(aL[idx])
-            idx = np.argmax(np.abs(cL))
-            cL = cL / np.linalg.norm(cL) * np.sign(cL[idx])
-            # Get R vector
-            wR[:,i] = aL - cL
-            #### Check R with L
-            # Generate asocciated R
-            aR = np.einsum("ij,j->i",AmB,lv,optimize=True)
-            cR = w[i]*rv
-            # Normalize associated R and current 
-            idx = np.argmax(np.abs(aR))
-            aR = aR / np.linalg.norm(aR) * np.sign(aR[idx])
-            idx = np.argmax(np.abs(cR))
-            cR = cR / np.linalg.norm(cR) * np.sign(cR[idx])
-            wL[:,i] = aR - cR
-            print("i: {} w: {:4.3f} Rdot: {:6.4f} Ldot: {:6.4f}".format(i,w[i],np.dot(aR,cR),np.dot(aR,cR)))
-            if(np.max(np.abs(w_old-w[:k]))>0.001):
-                converged = False
-                w_old = w[:k]
+        print("==== Iter {} ====".format(k))
+        print("Number of guess vectors: ",np.shape(bp)[1])
+        l = np.shape(bp)[1]
 
-        n_guess_vectors = np.shape(b)[1]
-        relevance = np.zeros((n_guess_vectors))
-        for i in range(n_guess_vectors):
-            relevance[i] = np.max(np.abs(r_vecs[i,:k])+np.abs(l_vecs[i,:k]))
-        thresh_relevance = np.max(relevance)*0.01
-        relevance_idx = np.argsort(relevance)[::-1]
-        for i in range(n_guess_vectors):
-            if relevance[relevance_idx[i]] < thresh_relevance:
-                relevance_idx = relevance_idx[:i]
-                break
-        b = b[:,relevance_idx]
+        Ep = np.einsum("ji,jk,kl->il",bp,ApB,bp,optimize=True)
+        Em = np.einsum("ji,jk,kl->il",bm,AmB,bm,optimize=True)
 
-        b = np.hstack((b,wR))
-        b = np.hstack((b,wL))
+        S = np.einsum("ji,jk,kl->il",bm,dN,bp,optimize=True)
 
-        b = pynof.orthonormalize2(b)
+        SS = np.zeros((2*l,2*l))
+        SS[:l,l:] = S.T
+        SS[l:,:l] = S
+        EE = np.zeros((2*l,2*l))
+        EE[:l,:l] = Ep
+        EE[l:,l:] = Em
 
-        #plt.imshow(np.abs(b))
-        #plt.colorbar()
-        #plt.show()
+        omega_inv, u = eig(SS,EE)
+        omega_inv, u = np.real(omega_inv), np.real(u)
+        omega = 1/omega_inv
+        sort_idx = np.argsort(omega)
+        omega, u = omega[sort_idx], u[:,sort_idx]
+        omega, u = omega[l:], u[:,l:]
+        for i,val in enumerate(omega[:number_of_excitations]):
+            print(" Exc. en {}: {:6.3f}".format(i,val*27.2114))
 
+        up = u[:l,:]
+        um = u[l:,:]
+
+        if(np.max(np.abs(w_old-omega[:number_of_excitations]))>0.001):
+            converged = False
+            w_old = omega[:number_of_excitations]
         if(converged):
             break
 
-    vals = w[:k]*27.2114
+        for i in range(number_of_excitations):
+            Rp = np.einsum("ij,jk,k->i",ApB,bp[:,:l],up[:,i]) - omega[i]*np.einsum("ij,jk,k->i",dN,bm[:,:l],um[:,i])
+            Rm = np.einsum("ij,jk,k->i",AmB,bm[:,:l],um[:,i]) - omega[i]*np.einsum("ij,jk,k->i",dN,bp[:,:l],up[:,i])
+
+            b_p1 = -np.matmul(np.linalg.pinv(np.matmul(dA,dA) - (omega[i]**2)*np.matmul(dN,dN)), np.matmul(dA,Rp)+omega[i]*np.matmul(dN,Rm) )
+            b_m1 = -np.matmul(np.linalg.pinv(np.matmul(dA,dA) - (omega[i]**2)*np.matmul(dN,dN)), np.matmul(dA,Rm)+omega[i]*np.matmul(dN,Rp) )
+
+            bp = np.hstack((bp,b_p1.reshape(np.shape(bp)[0],-1)))
+            bm = np.hstack((bm,b_m1.reshape(np.shape(bm)[0],-1)))
+        bp = pynof.orthonormalize2(bp)
+        bm = pynof.orthonormalize2(bm)
+
+        #relevancep = np.zeros((number_of_excitations))
+        #relevancem = np.zeros((number_of_excitations))
+        #for i in range(n_guess_vectors):
+        #    relevancep[i] = np.max(np.abs(up[i,:number_of_excitations]))
+        #    relevancem[i] = np.max(np.abs(um[i,:number_of_excitations]))
+        #relevancep_idx = np.argsort(relevancep)[::-1]
+        #relevancem_idx = np.argsort(relevancem)[::-1]
+        #bp = bp[:,relevancep_idx]
+        #bm = bm[:,relevancem_idx]
+        #bp = bp[:,:10]
+        #bm = bm[:,:10]
+
+
+    vals = w_old*27.2114
 
     print()
     print("  Excitation energies ERPA0/PNOF{}(eV)".format(pp.ipnof))
