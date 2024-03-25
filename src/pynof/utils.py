@@ -506,7 +506,14 @@ def n_to_gammas_softmax(n,nv,no1,ndoc,ndns,ncwo):
             b[j] = -ns[j]
 
         x = np.log(np.linalg.solve(A,b))
-        gamma[llg:ulg] = x
+
+        # JFHLewYee: remove after adjusting triginometric indexes
+        ll = no1 + ndns + (ndoc - i - 1)
+        ul = ll + ncwo*ndoc
+        llg = ll - ndns + ndoc - no1
+        ulg = ul - ndns + ndoc - no1
+
+        gamma[llg:ulg:ndoc] = x
 
     return gamma
 

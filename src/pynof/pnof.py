@@ -22,18 +22,18 @@ def CJCKD5(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     for l in prange(ndoc):
         ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + ncwo*(ndoc - l - 1)
-        ul = no1 + ndns + ncwo*(ndoc - l)
+        ll = no1 + ndns + (ndoc - l - 1)
+        ul = ll + ncwo*ndoc
 
-        cj12[ldx,ll:ul] = 0
-        cj12[ll:ul,ldx] = 0
+        cj12[ldx,ll:ul:ndoc] = 0
+        cj12[ll:ul:ndoc,ldx] = 0
 
-        cj12[ll:ul,ll:ul] = 0
+        cj12[ll:ul:ndoc,ll:ul:ndoc] = 0
 
-        ck12[ldx,ll:ul] = np.sqrt(n[ldx]*n[ll:ul])
-        ck12[ll:ul,ldx] = np.sqrt(n[ldx]*n[ll:ul])
+        ck12[ldx,ll:ul:ndoc] = np.sqrt(n[ldx]*n[ll:ul:ndoc])
+        ck12[ll:ul:ndoc,ldx] = np.sqrt(n[ldx]*n[ll:ul:ndoc])
 
-        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n[ll:ul],n[ll:ul]))
+        ck12[ll:ul:ndoc,ll:ul:ndoc] = -np.sqrt(np.outer(n[ll:ul:ndoc],n[ll:ul:ndoc]))
 
     return cj12,ck12
 
@@ -56,22 +56,22 @@ def der_CJCKD5(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
         ldx = no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + ncwo*(ndoc - l - 1)
-        ul = no1 + ndns + ncwo*(ndoc - l)
+        ll = no1 + ndns + (ndoc - l - 1)
+        ul = ll + ncwo*ndoc
 
-        Dcj12r[ldx,ll:ul,:nv] = 0
-        Dcj12r[ll:ul,ldx,:nv] = 0
+        Dcj12r[ldx,ll:ul:ndoc,:nv] = 0
+        Dcj12r[ll:ul:ndoc,ldx,:nv] = 0
 
-        Dcj12r[ll:ul,ll:ul,:nv] = 0
+        Dcj12r[ll:ul:ndoc,ll:ul:ndoc,:nv] = 0
 
         a = max(n[ldx],10**-15)
-        b = n[ll:ul]
+        b = n[ll:ul:ndoc]
         b[b<10**-15] = 10**-15
 
         for k in range(nv):
-            Dck12r[ldx,ll:ul,k] = 1/2 * 1/np.sqrt(a) * dn_dgamma[ldx,k] * np.sqrt(n[ll:ul])
-            Dck12r[ll:ul,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_dgamma[ll:ul,k] * np.sqrt(n[ldx])
-            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_dgamma[ll:ul,k],np.sqrt(n[ll:ul]))
+            Dck12r[ldx,ll:ul:ndoc,k] = 1/2 * 1/np.sqrt(a) * dn_dgamma[ldx,k] * np.sqrt(n[ll:ul:ndoc])
+            Dck12r[ll:ul:ndoc,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_dgamma[ll:ul:ndoc,k] * np.sqrt(n[ldx])
+            Dck12r[ll:ul:ndoc,ll:ul:ndoc,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_dgamma[ll:ul:ndoc,k],np.sqrt(n[ll:ul:ndoc]))
         #Dck12r[ldx,ll:ul,:nv] = 1/2 * 1/np.sqrt(a) * np.einsum('j,i->ij',dn_dgamma[ldx,:nv],np.sqrt(n[ll:ul]))
         #Dck12r[ll:ul,ldx,:nv] = 1/2 * np.einsum('i,ij->ij', 1/np.sqrt(b),dn_dgamma[ll:ul,:nv])*np.sqrt(n[ldx])
 
@@ -615,26 +615,27 @@ def ocupacion_softmax(x,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
     exp_x = np.exp(x)
 
     for i in range(ndoc):
-        ll = no1 + ndns + ncwo*(ndoc - i - 1)
-        ul = no1 + ndns + ncwo*(ndoc - i)
+        ll = no1 + ndns + (ndoc - i - 1)
+        ul = no1 + ndns + ncwo*ndoc
 
         ll_x = ll - ndns + ndoc - no1
-        ul_x = ul - ndns + ndoc - no1
+        ul_x = ll_x + ncwo*ndoc
 
-        sum_exp = exp_x[i] + np.sum(exp_x[ll_x:ul_x])
+        sum_exp = exp_x[i] + np.sum(exp_x[ll_x:ul_x:ndoc])
 
         n[i] = exp_x[i]/sum_exp
-        n[ll:ul] = exp_x[ll_x:ul_x]/sum_exp
+        n[ll:ul:ndoc] = exp_x[ll_x:ul_x:ndoc]/sum_exp
 
-        dn_dx[ll:ul,ll_x:ul_x] = -np.outer(exp_x[ll_x:ul_x],exp_x[ll_x:ul_x])/sum_exp**2
+        dn_dx[ll:ul:ndoc,ll_x:ul_x:ndoc] = -np.outer(exp_x[ll_x:ul_x:ndoc],exp_x[ll_x:ul_x:ndoc])/sum_exp**2
 
-        dn_dx[i,ll_x:ul_x] = -exp_x[ll_x:ul_x]*exp_x[i]/sum_exp**2
-        dn_dx[ll:ul,i] = -exp_x[ll_x:ul_x]*exp_x[i]/sum_exp**2
+        dn_dx[i,ll_x:ul_x:ndoc] = -exp_x[ll_x:ul_x:ndoc]*exp_x[i]/sum_exp**2
+        dn_dx[ll:ul:ndoc,i] = -exp_x[ll_x:ul_x:ndoc]*exp_x[i]/sum_exp**2
 
         dn_dx[i,i] = exp_x[i]*(sum_exp-exp_x[i])/sum_exp**2
 
         for j in range(ncwo):
-            dn_dx[ll+j,ll_x+j] = exp_x[ll_x+j]*(sum_exp-exp_x[ll_x+j])/sum_exp**2
+            j_idx = j*ndoc
+            dn_dx[ll+j_idx,ll_x+j_idx] = exp_x[ll_x+j_idx]*(sum_exp-exp_x[ll_x+j_idx])/sum_exp**2
 
     return n,dn_dx
 
