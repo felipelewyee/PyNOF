@@ -510,71 +510,63 @@ def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin,occ_method):
 def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     n = np.zeros((nbf5))
+    dn_dgamma = np.zeros((nbf5,nv))
     dni_dgammai = np.zeros((nbf5))
 
     n[0:no1] = 1                                              # [1,no1]
 
     n[no1:no1+ndoc] = 1/2 * (1 + np.cos(gamma[:ndoc])**2)     # (no1,no1+ndoc]
     dni_dgammai[no1:no1+ndoc] = - 1/2 * np.sin(2*gamma[:ndoc])
-    
+    for i in range(ndoc):
+        # dn_g/dgamma_g
+        dn_dgamma[no1+i,i] = dni_dgammai[no1+i]
+
+
     if(not HighSpin):
         n[no1+ndoc:no1+ndns] = 0.5   # (no1+ndoc,no1+ndns]
     elif(HighSpin):
         n[no1+ndoc:no1+ndns] = 1.0   # (no1+ndoc,no1+ndns]
 
-    if(ncwo==1):
-        dn_dgamma = np.zeros((nbf5,nv))
+    h = 1 - n
+    for i in range(ndoc):
+        ll = no1 + ndns + (ndoc - i - 1)
+        ul = no1 + ndns + ncwo*ndoc
+        n_weak = n[ll:ul:ndoc]
+        ll_gamma = ndoc + (ndoc - i - 1)
+        ul_gamma = ll_gamma + (ncwo-1)*ndoc
+        gamma_weak = gamma[ll_gamma:ul_gamma:ndoc]
 
-        for i in range(ndoc):
-            dn_dgamma[no1+i][i] = dni_dgammai[no1+i]
-            #cwo
-            icf = nalpha + ndoc - i - 1
-            n[icf] = 1/2*np.sin(gamma[i])**2
-            dni_dgammai[icf]  = 1/2*np.sin(2*gamma[i])
-            dn_dgamma[icf][i] = dni_dgammai[icf]
-    else:
-        dn_dgamma = np.zeros((nbf5,nv))
-        h = 1 - n
-        for i in range(ndoc):
-            ll = no1 + ndns + ncwo*(ndoc - i - 1)
-            ul = no1 + ndns + ncwo*(ndoc - i)
-            n[ll:ul] = h[no1+i]
-            for iw in range(ncwo-1):
-                n[ll+iw] *= np.sin(gamma[ndoc+(ncwo-1)*i+iw])**2
-                n[ll+iw+1:ul] *= np.cos(gamma[ndoc+(ncwo-1)*i+iw])**2
+        # n_pi
+        n_weak[:] = h[no1+i]
+        for kw in range(ncwo-1):
+            n_weak[kw] *= np.sin(gamma_weak[kw])**2
+            n_weak[kw+1:] *= np.cos(gamma_weak[kw])**2
 
-        for i in range(ndoc):
-            # dn_g/dgamma_g
-            dn_dgamma[no1+i][i] = dni_dgammai[no1+i]
+        # dn_pi/dgamma_g
+        dn_weak_dgamma = dn_dgamma[ll:ul:ndoc,i]
+        dn_weak_dgamma[:] = -dni_dgammai[no1+i]
+        for kw in range(ncwo-1):
+            dn_weak_dgamma[kw] *= np.sin(gamma_weak[kw])**2
+            dn_weak_dgamma[kw+1:] *= np.cos(gamma_weak[kw])**2
 
-            # dn_pi/dgamma_g
-            ll = no1 + ndns + ncwo*(ndoc - i - 1)
-            ul = no1 + ndns + ncwo*(ndoc - i)
-            dn_dgamma[ll:ul,i] = -dni_dgammai[no1+i]
-            for iw in range(ncwo-1):
-                dn_dgamma[ll+iw][i] *= np.sin(gamma[ndoc+(ncwo-1)*i+iw])**2
-                dn_dgamma[ll+iw+1:ul,i] *= np.cos(gamma[ndoc+(ncwo-1)*i+iw])**2
+        # dn_pi/dgamma_pj (j<i)
+        dn_weak_dgamma_weak = dn_dgamma[ll:ul:ndoc,ll_gamma:ul_gamma:ndoc]
+        for jw in range(ncwo-1):
+            dn_weak_dgamma_weak[jw+1:,jw] = n[no1+i] - 1
+            for kw in range(jw):
+                dn_weak_dgamma_weak[jw+1:,jw] *= np.cos(gamma_weak[kw])**2
+            dn_weak_dgamma_weak[jw+1:,jw] *= np.sin(2*gamma_weak[jw])
+            for kw in range(jw+1,ncwo-1):
+                dn_weak_dgamma_weak[kw,jw] *= np.sin(gamma_weak[kw])**2
+                dn_weak_dgamma_weak[kw+1:,jw] *= np.cos(gamma_weak[kw])**2
 
-            # dn_pi/dgamma_pj (j<i)
-            for iw in range(ncwo-1):
-                dn_dgamma[ll+iw+1:ul,ndoc+(ncwo-1)*i+iw] = n[no1+i] - 1
-                for ip in range(ll+iw+1,ul):
-                    for jw in range(ip-ll):
-                        if(jw==iw):
-                            dn_dgamma[ip][ndoc+(ncwo-1)*i+iw] *= np.sin(2*gamma[ndoc+(ncwo-1)*i+jw])  
-                        else:
-                            dn_dgamma[ip][ndoc+(ncwo-1)*i+iw] *= np.cos(gamma[ndoc+(ncwo-1)*i+jw])**2  
-                    if(ip-ll<ncwo-1):
-                        dn_dgamma[ip][ndoc+(ncwo-1)*i+iw] *= np.sin(gamma[ndoc+(ncwo-1)*i+(ip-ll)])**2  
-
-            # dn_pi/dgamma_i
-            for iw in range(ncwo-1):
-                dn_dgamma[ll+iw][ndoc+(ncwo-1)*i+iw] = 1 - n[no1+i]
-                for jw in range(iw+1):
-                    if(jw==iw):
-                        dn_dgamma[ll+iw][ndoc+(ncwo-1)*i+iw] *= np.sin(2*gamma[ndoc+(ncwo-1)*i+jw])  
-                    else:
-                        dn_dgamma[ll+iw][ndoc+(ncwo-1)*i+iw] *= np.cos(gamma[ndoc+(ncwo-1)*i+jw])**2  
+        # dn_pi/dgamma_i
+        for jw in range(ncwo-1):
+            dn_weak_dgamma_weak[jw,jw] = 1 - n[no1+i]
+        for kw in range(ncwo-1):
+            dn_weak_dgamma_weak[kw,kw] *= np.sin(2*gamma_weak[kw])
+            for lw in range(kw+1,ncwo-1):
+                dn_weak_dgamma_weak[lw,lw] *= np.cos(gamma_weak[kw])**2
 
     return n,dn_dgamma
 
