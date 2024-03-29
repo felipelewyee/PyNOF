@@ -521,7 +521,6 @@ def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
         # dn_g/dgamma_g
         dn_dgamma[no1+i,i] = dni_dgammai[no1+i]
 
-
     if(not HighSpin):
         n[no1+ndoc:no1+ndns] = 0.5   # (no1+ndoc,no1+ndns]
     elif(HighSpin):
@@ -529,44 +528,44 @@ def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     h = 1 - n
     for i in range(ndoc):
-        ll = no1 + ndns + (ndoc - i - 1)
-        ul = no1 + ndns + ncwo*ndoc
-        n_weak = n[ll:ul:ndoc]
+        ll_n = no1 + ndns + (ndoc - i - 1)
+        ul_n = ll_n + ncwo*ndoc
+        n_pi = n[ll_n:ul_n:ndoc]
         ll_gamma = ndoc + (ndoc - i - 1)
         ul_gamma = ll_gamma + (ncwo-1)*ndoc
-        gamma_weak = gamma[ll_gamma:ul_gamma:ndoc]
+        gamma_pi = gamma[ll_gamma:ul_gamma:ndoc]
 
         # n_pi
-        n_weak[:] = h[no1+i]
+        n_pi[:] = h[no1+i]
         for kw in range(ncwo-1):
-            n_weak[kw] *= np.sin(gamma_weak[kw])**2
-            n_weak[kw+1:] *= np.cos(gamma_weak[kw])**2
+            n_pi[kw] *= np.sin(gamma_pi[kw])**2
+            n_pi[kw+1:] *= np.cos(gamma_pi[kw])**2
 
         # dn_pi/dgamma_g
-        dn_weak_dgamma = dn_dgamma[ll:ul:ndoc,i]
-        dn_weak_dgamma[:] = -dni_dgammai[no1+i]
+        dn_pi_dgamma_g = dn_dgamma[ll_n:ul_n:ndoc,i]
+        dn_pi_dgamma_g[:] = -dni_dgammai[no1+i]
         for kw in range(ncwo-1):
-            dn_weak_dgamma[kw] *= np.sin(gamma_weak[kw])**2
-            dn_weak_dgamma[kw+1:] *= np.cos(gamma_weak[kw])**2
+            dn_pi_dgamma_g[kw] *= np.sin(gamma_pi[kw])**2
+            dn_pi_dgamma_g[kw+1:] *= np.cos(gamma_pi[kw])**2
 
         # dn_pi/dgamma_pj (j<i)
-        dn_weak_dgamma_weak = dn_dgamma[ll:ul:ndoc,ll_gamma:ul_gamma:ndoc]
+        dn_pi_dgamma_pj = dn_dgamma[ll_n:ul_n:ndoc,ll_gamma:ul_gamma:ndoc]
         for jw in range(ncwo-1):
-            dn_weak_dgamma_weak[jw+1:,jw] = n[no1+i] - 1
+            dn_pi_dgamma_pj[jw+1:,jw] = n[no1+i] - 1
             for kw in range(jw):
-                dn_weak_dgamma_weak[jw+1:,jw] *= np.cos(gamma_weak[kw])**2
-            dn_weak_dgamma_weak[jw+1:,jw] *= np.sin(2*gamma_weak[jw])
+                dn_pi_dgamma_pj[jw+1:,jw] *= np.cos(gamma_pi[kw])**2
+            dn_pi_dgamma_pj[jw+1:,jw] *= np.sin(2*gamma_pi[jw])
             for kw in range(jw+1,ncwo-1):
-                dn_weak_dgamma_weak[kw,jw] *= np.sin(gamma_weak[kw])**2
-                dn_weak_dgamma_weak[kw+1:,jw] *= np.cos(gamma_weak[kw])**2
+                dn_pi_dgamma_pj[kw,jw] *= np.sin(gamma_pi[kw])**2
+                dn_pi_dgamma_pj[kw+1:,jw] *= np.cos(gamma_pi[kw])**2
 
         # dn_pi/dgamma_i
         for jw in range(ncwo-1):
-            dn_weak_dgamma_weak[jw,jw] = 1 - n[no1+i]
+            dn_pi_dgamma_pj[jw,jw] = 1 - n[no1+i]
         for kw in range(ncwo-1):
-            dn_weak_dgamma_weak[kw,kw] *= np.sin(2*gamma_weak[kw])
+            dn_pi_dgamma_pj[kw,kw] *= np.sin(2*gamma_pi[kw])
             for lw in range(kw+1,ncwo-1):
-                dn_weak_dgamma_weak[lw,lw] *= np.cos(gamma_weak[kw])**2
+                dn_pi_dgamma_pj[lw,lw] *= np.cos(gamma_pi[kw])**2
 
     return n,dn_dgamma
 
@@ -585,26 +584,31 @@ def ocupacion_softmax(x,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     for i in range(ndoc):
         ll = no1 + ndns + (ndoc - i - 1)
-        ul = no1 + ndns + ncwo*ndoc
+        ul = ll + ncwo*ndoc
+        n_pi = n[ll:ul:ndoc]
 
         ll_x = ll - ndns + ndoc - no1
         ul_x = ll_x + ncwo*ndoc
+        dn_pi_dx_pi = dn_dx[ll:ul:ndoc,ll_x:ul_x:ndoc]
+        dn_g_dx_pi = dn_dx[i,ll_x:ul_x:ndoc]
+        dn_pi_dx_g = dn_dx[ll:ul:ndoc,i]
 
-        sum_exp = exp_x[i] + np.sum(exp_x[ll_x:ul_x:ndoc])
+        exp_x_pi = exp_x[ll_x:ul_x:ndoc]
+
+        sum_exp = exp_x[i] + np.sum(exp_x_pi)
 
         n[i] = exp_x[i]/sum_exp
-        n[ll:ul:ndoc] = exp_x[ll_x:ul_x:ndoc]/sum_exp
+        n_pi[:] = exp_x_pi/sum_exp
 
-        dn_dx[ll:ul:ndoc,ll_x:ul_x:ndoc] = -np.outer(exp_x[ll_x:ul_x:ndoc],exp_x[ll_x:ul_x:ndoc])/sum_exp**2
+        dn_pi_dx_pi[:,:] = -np.outer(exp_x_pi,exp_x_pi)/sum_exp**2
 
-        dn_dx[i,ll_x:ul_x:ndoc] = -exp_x[ll_x:ul_x:ndoc]*exp_x[i]/sum_exp**2
-        dn_dx[ll:ul:ndoc,i] = -exp_x[ll_x:ul_x:ndoc]*exp_x[i]/sum_exp**2
+        dn_g_dx_pi[:] = -exp_x_pi*exp_x[i]/sum_exp**2
+        dn_pi_dx_g[:] = -exp_x_pi*exp_x[i]/sum_exp**2
 
         dn_dx[i,i] = exp_x[i]*(sum_exp-exp_x[i])/sum_exp**2
 
         for j in range(ncwo):
-            j_idx = j*ndoc
-            dn_dx[ll+j_idx,ll_x+j_idx] = exp_x[ll_x+j_idx]*(sum_exp-exp_x[ll_x+j_idx])/sum_exp**2
+            dn_pi_dx_pi[j,j] = exp_x_pi[j]*(sum_exp-exp_x_pi[j])/sum_exp**2
 
     return n,dn_dx
 
