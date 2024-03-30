@@ -476,8 +476,8 @@ def n_to_gammas_trigonometric(n,nv,no1,ndoc,ndns,ncwo):
         gamma[i] = np.arccos(np.sqrt(2.0*n[idx]-1.0))
         prefactor = max(1-n[idx],1e-14)
         for j in range(ncwo-1):
-            jg = ndoc + i*(ncwo-1) + j
-            ig = no1 + ndns + ncwo*(ndoc - i - 1) + j
+            jg = ndoc + (ndoc - i - 1) + j*ndoc
+            ig = no1 + ndns + (ndoc - i - 1) + j*ndoc
             gamma[jg] = np.arcsin(np.sqrt(n[ig]/prefactor))
             prefactor = prefactor * (np.cos(gamma[jg]))**2
     return gamma
@@ -489,13 +489,13 @@ def n_to_gammas_softmax(n,nv,no1,ndoc,ndns,ncwo):
 
     for i in range(ndoc):
 
-        ll = no1 + ndns + ncwo*(ndoc - i - 1)
-        ul = no1 + ndns + ncwo*(ndoc - i)
+        ll = no1 + ndns + (ndoc - i - 1)
+        ul = no1 + ndns + ncwo*ndoc
 
         llg = ll - ndns + ndoc - no1
         ulg = ul - ndns + ndoc - no1
 
-        ns = n[ll:ul]
+        ns = n[ll:ul:ndoc]
 
         A = np.zeros((ncwo,ncwo))
         b = np.zeros((ncwo))
@@ -507,12 +507,6 @@ def n_to_gammas_softmax(n,nv,no1,ndoc,ndns,ncwo):
 
         x = np.log(np.linalg.solve(A,b))
 
-        # JFHLewYee: remove after adjusting triginometric indexes
-        ll = no1 + ndns + (ndoc - i - 1)
-        ul = ll + ncwo*ndoc
-        llg = ll - ndns + ndoc - no1
-        ulg = ul - ndns + ndoc - no1
-
         gamma[llg:ulg:ndoc] = x
 
     return gamma
@@ -523,6 +517,6 @@ def compute_gammas_trigonometric(nv,ndoc,ncwo):
     for i in range(ndoc):
         gamma[i] = np.arccos(np.sqrt(2.0*0.999-1.0))
         for j in range(ncwo-1):
-            ig = ndoc+i*(ncwo-1)+j
+            ig = ndoc + (ndoc - i - 1) + j*ndoc
             gamma[ig] = np.arcsin(np.sqrt(1.0/(ncwo-j)))
     return gamma
