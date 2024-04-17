@@ -414,7 +414,7 @@ def compute_2RDM(pp,n):
         inter2[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = Pi_s[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha]
         Pi_s[pp.nbeta:pp.nalpha,pp.nbeta:pp.nalpha] = 0
 
-        Dab -= np.einsum('pr,pt,qr->pqrt',inter2,Id,Id,optimize=True)
+        Dab -= np.einsum('pq,pt,qr->pqrt',inter2,Id,Id,optimize=True)
 
         if(pp.ipnof==8):
             Pi_s[:pp.nbeta,:pp.nbeta] = 0
@@ -466,7 +466,6 @@ def compute_2RDM(pp,n):
 
             inter[pp.nbeta:,pp.nbeta:] = 0
             inter[:pp.nalpha,:pp.nalpha] = 0
-            inter2[pp.nbeta:,pp.nbeta:] = 0
             inter2[:pp.nalpha,:] = 0
             inter2[:,:pp.nalpha] = 0
 
