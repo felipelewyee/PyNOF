@@ -75,6 +75,8 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
             E_orb,C,nit_orb,success_orb,itlim,fmiug0 = pynof.orboptr(C,n,H,I,b_mnl,cj12,ck12,i_ext,itlim,fmiug0,p,printmode)
         if(p.orb_method=="Rotations"):
             E_orb,C,nit_orb,success_orb = pynof.orbopt_rotations(gamma,C,H,I,b_mnl,p)
+        if(p.orb_method=="ADAM"):
+            E_orb,C,nit_orb,success_orb = pynof.orbopt_adam(gamma,C,H,I,b_mnl,p)
         #t2 = time()
 
         #occopt

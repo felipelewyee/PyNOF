@@ -168,6 +168,78 @@ def orbopt_rotations(gamma,C,H,I,b_mnl,p):
 
     return E,C,nit,success
 
+def orbopt_adam(gamma,C,H,I,b_mnl,p):
+
+    n,dn_dgamma = pynof.ocupacion(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin,p.occ_method)
+    cj12,ck12 = pynof.PNOFi_selector(n,p)
+    y = np.zeros((p.nvar))
+    E = pynof.calcorbe(y, n,cj12,ck12,C,H,I,b_mnl,p)
+
+    alpha = p.alpha
+    beta1 = 0.7
+    beta2 = 0.999
+
+    y = np.zeros((p.nvar))
+
+    m = 0.0 * y
+    v = 0.0 * y
+    vhat_max = 0.0 * y
+
+    improved = False
+    success = False
+    best_E, best_C = E, C
+    nit = 0
+
+    for i in range(p.maxloop):
+        nit += 1
+
+        grad = pynof.calcorbg(y, n,cj12,ck12,C,H,I,b_mnl,p)
+
+        if np.linalg.norm(grad) < 10**-4 and improved:
+            success = True
+            break
+
+        m = beta1 * m + (1 - beta1) * grad
+        v = beta2 * v + (1 - beta2) * (grad**2)
+        mhat = m / (1.0 - beta1**(i+1))
+        vhat = v / (1.0 - beta2**(i+1))
+        vhat_max = np.maximum(vhat_max, vhat)
+        y = - alpha * mhat / (np.sqrt(vhat_max + 10**-8)) #AMSgrad
+        C = pynof.rotate_orbital(y,C,p)
+
+        E = pynof.calcorbe(y*0, n,cj12,ck12,C,H,I,b_mnl,p)
+        #elag,Hmat = compute_Lagrange2(C,n,H,I_AO,b_mnl,cj12,ck12,p)
+        #E = computeE_elec(Hmat,n,elag,p)
+        #println(i," ",E," ", E < best_E)
+        if E < best_E:
+            best_C = C
+            best_E = E
+            improved = True
+
+    if not improved:
+        p.alpha = p.alpha/10
+        p.maxloop = p.maxloop + 30
+        #println("      alpha ",p.alpha)
+
+    return best_E,best_C,nit,success
+
+
+
+#    if("trust" in p.orbital_optimizer or "Newton-CG" in p.orbital_optimizer):
+#        res = minimize(pynof.calcorbeg, y, args=(n,cj12,ck12,C,H,I,b_mnl,p),jac=True,hess="2-point",method=p.orbital_optimizer,options={"maxiter":p.maxloop})
+#    else:
+#        res = minimize(pynof.calcorbeg, y, args=(n,cj12,ck12,C,H,I,b_mnl,p),jac=True,method=p.orbital_optimizer,options={"maxiter":p.maxloop})
+
+#    E = res.fun
+#    y = res.x
+#    grad = res.jac
+#    nit = res.nit
+#    success = res.success
+
+#    C = pynof.rotate_orbital(y,C,p)
+
+    return E,C,nit,success
+
 def comb(gamma,C,H,I,b_mnl,p):
 
     x = np.zeros((p.nvar+p.nv))
