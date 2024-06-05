@@ -208,9 +208,7 @@ def orbopt_adam(gamma,C,H,I,b_mnl,p):
         C = pynof.rotate_orbital(y,C,p)
 
         E = pynof.calcorbe(y*0, n,cj12,ck12,C,H,I,b_mnl,p)
-        #elag,Hmat = compute_Lagrange2(C,n,H,I_AO,b_mnl,cj12,ck12,p)
-        #E = computeE_elec(Hmat,n,elag,p)
-        #println(i," ",E," ", E < best_E)
+        #print(i," ",E," ", E < best_E)
         if E < best_E:
             best_C = C
             best_E = E
@@ -219,26 +217,9 @@ def orbopt_adam(gamma,C,H,I,b_mnl,p):
     if not improved:
         p.alpha = p.alpha/10
         p.maxloop = p.maxloop + 30
-        #println("      alpha ",p.alpha)
+        #print("      alpha ",p.alpha)
 
     return best_E,best_C,nit,success
-
-
-
-#    if("trust" in p.orbital_optimizer or "Newton-CG" in p.orbital_optimizer):
-#        res = minimize(pynof.calcorbeg, y, args=(n,cj12,ck12,C,H,I,b_mnl,p),jac=True,hess="2-point",method=p.orbital_optimizer,options={"maxiter":p.maxloop})
-#    else:
-#        res = minimize(pynof.calcorbeg, y, args=(n,cj12,ck12,C,H,I,b_mnl,p),jac=True,method=p.orbital_optimizer,options={"maxiter":p.maxloop})
-
-#    E = res.fun
-#    y = res.x
-#    grad = res.jac
-#    nit = res.nit
-#    success = res.success
-
-#    C = pynof.rotate_orbital(y,C,p)
-
-    return E,C,nit,success
 
 def comb(gamma,C,H,I,b_mnl,p):
 

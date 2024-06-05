@@ -106,7 +106,7 @@ class param():
 
         self.lamb = 0.0
         self.occ_method = "Softmax"
-        self.orb_method = "ID"
+        self.orb_method = "ADAM"
         self.alpha = 0.02
 
     def autozeros(self,restart=False):
