@@ -193,7 +193,7 @@ def orbopt_adam(gamma,C,H,I,b_mnl,p):
     for i in range(p.maxloop):
         nit += 1
 
-        grad = pynof.calcorbg(y, n,cj12,ck12,C,H,I,b_mnl,p)
+        grad = pynof.calcorbg(y*0, n,cj12,ck12,C,H,I,b_mnl,p)
 
         if np.linalg.norm(grad) < 10**-4 and improved:
             success = True
