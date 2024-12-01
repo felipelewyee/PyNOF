@@ -2,9 +2,11 @@ import numpy as np
 from scipy.linalg import eigh
 from time import time
 import pynof
+import psi4
 
-def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False,erpa=False,iter_erpa=0):
- 
+def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,mbpt=False,gradients=False,printmode=True,ekt=False,mulliken_pop=False,lowdin_pop=False,m_diagnostic=False,perturb=False,erpa=False,iter_erpa=0):
+    """Compute Natural Orbital Functional single point energy"""
+
     t1 = time()
 
     wfn = p.wfn
@@ -23,34 +25,41 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
         print("Multiplicity                                         =",p.mul)
         print("")
 
-    # Energía Nuclear
+    # Nuclear Energy
     E_nuc = mol.nuclear_repulsion_energy()
 
     # Guess de MO (C)
-    Cguess = C
     if(C is None):
-        E_i,Cguess = eigh(H, S)  # (HC = SCe)
-    Cguess = pynof.check_ortho(Cguess,S,p)
-
-    if (hfidr):
-        EHF,Cguess,fmiug0guess = pynof.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode)
-
-    if(C is None):
-        C = Cguess
+        if guess=="Core":
+            Eguess,C = eigh(H, S)  # (HC = SCe)
+        elif guess=="HFIDr":
+            Eguess,Cguess = eigh(H, S)
+            EHF,C,fmiug0guess = pynof.hfidr(Cguess,H,I,b_mnl,E_nuc,p,printmode)
+        else:
+            EHF, wfn_HF = psi4.energy(guess, return_wfn=True)
+            EHF = EHF - E_nuc
+            C = wfn_HF.Ca().np
     C = pynof.check_ortho(C,S,p)
 
+    # Guess Occupation Numbers (n)
     if(n is None):
-        gamma = pynof.compute_gammas_trigonometric(p.nv,p.ndoc,p.ncwo)
+        if p.occ_method == "Trigonometric":
+            gamma = pynof.compute_gammas_trigonometric(p.ndoc,p.ncwo)
         if p.occ_method == "Softmax":
             p.nv = p.nbf5 - p.no1 - p.nsoc 
-            n,dn_dgamma = pynof.ocupacion_trigonometric(gamma,p.no1,p.ndoc,p.nalpha,p.nv,p.nbf5,p.ndns,p.ncwo,p.HighSpin)
-            gamma = pynof.n_to_gammas_softmax(n,p.nv,p.no1,p.ndoc,p.ndns,p.ncwo)
+            gamma = pynof.compute_gammas_softmax(p.ndoc,p.ncwo)
+        if p.occ_method == "EBI":
+            p.nv = p.nbf5 - p.no1 - p.nsoc #p.nbf
+            gamma = pynof.compute_gammas_ebi(p.ndoc,p.ncwo)
     else:
         if p.occ_method == "Trigonometric":
-            gamma = pynof.n_to_gammas_trigonometric(n,p.nv,p.no1,p.ndoc,p.ndns,p.ncwo)
+            gamma = pynof.n_to_gammas_trigonometric(n,p.no1,p.ndoc,p.ndns,p.ncwo)
         if p.occ_method == "Softmax":
             p.nv = p.nbf5 - p.no1 - p.nsoc 
-            gamma = pynof.n_to_gammas_softmax(n,p.nv,p.no1,p.ndoc,p.ndns,p.ncwo)
+            gamma = pynof.n_to_gammas_softmax(n,p.no1,p.ndoc,p.ndns,p.ncwo)
+        if p.occ_method == "EBI":
+            p.nv = p.nbf5 - p.no1 - p.nsoc 
+            gamma = pynof.n_to_gammas_ebi(n,p.no1,p.ndoc,p.ndns,p.ncwo)
 
     elag = np.zeros((p.nbf,p.nbf))
 
@@ -123,6 +132,15 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
 
     C,n,elag = pynof.order_subspaces(C,n,elag,H,I,b_mnl,p)
 
+    C_old = np.copy(C)
+    n_old = np.copy(n)
+    for i in range(p.ndoc):
+        for j in range(p.ncwo):
+            k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
+            l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
+            C[:,l] = C_old[:,k]
+            n[l] = n_old[k]
+
     np.save(p.title+"_C.npy",C)
     np.save(p.title+"_n.npy",n)
 
@@ -149,10 +167,10 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,hfidr=True,nofmp2=False,
         print(" Final Energies ")
         print("----------------")
         
-        if(hfidr):
+        if(guess=="HF" or guess=="HFIDr"):
             print("       HF Total Energy = {:15.7f}".format(E_nuc + EHF))
         print("Final NOF Total Energy = {:15.7f}".format(E_nuc + E))
-        if(hfidr):
+        if(guess=="HF" or guess=="HFIDr"):
             print("    Correlation Energy = {:15.7f}".format(E-EHF))
         print("")
         print("")

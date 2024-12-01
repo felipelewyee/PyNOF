@@ -10,6 +10,7 @@ except:
     pass
 
 def compute_integrals(wfn,mol,p):
+    """Compute S, T, V, H and 2c,3c,4c-ERIs"""
 
     # Integrador
     mints = psi4.core.MintsHelper(wfn.basisset())

@@ -8,12 +8,10 @@ mol = pynof.molecule("""
 """)
 
 p = pynof.param(mol,"cc-pvdz")
-p.autozeros()
 
 p.ipnof = 8
 
 p.RI = True
 #p.gpu = True
 
-p.orb_method = "Rotations"
 pynof.optgeo(mol,p)

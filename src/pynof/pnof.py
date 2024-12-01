@@ -1,14 +1,158 @@
 import pynof
 import numpy as np
-from numba import prange,njit
+from numba import prange,njit,jit
+from scipy.optimize import minimize
+import math
 try:
     import cupy as cp
 except:
     pass
 
 #CJCKD5
+#@njit(parallel=True, cache=True)
+def CJCKD4(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+    """PNOF4 coefficients C^J and C^K that multiply J and K integrals
+
+    E = 2\sum_p n_pH_p + \sum_{pq}' C^J_{pq}J_{qp} - \sum_{pq}' C^K_{pq}K_{qp}
+
+    T = (1-S_F)/S_F
+    R_pq = h_p n_q/S_F; p \in occ, q \in vir
+
+    \Delta_{pq} = \begin{cases}
+                 h_p h_q   & if p \in occ, q \in occ\\
+                 T h_p n_q & if p \in occ, q \in vir\\
+                 T n_p h_q & if p \in vir, q \in occ\\
+                 n_p n_q   & if p \in vir, q \in vir\\
+               \end{cases}
+
+    \Pi_{pq} = \begin{cases}
+                -\sqrt{h_p h_q}                      & if p \in occ, q \in occ\\
+                -\sqrt{R_pq} \sqrt{n_p - n_q + R_pq} & if p \in occ, q \in vir\\
+                -\sqrt{R_qp} \sqrt{n_q - n_p + R_qp} & if p \in vir, q \in occ\\
+                 \sqrt{n_p n_q}                    & if p \in vir, q \in vir\\
+               \end{cases}
+
+    C^J = 2(n_pn_q - Delta_pq)
+    C^K = n_pn_q - Delta_pq - Pi_pq
+    """
+
+    nbf5 = np.shape(n)[0]
+    
+    h = 1 - n
+    S_F = np.sum(h[:ndoc])
+
+    T = (1 - S_F)/S_F
+    R = np.outer(h[:ndoc], n[ndoc:])/S_F
+
+    Delta = np.zeros((nbf5, nbf5))
+    Delta[:ndoc, :ndoc] = np.outer(h[:ndoc], h[:ndoc])
+    Delta[:ndoc, ndoc:] = (1-S_F)/S_F * np.outer(h[:ndoc], n[ndoc:])
+    Delta[ndoc:, :ndoc] = (1-S_F)/S_F * np.outer(n[ndoc:], h[:ndoc])
+    Delta[ndoc:, ndoc:] = np.outer(n[ndoc:], n[ndoc:])
+
+    Pi = np.zeros((nbf5, nbf5))
+    Pi[:ndoc, :ndoc] = -np.sqrt(np.outer(h[:ndoc], h[:ndoc]))
+    Pi[:ndoc, ndoc:] = -np.sqrt(np.outer(h[:ndoc], n[ndoc:])/S_F) * np.sqrt( np.subtract.outer(n[:ndoc], n[ndoc:]) + R)
+    Pi[ndoc:, :ndoc] = -np.sqrt(np.outer(n[ndoc:], h[:ndoc])/S_F) * np.sqrt(-np.subtract.outer(n[ndoc:], n[:ndoc]) + R.T)
+    Pi[ndoc:, ndoc:] =  np.sqrt(np.outer(n[ndoc:], n[ndoc:]))
+
+    cj12 = 2*(np.outer(n,n) - Delta)
+    ck12 = np.outer(n,n) - Delta - Pi
+
+    return cj12,ck12
+
+#@njit(parallel=True, cache=True)
+def der_CJCKD4(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
+    """PNOF4 coefficients DC^J and DC^K that multiply J and K integrals
+
+    dE/dgamma_g = 2\sum_p dn_p/dgamma_g H_p 
+                  +\sum_{pq} dC^J_{pq}/dgamma_g J_{qp}
+                  -\sum_{pq} dC^K_{pq}/dgamma_g K_{qp}
+
+    T = (1-S_F)/S_F
+    R_pq = h_p n_q/S_F; p \in occ, q \in vir
+
+    dS_F/dx_g = - sum_p^F dn_p/dx_g
+    dT/dx_g = -(dS_F/dx_g)/S_F^2
+    dR_pq/dx_g = [(dh_p/dx_g n_q + h_p dn_q/dx_g) S_F - (h_p n_q) dS_F/dx_g ] / S_F^2
+
+    dDelta_{pq}/dx_g = \begin{cases}
+                 dh_p/dx_g h_q + h_p dh_q/dx_g                       & if p \in occ, q \in occ\\
+                 dT/dx_g h_p n_q + T dh_p/dx_g n_q + T h_p dn_q/dx_g & if p \in occ, q \in vir\\
+                 dT/dx_g n_p h_q + T dn_p/dx_g h_q + T n_p dh_q/dx_g & if p \in vir, q \in occ\\
+                 dn_p/dx_g n_q + n_p dn_q/dx_g                       & if p \in vir, q \in vir\\
+               \end{cases}
+
+    dPi_{pq}/dx_g = \begin{cases}
+      -1/2*(1/\sqrt{h_p} dh_p/dx_g \sqrt{h_q} + \sqrt{h_p} 1/\sqrt{h_q} dh_q/dx_g )  & if p \in occ, q \in occ\\
+      -((1/2\sqrt{R_pq}) dR_pq/dx_g \sqrt{n_p - n_q + R_pq} + \sqrt{R_pq}(dn_p/dx_g - dn_q/dx_g + dR_pq/dx_g)/(2\sqrt{n_q-n_p+R_pq})) & if p \in occ, q \in vir\\
+      -((1/2\sqrt{R_qp}) dR_qp/dx_g \sqrt{n_q - n_p + R_pq} + \sqrt{R_qp}(dn_q/dx_g - dn_p/dx_g + dR_qp/dx_g)/(2\sqrt{n_p-n_q+R_qp})) & if p \in vir, q \in occ\\
+      1/2*(1/\sqrt{n_p} dn_p/dx_g \sqrt{n_q} + \sqrt{n_p} 1/\sqrt{n_q} dn_q/dx_g )  & if p \in vir, q \in vir\\
+      \end{cases}
+
+    """
+
+    nbf5 = np.shape(n)[0]
+
+    h = 1 - n
+    dh_dgamma = -dn_dgamma
+
+    S_F = max(np.sum(h[:ndoc]), 1e-7)
+    D_S_F = np.zeros(nv)
+    for k in prange(nv):
+        D_S_F[k] = np.sum(dh_dgamma[:ndoc,k])
+
+    T = (1 - S_F)/S_F
+    D_T = np.zeros(nv)
+    for k in prange(nv):
+        D_T[k] = (-D_S_F[k]/S_F**2)
+
+    R = np.outer(h[:ndoc], n[ndoc:])/S_F
+    D_R = np.zeros((ndoc,nbf5-ndoc,nv))
+    for k in prange(nv):
+        D_R[:,:,k] = ( ( np.outer(dh_dgamma[:ndoc,k],n[ndoc:]) + np.outer(h[:ndoc], dn_dgamma[ndoc:,k] )) * S_F - np.outer(h[:ndoc], n[ndoc:])*D_S_F[k] ) / S_F**2
+
+    D_Delta = np.zeros((nbf5,nbf5,nv))
+    for k in prange(nv):
+        D_Delta[:ndoc,:ndoc,k] = np.outer(dh_dgamma[:ndoc,k],h[:ndoc])
+        D_Delta[:ndoc,ndoc:,k] = D_T[k] * np.outer(h[:ndoc], n[ndoc:]) + T * np.outer(dh_dgamma[:ndoc,k],n[ndoc:])
+        D_Delta[ndoc:,:ndoc,k] = T * np.outer(dn_dgamma[ndoc:,k],h[:ndoc])
+        D_Delta[ndoc:,ndoc:,k] = np.outer(dn_dgamma[ndoc:,k],n[ndoc:])
+
+    D_Pi = np.zeros((nbf5,nbf5,nv))
+    for k in prange(nv):
+        D_Pi[:ndoc,:ndoc,k] = -np.outer(1/np.maximum(2*np.sqrt(h[:ndoc]),1e-7)*dh_dgamma[:ndoc,k],np.sqrt(h[:ndoc]))
+        D_Pi[:ndoc,ndoc:,k] = -( 1/np.maximum(2*np.sqrt(R),1e-7)*D_R[:,:,k]*np.sqrt( np.subtract.outer(n[:ndoc], n[ndoc:]) + R ) + np.sqrt(R)* ( np.subtract.outer(dn_dgamma[:ndoc,k], dn_dgamma[ndoc:,k]) + D_R[:,:,k] ) / np.maximum(2*np.sqrt( np.subtract.outer(n[:ndoc], n[ndoc:]) + R ), 1e-7) )
+        D_Pi[ndoc:,ndoc:,k] =  np.outer(1/np.maximum(2*np.sqrt(n[ndoc:]),1e-7)*dn_dgamma[ndoc:,k],np.sqrt(n[ndoc:]))
+
+
+    Dcj12r = np.zeros((nbf5,nbf5,nv))
+    Dck12r = np.zeros((nbf5,nbf5,nv))
+    for k in prange(nv):
+        Dcj12r[:,:,k] = 2*(np.outer(dn_dgamma[:,k],n) - D_Delta[:,:,k])
+        Dck12r[:,:,k] = np.outer(dn_dgamma[:,k],n) - D_Delta[:,:,k] - D_Pi[:,:,k]
+
+    return Dcj12r,Dck12r
+
+#CJCKD5
 @njit(parallel=True, cache=True)
 def CJCKD5(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+    """PNOF5 coefficients C^J and C^K that multiply J and K integrals
+
+    E = 2\sum_p n_pH_p + \sum_{pq} C^J_{pq}J_{qp} - \sum_{pq} C^K_{pq}K_{qp}
+
+    C^J_{pq} = \begin{cases}
+                 2 n_p n_q & if p \in \Omega_g, q \in \Omega_f,  g \neq g\\
+                 0         & otherwise
+               \end{cases}
+
+    C^K_{pq} = \begin{cases}
+                 n_p n_q        & if p \in \Omega_g, q \in \Omega_f,  g \neq g\\
+                 \sqrt{n_p n_q} & if p,q \in \Omega_g ( (p \leq F, q > F) or (p > F, q \leq F) )\\
+                -\sqrt{n_p n_q} & if p \neq q \in \Omega_g p,q > F \\
+                 0              & otherwise
+               \end{cases}
+    """
 
     # Interpair Electron correlation #
     cj12 = 2*np.outer(n,n)
@@ -22,21 +166,21 @@ def CJCKD5(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     for l in prange(ndoc):
         ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - l - 1)
-        ul = ll + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - l - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[ldx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
 
-        cj12[ldx,ll:ul:ndoc] = 0
-        cj12[ll:ul:ndoc,ldx] = 0
+        cj12[ldx,ll:ul] = 0
+        cj12[ll:ul,ldx] = 0
 
-        cj12[ll:ul:ndoc,ll:ul:ndoc] = 0
+        cj12[ll:ul,ll:ul] = 0
 
-        ck12[ldx,ll:ul:ndoc] = np.sqrt(n_strong*n_weak)
-        ck12[ll:ul:ndoc,ldx] = np.sqrt(n_strong*n_weak)
+        ck12[ldx,ll:ul] = np.sqrt(n_strong*n_weak)
+        ck12[ll:ul,ldx] = np.sqrt(n_strong*n_weak)
 
-        ck12[ll:ul:ndoc,ll:ul:ndoc] = -np.sqrt(np.outer(n_weak,n_weak))
+        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n_weak,n_weak))
 
     return cj12,ck12
 
@@ -57,16 +201,16 @@ def der_CJCKD5(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
         ldx = no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - l - 1)
-        ul = ll + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - l - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[ldx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
 
-        Dcj12r[ldx,ll:ul:ndoc,:nv] = 0
-        Dcj12r[ll:ul:ndoc,ldx,:nv] = 0
+        Dcj12r[ldx,ll:ul,:nv] = 0
+        Dcj12r[ll:ul,ldx,:nv] = 0
 
-        Dcj12r[ll:ul:ndoc,ll:ul:ndoc,:nv] = 0
+        Dcj12r[ll:ul,ll:ul,:nv] = 0
 
         a = max(n_strong,10**-15)
         b = n_weak.copy()
@@ -74,16 +218,17 @@ def der_CJCKD5(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
 
         for k in range(nv):
             dn_strong = dn_dgamma[ldx,k]
-            dn_weak = dn_dgamma[ll:ul:ndoc,k]
-            Dck12r[ldx,ll:ul:ndoc,k] = 1/2 * 1/np.sqrt(a) * dn_strong * np.sqrt(n_weak)
-            Dck12r[ll:ul:ndoc,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_weak * np.sqrt(n_strong)
-            Dck12r[ll:ul:ndoc,ll:ul:ndoc,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_weak,np.sqrt(n_weak))
+            dn_weak = dn_dgamma[ll:ul,k]
+            Dck12r[ldx,ll:ul,k] = 1/2 * 1/np.sqrt(a) * dn_strong * np.sqrt(n_weak)
+            Dck12r[ll:ul,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_weak * np.sqrt(n_strong)
+            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_weak,np.sqrt(n_weak))
 
     return Dcj12r,Dck12r
 
 #CJCKD7
 @njit(parallel=True, cache=True)
 def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+    """PNOF7 coefficients C^J and C^K that multiply J and K integrals"""
 
     if(ista==0):
         fi = n*(1-n)
@@ -105,21 +250,21 @@ def CJCKD7(n,ista,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     for l in prange(ndoc):            
         ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - l - 1)
-        ul = ll + ndns + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - l - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[ldx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
 
-        cj12[ldx,ll:ul:ndoc] = 0    
-        cj12[ll:ul:ndoc,ldx] = 0    
+        cj12[ldx,ll:ul] = 0    
+        cj12[ll:ul,ldx] = 0    
     
-        cj12[ll:ul:ndoc,ll:ul:ndoc] = 0    
+        cj12[ll:ul,ll:ul] = 0    
         
-        ck12[ldx,ll:ul:ndoc] = np.sqrt(n_strong*n_weak)
-        ck12[ll:ul:ndoc,ldx] = np.sqrt(n_strong*n_weak)
+        ck12[ldx,ll:ul] = np.sqrt(n_strong*n_weak)
+        ck12[ll:ul,ldx] = np.sqrt(n_strong*n_weak)
 
-        ck12[ll:ul:ndoc,ll:ul:ndoc] = -np.sqrt(np.outer(n_weak,n_weak))
+        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n_weak,n_weak))
 
     return cj12,ck12        
        
@@ -157,16 +302,16 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
         ldx = no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - l - 1)
-        ul = ll + ndns + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - l - 1)*ncwo
+        ul = ll + ncwo
  
         n_strong = n[ldx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
  
-        Dcj12r[ldx,ll:ul:ndoc,:nv] = 0
-        Dcj12r[ll:ul:ndoc,ldx,:nv] = 0
+        Dcj12r[ldx,ll:ul,:nv] = 0
+        Dcj12r[ll:ul,ldx,:nv] = 0
 
-        Dcj12r[ll:ul:ndoc,ll:ul:ndoc,:nv] = 0   
+        Dcj12r[ll:ul,ll:ul,:nv] = 0   
 
         a = max(n_strong,10**-15)
         b = n_weak.copy()
@@ -174,16 +319,17 @@ def der_CJCKD7(n,ista,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo):
         
         for k in range(nv):
             dn_strong = dn_dgamma[ldx,k]
-            dn_weak = dn_dgamma[ll:ul:ndoc,k] 
-            Dck12r[ldx,ll:ul:ndoc,k] = 1/2 * 1/np.sqrt(a) * dn_strong * np.sqrt(n_weak)
-            Dck12r[ll:ul:ndoc,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_weak * np.sqrt(n_strong)
-            Dck12r[ll:ul:ndoc,ll:ul:ndoc,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_weak,np.sqrt(n_weak))
+            dn_weak = dn_dgamma[ll:ul,k] 
+            Dck12r[ldx,ll:ul,k] = 1/2 * 1/np.sqrt(a) * dn_strong * np.sqrt(n_weak)
+            Dck12r[ll:ul,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_weak * np.sqrt(n_strong)
+            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_weak,np.sqrt(n_weak))
                         
     return Dcj12r,Dck12r
 
 #CJCKD8
 @njit(parallel=True, cache=True)
 def CJCKD8(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
+    """GNOF coefficients C^J and C^K that multiply J and K integrals"""
 
     h_cut = 0.02*np.sqrt(2.0)
     n_d = np.zeros((len(n)))
@@ -191,18 +337,18 @@ def CJCKD8(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     for i in prange(ndoc):
         idx = no1 + i
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - i - 1)
-        ul = ll + ndns + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - i - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[idx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
 
         h = 1.0 - n_strong
         coc = h / h_cut
         arg = -coc ** 2
         F = np.exp(arg)  # ! Hd/Hole
         n_d[idx] = n_strong * F
-        n_d[ll:ul:ndoc] = n_weak * F  # ROd = RO*Hd/Hole
+        n_d[ll:ul] = n_weak * F  # ROd = RO*Hd/Hole
 
     n_d12 = np.sqrt(n_d)
     fi = n*(1-n)
@@ -237,21 +383,21 @@ def CJCKD8(n,no1,ndoc,nsoc,nbeta,nalpha,ndns,ncwo,MSpin):
     for l in prange(ndoc):
         ldx = no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - l - 1)
-        ul = ll + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - l - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[ldx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
 
-        cj12[ldx,ll:ul:ndoc] = 0
-        cj12[ll:ul:ndoc,ldx] = 0
+        cj12[ldx,ll:ul] = 0
+        cj12[ll:ul,ldx] = 0
 
-        cj12[ll:ul:ndoc,ll:ul:ndoc] = 0
+        cj12[ll:ul,ll:ul] = 0
 
-        ck12[ldx,ll:ul:ndoc] = np.sqrt(n_strong*n_weak)
-        ck12[ll:ul:ndoc,ldx] = np.sqrt(n_strong*n_weak)
+        ck12[ldx,ll:ul] = np.sqrt(n_strong*n_weak)
+        ck12[ll:ul,ldx] = np.sqrt(n_strong*n_weak)
 
-        ck12[ll:ul:ndoc,ll:ul:ndoc] = -np.sqrt(np.outer(n_weak,n_weak))
+        ck12[ll:ul,ll:ul] = -np.sqrt(np.outer(n_weak,n_weak))
 
     return cj12,ck12
 
@@ -266,22 +412,22 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
     for i in prange(ndoc):
         idx = no1 + i
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - i - 1)
-        ul = ll + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - i - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[idx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
         dn_strong = dn_dgamma[idx,:]
-        dn_weak = dn_dgamma[ll:ul:ndoc,:]
+        dn_weak = dn_dgamma[ll:ul,:]
 
         h_idx = 1.0-n[idx]
         coc = h_idx/h_cut
         arg = -coc**2
         F_idx = np.exp(arg)                # Hd/Hole
         n_d[idx] = n_strong * F_idx
-        n_d[ll:ul:ndoc] = n_weak * F_idx      # n_d = RO*Hd/Hole
+        n_d[ll:ul] = n_weak * F_idx      # n_d = RO*Hd/Hole
         dn_d_dgamma[idx,:] = F_idx*dn_strong * (1-n_strong*(-2*coc/h_cut))
-        dn_d_dgamma[ll:ul:ndoc,:] = F_idx*(dn_weak - (- 2*coc/h_cut)*np.outer(n_weak,dn_strong))
+        dn_d_dgamma[ll:ul,:] = F_idx*(dn_weak - (- 2*coc/h_cut)*np.outer(n_weak,dn_strong))
 
     n_d12 = np.sqrt(n_d)
     for i in prange(nbf5):
@@ -330,16 +476,16 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
         ldx = no1 + l
 
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = no1 + ndns + (ndoc - l - 1)
-        ul = ll + ndns + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - l - 1)*ncwo
+        ul = ll + ncwo
 
         n_strong = n[ldx]
-        n_weak = n[ll:ul:ndoc]
+        n_weak = n[ll:ul]
 
-        Dcj12r[ldx,ll:ul:ndoc,:nv] = 0
-        Dcj12r[ll:ul:ndoc,ldx,:nv] = 0
+        Dcj12r[ldx,ll:ul,:nv] = 0
+        Dcj12r[ll:ul,ldx,:nv] = 0
 
-        Dcj12r[ll:ul:ndoc,ll:ul:ndoc,:nv] = 0
+        Dcj12r[ll:ul,ll:ul,:nv] = 0
 
         a = max(n_strong,10**-15)
         b = n_weak.copy()
@@ -347,10 +493,10 @@ def der_CJCKD8(n,dn_dgamma,no1,ndoc,nalpha,nbeta,nv,nbf5,ndns,ncwo,MSpin,nsoc):
 
         for k in range(nv):
             dn_strong = dn_dgamma[ldx,k]
-            dn_weak = dn_dgamma[ll:ul:ndoc,k]
-            Dck12r[ldx,ll:ul:ndoc,k] = 1/2 * 1/np.sqrt(a) * dn_strong * np.sqrt(n_weak)
-            Dck12r[ll:ul:ndoc,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_weak * np.sqrt(n_strong)
-            Dck12r[ll:ul:ndoc,ll:ul:ndoc,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_weak,np.sqrt(n_weak))
+            dn_weak = dn_dgamma[ll:ul,k]
+            Dck12r[ldx,ll:ul,k] = 1/2 * 1/np.sqrt(a) * dn_strong * np.sqrt(n_weak)
+            Dck12r[ll:ul,ldx,k] = 1/2 * 1/np.sqrt(b) * dn_weak * np.sqrt(n_strong)
+            Dck12r[ll:ul,ll:ul,k] = - 1/2 * np.outer(1/np.sqrt(b)*dn_weak,np.sqrt(n_weak))
 
     return Dcj12r,Dck12r
 
@@ -368,21 +514,21 @@ def compute_2RDM(pp,n):
     for l in prange(pp.ndoc):
         ldx = pp.no1 + l
         # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-        ll = pp.no1 + pp.ndns + (pp.ndoc - l - 1)
-        ul = ll + pp.ncwo*pp.ndoc
+        ll = pp.no1 + pp.ndns + (pp.ndoc - l - 1)*pp.ncwo
+        ul = ll + pp.ncwo
 
         n_strong = n[ldx]
-        n_weak = n[ll:ul:pp.ndoc]
+        n_weak = n[ll:ul]
 
         inter[ldx,ldx] = 0
-        inter[ldx,ll:ul:pp.ndoc] = 0
-        inter[ll:ul:pp.ndoc,ldx] = 0
-        inter[ll:ul:pp.ndoc,ll:ul:pp.ndoc] = 0
+        inter[ldx,ll:ul] = 0
+        inter[ll:ul,ldx] = 0
+        inter[ll:ul,ll:ul] = 0
 
         intra[ldx,ldx] = np.sqrt(n_strong*n_strong)
-        intra[ldx,ll:ul:pp.ndoc] = -np.sqrt(n_strong*n_weak)
-        intra[ll:ul:pp.ndoc,ldx] = -np.sqrt(n_strong*n_weak)
-        intra[ll:ul:pp.ndoc,ll:ul:pp.ndoc] = np.sqrt(np.outer(n_weak,n_weak))
+        intra[ldx,ll:ul] = -np.sqrt(n_strong*n_weak)
+        intra[ll:ul,ldx] = -np.sqrt(n_strong*n_weak)
+        intra[ll:ul,ll:ul] = np.sqrt(np.outer(n_weak,n_weak))
 
     for i in range(pp.nbeta,pp.nalpha):
         inter[i,i] = 0
@@ -400,13 +546,13 @@ def compute_2RDM(pp,n):
         for l in prange(pp.ndoc):
             ldx = pp.no1 + l
             # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-            ll = pp.no1 + pp.ndns + (pp.ndoc - l - 1)
-            ul = ll + pp.ncwo*pp.ndoc
+            ll = pp.no1 + pp.ndns + (pp.ndoc - l - 1)*pp.ncwo
+            ul = ll + pp.ncwo
 
             Pi_s[ldx,ldx] = 0
-            Pi_s[ldx,ll:ul:pp.ndoc] = 0
-            Pi_s[ll:ul:pp.ndoc,ldx] = 0
-            Pi_s[ll:ul:pp.ndoc,ll:ul:pp.ndoc] = 0
+            Pi_s[ldx,ll:ul] = 0
+            Pi_s[ll:ul,ldx] = 0
+            Pi_s[ll:ul,ll:ul] = 0
         for i in range(pp.nbeta,pp.nalpha):
             Pi_s[i,i] = 0
 
@@ -431,18 +577,18 @@ def compute_2RDM(pp,n):
             for i in prange(pp.ndoc):
                 idx = pp.no1 + i
                 # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-                ll = pp.no1 + pp.ndns + (pp.ndoc - i - 1)
-                ul = ll + pp.ncwo*pp.ndoc
+                ll = pp.no1 + pp.ndns + (pp.ndoc - i - 1)*pp.ncwo
+                ul = ll + pp.ncwo
 
                 n_strong = n[idx]
-                n_weak = n[ll:ul:pp.ndoc]
+                n_weak = n[ll:ul]
 
                 h = 1.0 - n_strong
                 coc = h / h_cut
                 arg = -coc ** 2
                 F = np.exp(arg)  # ! Hd/Hole
                 n_d[idx] = n_strong * F
-                n_d[ll:ul:pp.ndoc] = n_weak * F  # ROd = RO*Hd/Hole
+                n_d[ll:ul] = n_weak * F  # ROd = RO*Hd/Hole
 
             n_d12 = np.sqrt(n_d)
 
@@ -452,17 +598,17 @@ def compute_2RDM(pp,n):
             for l in prange(pp.ndoc):
                 ldx = pp.no1 + l
                 # inicio y fin de los orbitales acoplados a los fuertemente ocupados
-                ll = pp.no1 + pp.ndns + (pp.ndoc - l - 1)
-                ul = ll + pp.ncwo*pp.ndoc
+                ll = pp.no1 + pp.ndns + (pp.ndoc - l - 1)*pp.ncwo
+                ul = ll + pp.ncwo
 
                 inter[ldx,ldx] = 0
-                inter[ldx,ll:ul:pp.ndoc] = 0
-                inter[ll:ul:pp.ndoc,ldx] = 0
-                inter[ll:ul:pp.ndoc,ll:ul:pp.ndoc] = 0
+                inter[ldx,ll:ul] = 0
+                inter[ll:ul,ldx] = 0
+                inter[ll:ul,ll:ul] = 0
                 inter2[ldx,ldx] = 0
-                inter2[ldx,ll:ul:pp.ndoc] = 0
-                inter2[ll:ul:pp.ndoc,ldx] = 0
-                inter2[ll:ul:pp.ndoc,ll:ul:pp.ndoc] = 0
+                inter2[ldx,ll:ul] = 0
+                inter2[ll:ul,ldx] = 0
+                inter2[ll:ul,ll:ul] = 0
 
             inter[pp.nbeta:,pp.nbeta:] = 0
             inter[:pp.nalpha,:pp.nalpha] = 0
@@ -478,6 +624,8 @@ def compute_2RDM(pp,n):
 # Creamos un seleccionador de PNOF
 
 def PNOFi_selector(n,p):
+    if(p.ipnof==4):
+        cj12,ck12 = CJCKD4(n,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==5):
         cj12,ck12 = CJCKD5(n,p.no1,p.ndoc,p.nsoc,p.nbeta,p.nalpha,p.ndns,p.ncwo,p.MSpin)
     if(p.ipnof==7):
@@ -488,6 +636,8 @@ def PNOFi_selector(n,p):
     return cj12,ck12
 
 def der_PNOFi_selector(n,dn_dgamma,p):
+    if(p.ipnof==4):
+        Dcj12r,Dck12r = der_CJCKD4(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo)
     if(p.ipnof==5):
         Dcj12r,Dck12r = der_CJCKD5(n,p.ista,dn_dgamma,p.no1,p.ndoc,p.nalpha,p.nbeta,p.nv,p.nbf5,p.ndns,p.ncwo)
     if(p.ipnof==7):
@@ -497,16 +647,22 @@ def der_PNOFi_selector(n,dn_dgamma,p):
         
     return Dcj12r,Dck12r
 
-@njit(cache=True)
+#@njit(cache=True)
 def ocupacion(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin,occ_method):
+    """Code to get occupation numbers from parameters according to the choosen encoding"""
+
     if occ_method == "Trigonometric":
         n,dn_dgamma = ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin)
     elif occ_method == "Softmax":
         n,dn_dgamma = ocupacion_softmax(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin)
+    elif occ_method == "EBI":
+        n,dn_dgamma = ocupacion_ebi(gamma,ndoc)
     return n,dn_dgamma
 
 @njit(cache=True)
 def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
+    """Transform gammas to n according to the trigonometric 
+    parameterization of the occupation numbers"""
 
     n = np.zeros((nbf5))
     dn_dgamma = np.zeros((nbf5,nv))
@@ -527,12 +683,12 @@ def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
     h = 1 - n
     for i in range(ndoc):
-        ll_n = no1 + ndns + (ndoc - i - 1)
-        ul_n = ll_n + ncwo*ndoc
-        n_pi = n[ll_n:ul_n:ndoc]
-        ll_gamma = ndoc + (ndoc - i - 1)
-        ul_gamma = ll_gamma + (ncwo-1)*ndoc
-        gamma_pi = gamma[ll_gamma:ul_gamma:ndoc]
+        ll_n = no1 + ndns + (ndoc - i - 1)*ncwo
+        ul_n = ll_n + ncwo
+        n_pi = n[ll_n:ul_n]
+        ll_gamma = ndoc + (ndoc - i - 1)*(ncwo-1)
+        ul_gamma = ll_gamma + (ncwo-1)
+        gamma_pi = gamma[ll_gamma:ul_gamma]
 
         # n_pi
         n_pi[:] = h[no1+i]
@@ -541,14 +697,14 @@ def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
             n_pi[kw+1:] *= np.cos(gamma_pi[kw])**2
 
         # dn_pi/dgamma_g
-        dn_pi_dgamma_g = dn_dgamma[ll_n:ul_n:ndoc,i]
+        dn_pi_dgamma_g = dn_dgamma[ll_n:ul_n,i]
         dn_pi_dgamma_g[:] = -dni_dgammai[no1+i]
         for kw in range(ncwo-1):
             dn_pi_dgamma_g[kw] *= np.sin(gamma_pi[kw])**2
             dn_pi_dgamma_g[kw+1:] *= np.cos(gamma_pi[kw])**2
 
         # dn_pi/dgamma_pj (j<i)
-        dn_pi_dgamma_pj = dn_dgamma[ll_n:ul_n:ndoc,ll_gamma:ul_gamma:ndoc]
+        dn_pi_dgamma_pj = dn_dgamma[ll_n:ul_n,ll_gamma:ul_gamma]
         for jw in range(ncwo-1):
             dn_pi_dgamma_pj[jw+1:,jw] = n[no1+i] - 1
             for kw in range(jw):
@@ -570,6 +726,8 @@ def ocupacion_trigonometric(gamma,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
 
 @njit(cache=True)
 def ocupacion_softmax(x,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
+    """Transform gammas to n according to the softmax 
+    parameterization of the occupation numbers"""
 
     n = np.zeros((nbf5))
     dn_dx = np.zeros((nbf5,nv))
@@ -582,17 +740,17 @@ def ocupacion_softmax(x,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
     exp_x = np.exp(x)
 
     for i in range(ndoc):
-        ll = no1 + ndns + (ndoc - i - 1)
-        ul = ll + ncwo*ndoc
-        n_pi = n[ll:ul:ndoc]
+        ll = no1 + ndns + (ndoc - i - 1) * ncwo
+        ul = ll + ncwo
+        n_pi = n[ll:ul]
 
         ll_x = ll - ndns + ndoc - no1
-        ul_x = ll_x + ncwo*ndoc
-        dn_pi_dx_pi = dn_dx[ll:ul:ndoc,ll_x:ul_x:ndoc]
-        dn_g_dx_pi = dn_dx[i,ll_x:ul_x:ndoc]
-        dn_pi_dx_g = dn_dx[ll:ul:ndoc,i]
+        ul_x = ll_x + ncwo
+        dn_pi_dx_pi = dn_dx[ll:ul,ll_x:ul_x]
+        dn_g_dx_pi = dn_dx[i,ll_x:ul_x]
+        dn_pi_dx_g = dn_dx[ll:ul,i]
 
-        exp_x_pi = exp_x[ll_x:ul_x:ndoc]
+        exp_x_pi = exp_x[ll_x:ul_x]
 
         sum_exp = exp_x[i] + np.sum(exp_x_pi)
 
@@ -610,6 +768,96 @@ def ocupacion_softmax(x,no1,ndoc,nalpha,nv,nbf5,ndns,ncwo,HighSpin):
             dn_pi_dx_pi[j,j] = exp_x_pi[j]*(sum_exp-exp_x_pi[j])/sum_exp**2
 
     return n,dn_dx
+
+#@jit(cache=True)
+def D_deviation_ebi(mu,x,N):
+    """Derivative from gamma of the loss function used in ebi
+
+    df/dmu = 2 * (N- sum_p n_p) * (-sum_p dn_p/dmu)
+
+    """
+
+    nv = np.shape(x)[0]
+
+    # n_p
+    sum_n = 0
+    for i in range(nv):
+        sum_n += (1+math.erf(x[i]+mu[0]))/2
+
+    # dn_p/dmu = 1/sqrt(pi) * exp(-(x_p + mu)^2)
+    sum_dn = 0
+    for i in range(nv):
+        sum_dn += 1/np.sqrt(np.pi) * np.exp(-(x[i]+mu[0])**2)
+
+    D_dev = -2*(N-sum_n)*sum_dn
+
+    return D_dev
+
+#@jit(cache=True)
+def deviation_ebi(mu,x,N):
+    """Loss function used in ebi: Squared deviation from N/2 of the
+    occupation numbers
+
+    f = (N - \sum_i n_i)^2
+
+    """
+
+    nv = np.shape(x)[0]
+
+    n = np.zeros(nv)
+    for i in range(nv):
+        n[i] += (1+math.erf(x[i]+mu[0]))/2
+    sum_n = np.sum(n)
+
+    dev = (N - sum_n)**2
+
+    return dev
+
+#@jit(cache=True)
+def ocupacion_ebi(x, N):
+    """Transform gammas to n according to the ebi
+    parameterization of the occupation numbers
+
+    n_p = (1 + erf(x_p + mu)) / 2
+
+    dn_p/dx_p = erf'(x_p + \mu) * (1 + d\mu/dx_p) / 2
+    dn_p/dx_q = erf'(x_p + \mu) * d\mu/dx_q / 2
+
+    dmu/dx_p = - erf'(x_p + \mu)/(sum_q erf'(x_q + \mu)) 
+    """
+
+    nv = np.shape(x)[0]
+
+    mu = [0.0]
+    res = minimize(deviation_ebi, mu, args=(x,N), jac=D_deviation_ebi, method="CG")
+    mu = res.x[0]
+    dev = res.fun
+    nit = res.nit
+    success = res.success
+
+    # n_p
+    n = np.zeros(nv)
+    for i,xi in enumerate(x):
+        n[i] = (1+math.erf(xi+mu))/2
+
+    # dmu/dx_p
+    den = 0
+    for i in range(nv):
+        den += np.exp(-(x[i]+mu)**2)
+    D_mu_x = np.zeros(nv)
+    for i in range(nv):
+        D_mu_x[i] = -np.exp(-(x[i]+mu)**2)/den
+
+    # dn_p/dx_
+    D_n_x = np.zeros((nv,nv))
+    for i in range(nv):
+        for j in range(nv):
+            if i==j:
+                D_n_x[i,j] = 1/np.sqrt(np.pi)*np.exp(-(x[i]+mu)**2)*(1+D_mu_x[j])
+            else:
+                D_n_x[i,j] = 1/np.sqrt(np.pi)*np.exp(-(x[i]+mu)**2)*D_mu_x[j]
+
+    return n, D_n_x
 
 def calce(n,cj12,ck12,J_MO,K_MO,H_core,p):
 

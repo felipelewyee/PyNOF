@@ -2,6 +2,7 @@ import numpy as np
 import pynof
 from numba import prange,njit,jit
 from time import time
+import scipy as sp
 from scipy.linalg import eigh,expm,solve
 from scipy.optimize import root
 try:
@@ -469,33 +470,37 @@ def perturb_gradient(grad,tol):
     return grad
 
 @njit(cache=True)
-def n_to_gammas_trigonometric(n,nv,no1,ndoc,ndns,ncwo):
+def n_to_gammas_trigonometric(n,no1,ndoc,ndns,ncwo):
+    """Transform n to gammas in the trigonometric encoding"""
+
+    nv = ncwo*ndoc
     gamma = np.zeros(nv)
     for i in range(ndoc):
         idx = no1 + i
         gamma[i] = np.arccos(np.sqrt(2.0*n[idx]-1.0))
         prefactor = max(1-n[idx],1e-14)
         for j in range(ncwo-1):
-            jg = ndoc + (ndoc - i - 1) + j*ndoc
-            ig = no1 + ndns + (ndoc - i - 1) + j*ndoc
+            jg = ndoc + (ndoc - i - 1)*ncwo + j
+            ig = no1 + ndns + (ndoc - i - 1)*ncwo + j
             gamma[jg] = np.arcsin(np.sqrt(n[ig]/prefactor))
             prefactor = prefactor * (np.cos(gamma[jg]))**2
     return gamma
 
 @njit(cache=True)
-def n_to_gammas_softmax(n,nv,no1,ndoc,ndns,ncwo):
+def n_to_gammas_softmax(n,no1,ndoc,ndns,ncwo):
+    """Transform n to gammas in the softmax encoding"""
 
-    gamma = np.zeros((nv))
-
+    nv = (ncwo+1)*ndoc
+    gamma = np.zeros(nv)
     for i in range(ndoc):
 
-        ll = no1 + ndns + (ndoc - i - 1)
-        ul = no1 + ndns + ncwo*ndoc
+        ll = no1 + ndns + (ndoc - i - 1) * ncwo
+        ul = ll + ncwo
 
         llg = ll - ndns + ndoc - no1
         ulg = ul - ndns + ndoc - no1
 
-        ns = n[ll:ul:ndoc]
+        ns = n[ll:ul]
 
         A = np.zeros((ncwo,ncwo))
         b = np.zeros((ncwo))
@@ -507,16 +512,73 @@ def n_to_gammas_softmax(n,nv,no1,ndoc,ndns,ncwo):
 
         x = np.log(np.linalg.solve(A,b))
 
-        gamma[llg:ulg:ndoc] = x
+        gamma[llg:ulg] = x
 
     return gamma
 
+def n_to_gammas_ebi(n,no1,ndoc,ndns,ncwo):
+    """Transform n to gammas in the ebi encoding
+
+    x_p = erf^-1 (2n_p - 1)
+
+    """
+
+    nv = (ncwo+1)*ndoc
+
+    gamma = np.zeros((nv))
+    for i in range(nv):
+        gamma[i] = sp.special.erfinv(2*n[i]-1)
+
+    return gamma
+
+
 @njit(cache=True)
-def compute_gammas_trigonometric(nv,ndoc,ncwo):
+def compute_gammas_trigonometric(ndoc,ncwo):
+    """Compute guess for occupation numbers according to 
+    the trigonometric encoding"""
+
+    nv = ncwo*ndoc
+
     gamma = np.zeros((nv))
     for i in range(ndoc):
         gamma[i] = np.arccos(np.sqrt(2.0*0.999-1.0))
         for j in range(ncwo-1):
-            ig = ndoc + (ndoc - i - 1) + j*ndoc
+            ig = ndoc + (ndoc - i - 1)*ncwo + j
             gamma[ig] = np.arcsin(np.sqrt(1.0/(ncwo-j)))
     return gamma
+
+@njit(cache=True)
+def compute_gammas_softmax(ndoc,ncwo):
+    """Compute a guess for gammas in the softmax parameterization
+    of the occupation numbers"""
+
+    #TODO: Add equations and look to reduce a variable
+
+    nv = (ncwo+1)*ndoc
+
+    gamma = np.zeros((nv))
+    for i in range(ndoc):
+        gamma[i] = np.log(0.999)
+        for j in range(ncwo):
+            ig = ndoc + (ndoc - i - 1)*ncwo + j
+            gamma[ig] = np.log(0.001/ncwo)
+    return gamma
+
+#@njit(jit=True,cache=True)
+def compute_gammas_ebi(ndoc,ncwo):
+    """Compute a guess for gammas in the softmax parameterization
+    of the occupation numbers"""
+
+    #TODO: Add equations and look to reduce a variable
+
+    nv = (ncwo+1)*ndoc
+
+    gamma = np.zeros((nv))
+    for i in range(ndoc):
+        gamma[i] = sp.special.erfinv(2*0.999-1)
+    val = ndoc*(1.0 - 0.999)
+    for i in range(ndoc,nv):
+        gamma[i] = sp.special.erfinv(2*val/nv-1)
+
+    return gamma
+

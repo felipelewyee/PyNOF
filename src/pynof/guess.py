@@ -1,12 +1,28 @@
 import pynof
 import numpy as np
 
-def read_C(title = "pynof"):
+def read_C(p,title = "pynof"):
     C = np.load(title+"_C.npy")
+
+    C_old = np.copy(C)
+    for i in range(p.ndoc):
+        for j in range(p.ncwo):
+            k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
+            l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
+            C[:,k] = C_old[:,l]
+
     return C
 
-def read_n(title = "pynof"):
+def read_n(p,title = "pynof"):
     n = np.load(title+"_n.npy")
+
+    n_old = np.copy(n)
+    for i in range(p.ndoc):
+        for j in range(p.ncwo):
+            k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
+            l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
+            n[k] = n_old[l]
+
     return n
 
 def read_fmiug0(title = "pynof"):
@@ -21,6 +37,8 @@ def read_all(title = "pynof"):
     return C,n,fmiug0
 
 def order_subspaces(old_C,old_n,elag,H,I,b_mnl,p):
+    """Order subspaces according to the diagonal lagrange
+    multipliers of the strong occupations"""
 
     C = np.zeros((p.nbf,p.nbf))
     n = np.zeros((p.nbf5))
@@ -38,16 +56,16 @@ def order_subspaces(old_C,old_n,elag,H,I,b_mnl,p):
     sort_idx = elag_diag.argsort()
     for i in range(p.ndoc):
         i_old  = sort_idx[i]
-        ll = p.no1 + p.ndns + (p.ndoc - i - 1)
-        ul = ll + p.ncwo*p.ndoc
+        ll = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo
+        ul = ll + p.ncwo
 
-        ll_old = p.no1 + p.ndns + (p.ndoc - i_old - 1)
-        ul_old = ll_old + p.ncwo*p.ndoc
+        ll_old = p.no1 + p.ndns + (p.ndoc - i_old - 1) * p.ncwo
+        ul_old = ll_old + p.ncwo
 
         C[0:p.nbf,p.no1+i] = old_C[0:p.nbf,p.no1+i_old]
-        C[0:p.nbf,ll:ul:p.ndoc] = old_C[0:p.nbf,ll_old:ul_old:p.ndoc]
+        C[0:p.nbf,ll:ul] = old_C[0:p.nbf,ll_old:ul_old]
         n[p.no1+i] = old_n[p.no1+i_old]
-        n[ll:ul:p.ndoc] = old_n[ll_old:ul_old:p.ndoc]
+        n[ll:ul] = old_n[ll_old:ul_old]
 
     #Sort nsoc orbitals
     elag_diag = np.diag(elag)[p.no1+p.ndoc:p.no1+p.ndns]
@@ -65,6 +83,8 @@ def order_subspaces(old_C,old_n,elag,H,I,b_mnl,p):
     return C,n,elag
 
 def order_occupations_softmax(old_C,old_gamma,H,I,b_mnl,p):
+    """Order thr occupation numbers inside each subspace to ensure that the
+    strongly occupied orbitals have the largest occupations"""
 
     C = old_C.copy()
     gamma = np.zeros((p.nv))
@@ -73,24 +93,24 @@ def order_occupations_softmax(old_C,old_gamma,H,I,b_mnl,p):
     gamma_tmp = np.zeros((1+p.ncwo))
     C_tmp = np.zeros((p.nbf,1+p.ncwo))
     for i in range(p.ndoc):
-        old_ll = p.no1 + p.ndns + (p.ndoc - i - 1)
-        old_ul = old_ll + p.ncwo*p.ndoc
+        old_ll = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo
+        old_ul = old_ll + p.ncwo
         C_tmp[:,0] = old_C[:,p.no1+i]
-        C_tmp[:,1:] = old_C[:,old_ll:old_ul:p.ndoc]
+        C_tmp[:,1:] = old_C[:,old_ll:old_ul]
 
         old_ll_x = old_ll - p.ndns + p.ndoc - p.no1
-        old_ul_x = old_ll_x + p.ncwo*p.ndoc
+        old_ul_x = old_ll_x + p.ncwo
         gamma_tmp[0] = old_gamma[i]
-        gamma_tmp[1:] = old_gamma[old_ll_x:old_ul_x:p.ndoc]
+        gamma_tmp[1:] = old_gamma[old_ll_x:old_ul_x]
 
         sort_idx = gamma_tmp.argsort()[::-1]
         gamma_tmp = gamma_tmp[sort_idx]
         C_tmp = C_tmp[:,sort_idx]
 
         gamma[i] = gamma_tmp[0]
-        gamma[old_ll_x:old_ul_x:p.ndoc] = gamma_tmp[1:]
+        gamma[old_ll_x:old_ul_x] = gamma_tmp[1:]
         C[:,p.no1+i] = C_tmp[:,0]
-        C[:,old_ll:old_ul:p.ndoc] = C_tmp[:,1:]
+        C[:,old_ll:old_ul] = C_tmp[:,1:]
 
     return C,gamma
 
