@@ -4,24 +4,10 @@ import numpy as np
 def read_C(p,title = "pynof"):
     C = np.load(title+"_C.npy")
 
-    C_old = np.copy(C)
-    for i in range(p.ndoc):
-        for j in range(p.ncwo):
-            k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
-            l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
-            C[:,k] = C_old[:,l]
-
     return C
 
-def read_n(p,title = "pynof"):
+def read_n(title = "pynof"):
     n = np.load(title+"_n.npy")
-
-    n_old = np.copy(n)
-    for i in range(p.ndoc):
-        for j in range(p.ncwo):
-            k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
-            l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
-            n[k] = n_old[l]
 
     return n
 

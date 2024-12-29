@@ -39,6 +39,14 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
             EHF, wfn_HF = psi4.energy(guess, return_wfn=True)
             EHF = EHF - E_nuc
             C = wfn_HF.Ca().np
+    else:
+        guess = None
+        C_old = np.copy(C)
+        for i in range(p.ndoc):
+            for j in range(p.ncwo):
+                k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
+                l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
+                C[:,k] = C_old[:,l]
     C = pynof.check_ortho(C,S,p)
 
     # Guess Occupation Numbers (n)
@@ -52,6 +60,12 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
             p.nv = p.nbf5 - p.no1 - p.nsoc #p.nbf
             gamma = pynof.compute_gammas_ebi(p.ndoc,p.ncwo)
     else:
+        n_old = np.copy(n)
+        for i in range(p.ndoc):
+            for j in range(p.ncwo):
+                k = p.no1 + p.ndns + (p.ndoc - i - 1) * p.ncwo + j
+                l = p.no1 + p.ndns + (p.ndoc - i - 1) + j*p.ndoc
+                n[k] = n_old[l]
         if p.occ_method == "Trigonometric":
             gamma = pynof.n_to_gammas_trigonometric(n,p.no1,p.ndoc,p.ndns,p.ncwo)
         if p.occ_method == "Softmax":
