@@ -991,7 +991,7 @@ def calcorbg(y,n,cj12,ck12,C,H,I,b_mnl,p):
 
     grad = 4*(elag - elag.T)
 
-    grads = np.zeros((int(p.nbf*(p.nbf-1)/2) - int(p.no0*(p.no0-1)/2)))
+    grads = np.zeros((p.nvar))
 
     k = 0
     for i in range(p.nbf5):

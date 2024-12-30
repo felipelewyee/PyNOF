@@ -57,8 +57,10 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
             p.nv = p.nbf5 - p.no1 - p.nsoc 
             gamma = pynof.compute_gammas_softmax(p.ndoc,p.ncwo)
         if p.occ_method == "EBI":
-            p.nv = p.nbf5 - p.no1 - p.nsoc #p.nbf
-            gamma = pynof.compute_gammas_ebi(p.ndoc,p.ncwo)
+            p.nbf5 = p.nbf
+            p.nvar = int(p.nbf*(p.nbf-1)/2)
+            p.nv = p.nbf
+            gamma = pynof.compute_gammas_ebi(p.ndoc,p.nbf)
     else:
         n_old = np.copy(n)
         for i in range(p.ndoc):
@@ -72,8 +74,10 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
             p.nv = p.nbf5 - p.no1 - p.nsoc 
             gamma = pynof.n_to_gammas_softmax(n,p.no1,p.ndoc,p.ndns,p.ncwo)
         if p.occ_method == "EBI":
-            p.nv = p.nbf5 - p.no1 - p.nsoc 
-            gamma = pynof.n_to_gammas_ebi(n,p.no1,p.ndoc,p.ndns,p.ncwo)
+            p.nbf5 = p.nbf
+            p.nvar = int(p.nbf*(p.nbf-1)/2)
+            p.nv = p.nbf
+            gamma = pynof.n_to_gammas_ebi(n)
 
     elag = np.zeros((p.nbf,p.nbf))
 
@@ -144,7 +148,8 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
     E,elag,sumdiff,maxdiff = pynof.ENERGY1r(C,n,H,I,b_mnl,cj12,ck12,p)
     print("\nLagrage sumdiff {:3.1e} maxfdiff {:3.1e}".format(sumdiff,maxdiff))
 
-    C,n,elag = pynof.order_subspaces(C,n,elag,H,I,b_mnl,p)
+    if(p.ipnof>4):
+        C,n,elag = pynof.order_subspaces(C,n,elag,H,I,b_mnl,p)
 
     C_old = np.copy(C)
     n_old = np.copy(n)

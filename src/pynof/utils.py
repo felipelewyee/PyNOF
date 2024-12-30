@@ -516,15 +516,14 @@ def n_to_gammas_softmax(n,no1,ndoc,ndns,ncwo):
 
     return gamma
 
-def n_to_gammas_ebi(n,no1,ndoc,ndns,ncwo):
+def n_to_gammas_ebi(n):
     """Transform n to gammas in the ebi encoding
 
     x_p = erf^-1 (2n_p - 1)
 
     """
 
-    nv = (ncwo+1)*ndoc
-
+    nv = np.shape(n)[0]
     gamma = np.zeros((nv))
     for i in range(nv):
         gamma[i] = sp.special.erfinv(2*n[i]-1)
@@ -565,14 +564,13 @@ def compute_gammas_softmax(ndoc,ncwo):
     return gamma
 
 #@njit(jit=True,cache=True)
-def compute_gammas_ebi(ndoc,ncwo):
+def compute_gammas_ebi(ndoc,nbf):
     """Compute a guess for gammas in the softmax parameterization
     of the occupation numbers"""
 
     #TODO: Add equations and look to reduce a variable
 
-    nv = (ncwo+1)*ndoc
-
+    nv = nbf
     gamma = np.zeros((nv))
     for i in range(ndoc):
         gamma[i] = sp.special.erfinv(2*0.999-1)
