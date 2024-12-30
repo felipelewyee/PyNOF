@@ -1,6 +1,6 @@
 [project]
 name = "pynof"
-version = "1.3"
+version = "1.4"
 authors = [
   { name="Juan Felipe Huan Lew Yee", email="felipe.lew.yee@gmail.com" },
 ]
