@@ -30,7 +30,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
 
     # Guess de MO (C)
     if(C is None):
-        if guess=="Core":
+        if guess=="Core" or guess==None:
             Eguess,C = eigh(H, S)  # (HC = SCe)
         elif guess=="HFIDr":
             Eguess,Cguess = eigh(H, S)
