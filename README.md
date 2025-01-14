@@ -48,7 +48,6 @@ mol = pynof.molecule("""
 """)
 
 p = pynof.param(mol,"cc-pvdz")
-p.autozeros()
 
 p.ipnof=8
 
