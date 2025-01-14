@@ -55,7 +55,7 @@ p.ipnof=8
 p.RI = True
 #p.gpu = True
 
-E,C,gamma,fmiug0 = pynof.compute_energy(mol,p,hfidr=True)
+E,C,gamma,fmiug0 = pynof.compute_energy(mol,p)
 ~~~
 
 If everything worked, the job may be executed by
