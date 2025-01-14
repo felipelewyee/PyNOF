@@ -7,7 +7,7 @@ Formally read as Python-Natural-Orbital-Functionals, PyNOF is based on the origi
 
 # <img src="https://github.com/felipelewyee/PyNOF/blob/master/PyNOF.png" height=150>
 
-# Installation
+# :rocket: Installation
 
 We recommend to perform the installation inside an [Anaconda](https://www.anaconda.com/) enviroment:
 ~~~
@@ -29,7 +29,7 @@ pip install pynof
 conda install -y -c conda-forge cupy
 ~~~
 
-# Example
+# :sunrise: Example
 
 A pynof input has the following parts:
 - Import pynof
@@ -65,7 +65,7 @@ python -u test_energy.py
 
 *Note.* The first run may be slightly slow due to jit precompilation.
 
-# For development
+# :construction: For development
 
 First, clone PyNOF from github and change to the project directory
 ~~~
@@ -83,6 +83,6 @@ pip install build
 python -m build && cd dist && pip install pynof*.whl && cd ..
 ~~~
 
-# Authors
+# :grinning: Authors
 
 The PyNOF code has been built by Juan Felipe Huan Lew Yee, Lizeth Franco Nolasco and Iván Alejandro Rivera under supervision of Jorge Martín del Campo Ramírez and Mario Piris. We also acknowledge the contributions of Rodrigo Vargas Hernández and José M. Mercero.
