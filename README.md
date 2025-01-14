@@ -82,6 +82,6 @@ pip install build
 python -m build && cd dist && pip install pynof*.whl && cd ..
 ~~~
 
-# :grinning: Authors
+# :bowtie: Authors
 
-The PyNOF code has been built by Juan Felipe Huan Lew Yee, Lizeth Franco Nolasco and Iván Alejandro Rivera under supervision of Jorge Martín del Campo Ramírez and Mario Piris. We also acknowledge the contributions of Rodrigo Vargas Hernández and José M. Mercero.
+The PyNOF code has been built by Juan Felipe Huan Lew Yee, Lizeth Franco Nolasco, Iván Alejandro Rivera and Roberto Rojas Hernández under supervision of Jorge Martín del Campo Ramírez and Mario Piris. We also acknowledge the contributions of Rodrigo Vargas Hernández and José M. Mercero.
