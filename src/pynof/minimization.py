@@ -75,7 +75,7 @@ def occoptr(gamma,C,H,I,b_mnl,p):
     nit = 0
     success = True
 
-    if (p.ndoc>0):
+    if (p.ndoc>0 and not p.freeze_occ):
         res = minimize(pynof.calcocce, gamma, args=(J_MO,K_MO,H_core,p), jac=pynof.calcoccg, method=p.occupation_optimizer)
         gamma = res.x
         E = res.fun

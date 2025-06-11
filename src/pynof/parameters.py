@@ -95,6 +95,7 @@ class param():
         self.occupation_optimizer = "CG"
         self.orbital_optimizer = "CG"
         self.combined_optimizer = "CG"
+        self.freeze_occ = False
         self.tol_gorb = 1e-3
         self.tol_gocc = 1e-2
         self.gpu = False
