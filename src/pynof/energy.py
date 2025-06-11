@@ -123,7 +123,7 @@ def compute_energy(mol,p=None,C=None,n=None,fmiug0=None,guess="HF",nofmp2=False,
         grad_occ = pynof.calcoccg(gamma,J_MO,K_MO,H_core,p)
         print("{:6d} {:6d} {:6d}   {:14.8f} {:14.8f} {:15.8f}      {:3.1e}    {:3.1e}   {}   {}".format(i_ext,nit_orb,nit_occ,E,E+E_nuc,E_diff,np.linalg.norm(grad_orb),np.linalg.norm(grad_occ),success_orb,success_occ))
 
-        if(success_orb or (np.linalg.norm(grad_orb) < 1e-3) and success_occ or (np.linalg.norm(grad_occ) < 1e-3)):
+        if (success_orb or np.linalg.norm(grad_orb) < 1e-3) and (success_occ or np.linalg.norm(grad_occ) < 1e-3):
 
             if perturb and E - Estored < -1e-4:
                 y = np.zeros((p.nvar))
