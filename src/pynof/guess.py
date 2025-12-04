@@ -38,7 +38,7 @@ def order_subspaces(old_C,old_n,elag,H,I,b_mnl,p):
         n[i] = old_n[i_old]
 
     #Sort ndoc subspaces
-    elag_diag = np.diag(elag)[p.no1:p.ndoc]
+    elag_diag = np.diag(elag)[p.no1:p.nbeta]
     sort_idx = elag_diag.argsort()
     for i in range(p.ndoc):
         i_old  = sort_idx[i]
